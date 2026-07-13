@@ -27,15 +27,21 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/login");
+  // "/" and "/reset-password" must render without a server-side redirect: the Supabase
+  // recovery link lands here carrying the session tokens in the URL hash fragment, which
+  // never reaches the server — only client-side JS on these pages can read and use it.
+  const isPublicRoute =
+    request.nextUrl.pathname.startsWith("/login") ||
+    request.nextUrl.pathname === "/" ||
+    request.nextUrl.pathname.startsWith("/reset-password");
 
-  if (!user && !isAuthRoute) {
+  if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
   }
 
-  if (user && isAuthRoute) {
+  if (user && request.nextUrl.pathname.startsWith("/login")) {
     const url = request.nextUrl.clone();
     url.pathname = "/hoje";
     return NextResponse.redirect(url);
