@@ -11,7 +11,10 @@ export async function signIn(_prevState: { error?: string } | undefined, formDat
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    return { error: "E-mail ou senha inválidos." };
+    if (error.code === "email_not_confirmed") {
+      return { error: "E-mail ainda não confirmado. Confirme o e-mail antes de entrar." };
+    }
+    return { error: `E-mail ou senha inválidos. (${error.code ?? error.message})` };
   }
 
   redirect("/hoje");
