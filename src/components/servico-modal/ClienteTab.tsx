@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import type { ServicoDetail } from "@/lib/domain/types";
 import { updateClienteInline } from "@/lib/actions/servicos";
 
@@ -14,6 +14,8 @@ const FIELDS: { key: keyof ServicoDetail["cliente"]; label: string }[] = [
   { key: "observacoes", label: "Observações" },
 ];
 
+type SaveState = "idle" | "saving" | "saved" | "error";
+
 export default function ClienteTab({
   detail,
   onChanged,
@@ -23,13 +25,20 @@ export default function ClienteTab({
 }) {
   const { cliente } = detail;
   const [values, setValues] = useState(cliente);
-  const [, startTransition] = useTransition();
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  function save(field: keyof ServicoDetail["cliente"]) {
-    startTransition(async () => {
+  async function save(field: keyof ServicoDetail["cliente"]) {
+    setSaveState("saving");
+    setErrorMsg(null);
+    try {
       await updateClienteInline(cliente.id, { [field]: values[field] } as never);
+      setSaveState("saved");
       onChanged();
-    });
+    } catch (err) {
+      setSaveState("error");
+      setErrorMsg(err instanceof Error ? err.message : "Erro desconhecido ao salvar.");
+    }
   }
 
   return (
@@ -50,9 +59,18 @@ export default function ClienteTab({
         ))}
       </div>
 
-      {cliente.whatsapp && (
+      {saveState === "saving" && (
+        <p className="text-[12px] text-text-muted">Salvando...</p>
+      )}
+      {saveState === "error" && (
+        <p className="text-[12px] text-danger">
+          Não foi possível salvar: {errorMsg}
+        </p>
+      )}
+
+      {values.whatsapp && (
         <a
-          href={`https://wa.me/55${cliente.whatsapp.replace(/\D/g, "")}`}
+          href={`https://wa.me/55${values.whatsapp.replace(/\D/g, "")}`}
           target="_blank"
           rel="noreferrer"
           className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px]"
