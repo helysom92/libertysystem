@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import type { ServicoDetail } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { FINANCEIRO_STATUSES, type Role } from "@/lib/domain/flows";
@@ -17,9 +17,36 @@ export default function FinanceiroTab({
 }) {
   const { servico } = detail;
   const [valorPago, setValorPago] = useState(String(servico.valor_pago));
-  const [, startTransition] = useTransition();
+  const [valorDirty, setValorDirty] = useState(false);
+  const [valorSaving, setValorSaving] = useState(false);
+  const [valorError, setValorError] = useState<string | null>(null);
+  const [statusError, setStatusError] = useState<string | null>(null);
   const canEdit = role === "administrador" || role === "secretaria";
   const saldo = servico.valor - servico.valor_pago;
+
+  async function saveValorPago() {
+    setValorSaving(true);
+    setValorError(null);
+    try {
+      await updateFinanceiro(servico.id, { valor_pago: Number(valorPago) || 0 });
+      setValorDirty(false);
+      onChanged();
+    } catch (err) {
+      setValorError(err instanceof Error ? err.message : "Erro desconhecido ao salvar.");
+    } finally {
+      setValorSaving(false);
+    }
+  }
+
+  async function saveStatus(status: string) {
+    setStatusError(null);
+    try {
+      await updateFinanceiro(servico.id, { financeiro_status: status });
+      onChanged();
+    } catch (err) {
+      setStatusError(err instanceof Error ? err.message : "Erro desconhecido ao salvar.");
+    }
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -48,19 +75,29 @@ export default function FinanceiroTab({
         <label className="mb-1 block text-[10.5px] tracking-wide text-text-muted uppercase">
           Valor Pago
         </label>
-        <input
-          type="number"
-          value={valorPago}
-          disabled={!canEdit}
-          onChange={(e) => setValorPago(e.target.value)}
-          onBlur={() =>
-            startTransition(async () => {
-              await updateFinanceiro(servico.id, { valor_pago: Number(valorPago) || 0 });
-              onChanged();
-            })
-          }
-          className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm disabled:opacity-50"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            value={valorPago}
+            disabled={!canEdit}
+            onChange={(e) => {
+              setValorPago(e.target.value);
+              setValorDirty(true);
+            }}
+            className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm disabled:opacity-50"
+          />
+          {canEdit && (
+            <button
+              type="button"
+              onClick={saveValorPago}
+              disabled={!valorDirty || valorSaving}
+              className="shrink-0 rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg disabled:opacity-40"
+            >
+              {valorSaving ? "Salvando..." : "Salvar"}
+            </button>
+          )}
+        </div>
+        {valorError && <p className="mt-1 text-[12px] text-danger">Não foi possível salvar: {valorError}</p>}
       </div>
 
       <div>
@@ -70,12 +107,7 @@ export default function FinanceiroTab({
         <select
           defaultValue={servico.financeiro_status}
           disabled={!canEdit}
-          onChange={(e) =>
-            startTransition(async () => {
-              await updateFinanceiro(servico.id, { financeiro_status: e.target.value });
-              onChanged();
-            })
-          }
+          onChange={(e) => saveStatus(e.target.value)}
           className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm disabled:opacity-50"
         >
           {FINANCEIRO_STATUSES.map((s) => (
@@ -84,6 +116,7 @@ export default function FinanceiroTab({
             </option>
           ))}
         </select>
+        {statusError && <p className="mt-1 text-[12px] text-danger">Não foi possível salvar: {statusError}</p>}
       </div>
     </div>
   );

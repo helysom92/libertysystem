@@ -37,6 +37,9 @@ export default function ResumoTab({
   const [acaoResp, setAcaoResp] = useState(servico.proxima_responsavel ?? "");
   const [acaoPrazo, setAcaoPrazo] = useState(servico.proxima_prazo ?? "");
   const [motivoEspera, setMotivoEspera] = useState(servico.motivo_espera ?? "");
+  const [acaoDirty, setAcaoDirty] = useState(false);
+  const [acaoSaving, setAcaoSaving] = useState(false);
+  const [acaoError, setAcaoError] = useState<string | null>(null);
 
   const flow = flowFor(servico.tipo);
   const idx = flow.indexOf(servico.estagio);
@@ -65,16 +68,23 @@ export default function ResumoTab({
     });
   }
 
-  function saveProximaAcao() {
-    startTransition(async () => {
+  async function saveProximaAcao() {
+    setAcaoSaving(true);
+    setAcaoError(null);
+    try {
       await updateProximaAcao(servico.id, {
         proxima_acao_texto: acaoTexto,
         proxima_responsavel: acaoResp,
         proxima_prazo: acaoPrazo,
         motivo_espera: motivoEspera,
       });
+      setAcaoDirty(false);
       onChanged();
-    });
+    } catch (err) {
+      setAcaoError(err instanceof Error ? err.message : "Erro desconhecido ao salvar.");
+    } finally {
+      setAcaoSaving(false);
+    }
   }
 
   async function handleDelete() {
@@ -114,8 +124,10 @@ export default function ResumoTab({
         <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">Próxima Ação</p>
         <input
           value={acaoTexto}
-          onChange={(e) => setAcaoTexto(e.target.value)}
-          onBlur={saveProximaAcao}
+          onChange={(e) => {
+            setAcaoTexto(e.target.value);
+            setAcaoDirty(true);
+          }}
           placeholder="Texto da ação"
           className="mb-2 w-full rounded-btn border border-border-neutral bg-card px-3 py-1.5 text-sm"
         />
@@ -139,19 +151,34 @@ export default function ResumoTab({
           </select>
           <input
             value={acaoPrazo}
-            onChange={(e) => setAcaoPrazo(e.target.value)}
-            onBlur={saveProximaAcao}
+            onChange={(e) => {
+              setAcaoPrazo(e.target.value);
+              setAcaoDirty(true);
+            }}
             placeholder="Prazo (ex: Hoje 16:00)"
             className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
           />
         </div>
         <input
           value={motivoEspera}
-          onChange={(e) => setMotivoEspera(e.target.value)}
-          onBlur={saveProximaAcao}
+          onChange={(e) => {
+            setMotivoEspera(e.target.value);
+            setAcaoDirty(true);
+          }}
           placeholder="Motivo de espera (opcional)"
           className="mt-2 w-full rounded-btn border border-border-neutral bg-card px-3 py-1.5 text-sm"
         />
+        <div className="mt-2 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={saveProximaAcao}
+            disabled={!acaoDirty || acaoSaving}
+            className="w-fit rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg disabled:opacity-40"
+          >
+            {acaoSaving ? "Salvando..." : "Salvar"}
+          </button>
+          {acaoError && <p className="text-[12px] text-danger">Não foi possível salvar: {acaoError}</p>}
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
