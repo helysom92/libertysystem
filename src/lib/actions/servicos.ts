@@ -131,12 +131,12 @@ export async function updateClienteInline(
   clienteId: string,
   fields: Partial<{
     nome: string;
-    empresa: string;
-    cpf_cnpj: string;
-    cidade: string;
-    endereco: string;
-    whatsapp: string;
-    observacoes: string;
+    empresa: string | null;
+    cpf_cnpj: string | null;
+    cidade: string | null;
+    endereco: string | null;
+    whatsapp: string | null;
+    observacoes: string | null;
   }>
 ) {
   const supabase = await createClient();

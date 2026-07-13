@@ -14,7 +14,7 @@ const FIELDS: { key: keyof ServicoDetail["cliente"]; label: string }[] = [
   { key: "observacoes", label: "Observações" },
 ];
 
-type SaveState = "idle" | "saving" | "saved" | "error";
+type SaveState = "idle" | "dirty" | "saving" | "saved" | "error";
 
 export default function ClienteTab({
   detail,
@@ -28,11 +28,19 @@ export default function ClienteTab({
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
-  async function save(field: keyof ServicoDetail["cliente"]) {
+  function handleChange(key: keyof ServicoDetail["cliente"], value: string) {
+    setValues((v) => ({ ...v, [key]: value }));
+    setSaveState("dirty");
+  }
+
+  async function handleSave() {
     setSaveState("saving");
     setErrorMsg(null);
     try {
-      await updateClienteInline(cliente.id, { [field]: values[field] } as never);
+      const { id, created_at, ...fields } = values;
+      void id;
+      void created_at;
+      await updateClienteInline(cliente.id, fields);
       setSaveState("saved");
       onChanged();
     } catch (err) {
@@ -51,22 +59,32 @@ export default function ClienteTab({
             </label>
             <input
               value={values[key] ?? ""}
-              onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
-              onBlur={() => save(key)}
+              onChange={(e) => handleChange(key, e.target.value)}
               className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
             />
           </div>
         ))}
       </div>
 
-      {saveState === "saving" && (
-        <p className="text-[12px] text-text-muted">Salvando...</p>
-      )}
-      {saveState === "error" && (
-        <p className="text-[12px] text-danger">
-          Não foi possível salvar: {errorMsg}
-        </p>
-      )}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={saveState === "saving" || saveState === "idle" || saveState === "saved"}
+          className="w-fit rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg disabled:opacity-40"
+        >
+          {saveState === "saving" ? "Salvando..." : "Salvar Alterações"}
+        </button>
+
+        {saveState === "saved" && (
+          <p className="text-[12px]" style={{ color: "#25D366" }}>
+            ✓ Salvo
+          </p>
+        )}
+        {saveState === "error" && (
+          <p className="text-[12px] text-danger">Não foi possível salvar: {errorMsg}</p>
+        )}
+      </div>
 
       {values.whatsapp && (
         <a
