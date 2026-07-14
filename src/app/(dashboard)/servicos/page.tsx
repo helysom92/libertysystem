@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
-import type { Servico } from "@/lib/domain/types";
+import type { Material, Servico } from "@/lib/domain/types";
 
 export default async function ServicosPage({
   searchParams,
@@ -12,10 +12,10 @@ export default async function ServicosPage({
   const supabase = await createClient();
   const profile = await getCurrentProfile();
 
-  const { data: servicos } = await supabase
-    .from("servicos")
-    .select("*")
-    .order("criado_em", { ascending: false });
+  const [{ data: servicos }, { data: materiais }] = await Promise.all([
+    supabase.from("servicos").select("*").order("criado_em", { ascending: false }),
+    supabase.from("materiais").select("*").eq("ativo", true).order("nome"),
+  ]);
 
   const svs = (servicos as Servico[]) ?? [];
 
@@ -67,6 +67,7 @@ export default async function ServicosPage({
       initialOpenId={open ?? null}
       capaUrls={capaUrls}
       checklistProgress={checklistProgress}
+      materiais={(materiais as Material[]) ?? []}
     />
   );
 }

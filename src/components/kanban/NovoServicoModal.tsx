@@ -3,8 +3,16 @@
 import { useState, useTransition } from "react";
 import { createServico } from "@/lib/actions/servicos";
 import { TIPO_LABELS, type ServicoTipo } from "@/lib/domain/flows";
+import type { Material } from "@/lib/domain/types";
+import CalculadoraOrcamento from "./CalculadoraOrcamento";
 
-export default function NovoServicoModal({ onClose }: { onClose: () => void }) {
+export default function NovoServicoModal({
+  materiais,
+  onClose,
+}: {
+  materiais: Material[];
+  onClose: () => void;
+}) {
   const [cliente, setCliente] = useState("");
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
@@ -69,6 +77,13 @@ export default function NovoServicoModal({ onClose }: { onClose: () => void }) {
           value={descricao}
           onChange={(e) => setDescricao(e.target.value)}
           className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+        />
+
+        <CalculadoraOrcamento
+          materiais={materiais}
+          tipo={tipo}
+          descricao={descricao}
+          onAplicar={(v) => setValor(String(v))}
         />
 
         <div className="mb-3 flex gap-3">

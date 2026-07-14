@@ -28,7 +28,7 @@ export default function Sidebar({
   const pathname = usePathname();
 
   return (
-    <aside className="flex w-[230px] shrink-0 flex-col border-r border-border-neutral bg-card-secondary px-5 py-7">
+    <aside className="no-print flex w-[230px] shrink-0 flex-col border-r border-border-neutral bg-card-secondary px-5 py-7">
       <div className="mb-1">
         <span className="font-display text-xl font-bold text-gradient-gold">Liberty</span>
       </div>

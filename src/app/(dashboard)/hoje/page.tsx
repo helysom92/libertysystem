@@ -4,23 +4,26 @@ import { computeKpisAdmin, computeKpisProducao } from "@/lib/domain/kpis";
 import { computeIaAlerts } from "@/lib/domain/alerts";
 import { ROLE_LABELS } from "@/lib/domain/flows";
 import { fmtBRL } from "@/lib/domain/types";
-import type { Comprovante, Servico } from "@/lib/domain/types";
+import type { Comprovante, Lancamento, Servico } from "@/lib/domain/types";
 import KpiCard from "@/components/hoje/KpiCard";
 import MeuTrabalho from "@/components/hoje/MeuTrabalho";
 import AlertasIA from "@/components/hoje/AlertasIA";
+import SemFinanceiroPosEntrega from "@/components/hoje/SemFinanceiroPosEntrega";
 
 export default async function HojePage() {
   const supabase = await createClient();
   const profile = await getCurrentProfile();
   const role = profile?.role ?? "secretaria";
 
-  const [{ data: servicos }, { data: comprovantes }] = await Promise.all([
+  const [{ data: servicos }, { data: comprovantes }, { data: lancamentos }] = await Promise.all([
     supabase.from("servicos").select("*"),
     supabase.from("comprovantes").select("*"),
+    role !== "producao" ? supabase.from("lancamentos").select("*") : Promise.resolve({ data: [] }),
   ]);
 
   const svs = (servicos as Servico[]) ?? [];
   const comps = (comprovantes as Comprovante[]) ?? [];
+  const lancs = (lancamentos as Lancamento[]) ?? [];
   const alerts = computeIaAlerts(svs, comps);
   const today = new Date().toLocaleDateString("pt-BR");
 
@@ -46,6 +49,12 @@ export default async function HojePage() {
         <MeuTrabalho servicos={svs} roleLabel={ROLE_LABELS[role]} />
         <AlertasIA alerts={alerts} />
       </div>
+
+      {role !== "producao" && (
+        <div className="mt-4">
+          <SemFinanceiroPosEntrega servicos={svs} lancamentos={lancs} />
+        </div>
+      )}
     </div>
   );
 }
