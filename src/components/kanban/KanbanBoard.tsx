@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { MASTER_STAGE_ORDER, flowFor } from "@/lib/domain/flows";
-import type { Material, Servico } from "@/lib/domain/types";
+import type { ItemOrcamento, Servico } from "@/lib/domain/types";
 import KanbanColumn from "./KanbanColumn";
 import NovoServicoModal from "./NovoServicoModal";
 import CentralDoServico from "@/components/servico-modal/CentralDoServico";
@@ -16,14 +16,14 @@ export default function KanbanBoard({
   initialOpenId,
   capaUrls,
   checklistProgress,
-  materiais,
+  itensOrcamento,
 }: {
   servicos: Servico[];
   role: Role;
   initialOpenId?: string | null;
   capaUrls: Record<string, string>;
   checklistProgress: Record<string, { done: number; total: number }>;
-  materiais: Material[];
+  itensOrcamento: ItemOrcamento[];
 }) {
   const [novoOpen, setNovoOpen] = useState(false);
   const [openId, setOpenId] = useState<string | null>(initialOpenId ?? null);
@@ -98,7 +98,9 @@ export default function KanbanBoard({
         </div>
       </DndContext>
 
-      {novoOpen && <NovoServicoModal materiais={materiais} onClose={() => setNovoOpen(false)} />}
+      {novoOpen && (
+        <NovoServicoModal itensOrcamento={itensOrcamento} onClose={() => setNovoOpen(false)} />
+      )}
       {openId && (
         <CentralDoServico servicoId={openId} role={role} onClose={() => setOpenId(null)} />
       )}

@@ -62,6 +62,15 @@ export interface Material {
   ativo: boolean;
 }
 
+export interface ItemOrcamento {
+  id: string;
+  nome: string;
+  tipo_cobranca: "m2" | "fixo";
+  preco: number | null; // null = sob projeto, sem preço fixo
+  categoria: string | null;
+  ativo: boolean;
+}
+
 export interface Comprovante {
   id: string;
   descricao: string;

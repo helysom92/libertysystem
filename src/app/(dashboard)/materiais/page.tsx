@@ -1,10 +1,21 @@
 import { createClient } from "@/lib/supabase/server";
-import type { Material } from "@/lib/domain/types";
+import type { ItemOrcamento, Material } from "@/lib/domain/types";
 import MateriaisList from "@/components/materiais/MateriaisList";
+import ItensOrcamentoList from "@/components/materiais/ItensOrcamentoList";
+import RegrasComerciais from "@/components/materiais/RegrasComerciais";
 
 export default async function MateriaisPage() {
   const supabase = await createClient();
-  const { data: materiais } = await supabase.from("materiais").select("*").order("nome");
+  const [{ data: itens }, { data: materiais }] = await Promise.all([
+    supabase.from("itens_orcamento").select("*").order("nome"),
+    supabase.from("materiais").select("*").order("nome"),
+  ]);
 
-  return <MateriaisList materiais={(materiais as Material[]) ?? []} />;
+  return (
+    <div>
+      <RegrasComerciais />
+      <ItensOrcamentoList itens={(itens as ItemOrcamento[]) ?? []} />
+      <MateriaisList materiais={(materiais as Material[]) ?? []} />
+    </div>
+  );
 }

@@ -3,14 +3,14 @@
 import { useState, useTransition } from "react";
 import { createServico } from "@/lib/actions/servicos";
 import { TIPO_LABELS, type ServicoTipo } from "@/lib/domain/flows";
-import type { Material } from "@/lib/domain/types";
+import type { ItemOrcamento } from "@/lib/domain/types";
 import CalculadoraOrcamento from "./CalculadoraOrcamento";
 
 export default function NovoServicoModal({
-  materiais,
+  itensOrcamento,
   onClose,
 }: {
-  materiais: Material[];
+  itensOrcamento: ItemOrcamento[];
   onClose: () => void;
 }) {
   const [cliente, setCliente] = useState("");
@@ -80,7 +80,7 @@ export default function NovoServicoModal({
         />
 
         <CalculadoraOrcamento
-          materiais={materiais}
+          itensOrcamento={itensOrcamento}
           tipo={tipo}
           descricao={descricao}
           onAplicar={(v) => setValor(String(v))}
