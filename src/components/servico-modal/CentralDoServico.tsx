@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { fetchServicoDetail } from "@/lib/supabase/fetchServicoDetail";
-import type { ServicoDetail } from "@/lib/domain/types";
+import { displayNumero, type ServicoDetail } from "@/lib/domain/types";
 import type { Role } from "@/lib/domain/flows";
 import { exigeMedida } from "@/lib/domain/flows";
 import ResumoTab from "./ResumoTab";
@@ -68,7 +68,7 @@ export default function CentralDoServico({
         <div className="flex items-center justify-between border-b border-border-neutral px-6 py-4">
           <div>
             <p className="text-[11px] tracking-wide text-text-muted uppercase">
-              {detail?.servico.numero}
+              {detail && displayNumero(detail.servico)}
             </p>
             <h2 className="font-display text-lg font-bold">{detail?.servico.cliente}</h2>
           </div>

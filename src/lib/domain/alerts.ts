@@ -1,5 +1,5 @@
 import { dcComplete } from "./flows";
-import { daysSince, daysUntil, type Comprovante, type IaAlert, type Servico } from "./types";
+import { daysSince, daysUntil, displayNumero, type Comprovante, type IaAlert, type Servico } from "./types";
 
 const COLOR_RED = "#E07A7A";
 const COLOR_AMBER = "#E0A64E";
@@ -19,7 +19,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
     const diasParado = daysSince(s.criado_em);
     if (diasParado > 10) {
       alerts.push({
-        texto: `${s.numero} (${s.cliente}) parado há ${diasParado} dias`,
+        texto: `${displayNumero(s)} (${s.cliente}) parado há ${diasParado} dias`,
         color: COLOR_RED,
         servicoId: s.id,
       });
@@ -27,7 +27,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
 
     if (s.estagio === "Double Check de Medidas" && !dcComplete(s.dc_admin, s.dc_producao)) {
       alerts.push({
-        texto: `${s.numero} (${s.cliente}) com Double Check pendente`,
+        texto: `${displayNumero(s)} (${s.cliente}) com Double Check pendente`,
         color: COLOR_AMBER,
         servicoId: s.id,
       });
@@ -36,13 +36,13 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
     const dias = daysUntil(s.prazo);
     if (dias !== null && dias <= 0) {
       alerts.push({
-        texto: `${s.numero} (${s.cliente}) — prazo ${dias === 0 ? "é hoje" : "venceu"}`,
+        texto: `${displayNumero(s)} (${s.cliente}) — prazo ${dias === 0 ? "é hoje" : "venceu"}`,
         color: COLOR_RED,
         servicoId: s.id,
       });
     } else if (dias !== null && dias <= 3) {
       alerts.push({
-        texto: `${s.numero} (${s.cliente}) — prazo vencendo em ${dias}d`,
+        texto: `${displayNumero(s)} (${s.cliente}) — prazo vencendo em ${dias}d`,
         color: COLOR_AMBER,
         servicoId: s.id,
       });
@@ -50,7 +50,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
 
     if (!s.responsavel) {
       alerts.push({
-        texto: `${s.numero} (${s.cliente}) sem responsável definido`,
+        texto: `${displayNumero(s)} (${s.cliente}) sem responsável definido`,
         color: COLOR_NEUTRAL,
         servicoId: s.id,
       });
@@ -58,7 +58,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
 
     if (!s.proxima_acao_texto) {
       alerts.push({
-        texto: `${s.numero} (${s.cliente}) sem próxima ação definida`,
+        texto: `${displayNumero(s)} (${s.cliente}) sem próxima ação definida`,
         color: COLOR_NEUTRAL,
         servicoId: s.id,
       });
@@ -66,7 +66,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
 
     if (["Entrega", "Instalação"].includes(s.estagio) && s.valor_pago < s.valor) {
       alerts.push({
-        texto: `${s.numero} (${s.cliente}) com saldo pendente`,
+        texto: `${displayNumero(s)} (${s.cliente}) com saldo pendente`,
         color: COLOR_GOLD,
         servicoId: s.id,
       });
@@ -74,7 +74,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
 
     if (s.entrega_confirmada && s.estagio !== "Concluído") {
       alerts.push({
-        texto: `${s.numero} (${s.cliente}) entregue e não encerrado`,
+        texto: `${displayNumero(s)} (${s.cliente}) entregue e não encerrado`,
         color: COLOR_AMBER,
         servicoId: s.id,
       });

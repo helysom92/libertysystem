@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { fmtBRL } from "@/lib/domain/types";
+import { displayNumero, fmtBRL } from "@/lib/domain/types";
 import PrintTrigger from "./PrintTrigger";
 
 export default async function ImprimirServicoPage({
@@ -32,7 +32,7 @@ export default async function ImprimirServicoPage({
     <div style={{ fontFamily: "sans-serif", padding: 32, color: "#111" }}>
       <h1 style={{ fontSize: 22, marginBottom: 4 }}>LIBERTY VISUAL E MARKETING</h1>
       <p style={{ marginBottom: 20, color: "#555" }}>
-        {servico.numero} — {servico.descricao}
+        {displayNumero(servico)} — {servico.descricao}
       </p>
       <table style={{ borderCollapse: "collapse", width: "100%" }}>
         <tbody>

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Cliente, Fornecedor, Lancamento, Servico } from "@/lib/domain/types";
-import { fmtBRL } from "@/lib/domain/types";
+import { displayNumero, fmtBRL } from "@/lib/domain/types";
 import { computeClienteStats } from "@/lib/domain/clientes";
 import { todayISO } from "@/lib/domain/dates";
 import FinanceiroBadge from "@/components/ui/FinanceiroBadge";
@@ -120,7 +120,7 @@ export default function RelatoriosClient({
             <tbody>
               {servicosPeriodo.map((s) => (
                 <tr key={s.id} className="border-b border-border-neutral bg-card">
-                  <td className="px-3 py-2 text-text-secondary">{s.numero}</td>
+                  <td className="px-3 py-2 text-text-secondary">{displayNumero(s)}</td>
                   <td className="px-3 py-2 font-semibold">{s.cliente}</td>
                   <td className="px-3 py-2 text-text-secondary">{s.descricao}</td>
                   <td className="px-3 py-2 font-semibold text-gradient-gold">{fmtBRL(s.valor)}</td>

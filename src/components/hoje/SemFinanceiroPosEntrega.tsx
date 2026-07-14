@@ -1,4 +1,4 @@
-import type { Lancamento, Servico } from "@/lib/domain/types";
+import { displayNumero, type Lancamento, type Servico } from "@/lib/domain/types";
 
 /** Ana's routine: "conferir se o financeiro foi lançado após a entrega" (plan §8). */
 export default function SemFinanceiroPosEntrega({
@@ -27,7 +27,7 @@ export default function SemFinanceiroPosEntrega({
             href={`/servicos?open=${s.id}`}
             className="rounded-btn px-2 py-1.5 text-[13px] hover:bg-card-secondary"
           >
-            {s.numero} — {s.cliente}
+            {displayNumero(s)} — {s.cliente}
           </a>
         ))}
       </div>

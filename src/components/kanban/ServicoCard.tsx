@@ -3,7 +3,7 @@
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
 import { dcComplete, flowFor } from "@/lib/domain/flows";
-import { fmtBRL, type Servico } from "@/lib/domain/types";
+import { displayNumero, fmtBRL, type Servico } from "@/lib/domain/types";
 import FinanceiroBadge from "@/components/ui/FinanceiroBadge";
 import { moveServico } from "@/lib/actions/servicos";
 import { useTransition } from "react";
@@ -64,6 +64,12 @@ export default function ServicoCard({
           {...(capaUrl ? {} : { ...attributes, ...listeners })}
           className={capaUrl ? "" : "cursor-grab active:cursor-grabbing"}
         >
+          <p
+            className="mb-0.5 text-[10px] font-semibold tracking-wide uppercase"
+            style={{ color: servico.numero ? "#25D366" : "#E0A64E" }}
+          >
+            {displayNumero(servico)}
+          </p>
           <button
             type="button"
             onClick={() => onOpen(servico.id)}

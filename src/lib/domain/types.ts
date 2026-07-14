@@ -2,7 +2,7 @@ import type { DcItem, FinanceiroStatus, Prioridade, ServicoTipo } from "./flows"
 
 export interface Servico {
   id: string;
-  numero: string;
+  numero: string | null; // null até aprovação — antes disso é um Orçamento sem numeração formal
   cliente_id: string;
   cliente: string;
   descricao: string;
@@ -211,4 +211,9 @@ export function daysSince(isoDateTime: string, today: Date = new Date()): number
 
 export function fmtBRL(valor: number): string {
   return valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+/** "OS-1001" once aprovado; "Orçamento" enquanto o serviço ainda não tem numeração. */
+export function displayNumero(servico: { numero: string | null }): string {
+  return servico.numero ?? "Orçamento";
 }

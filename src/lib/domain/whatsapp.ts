@@ -1,17 +1,20 @@
-import { fmtBRL, type Servico } from "./types";
+import { displayNumero, fmtBRL, type Servico } from "./types";
 
 export function buildWhatsappText(servico: Servico): string {
+  const cabecalho = `*${displayNumero(servico)} - ${servico.descricao}*`;
   return [
-    `*${servico.numero} - ${servico.descricao}*`,
+    cabecalho,
     `Cliente: ${servico.cliente}`,
     `Valor: ${fmtBRL(servico.valor)}`,
     `Prazo: ${servico.prazo ?? "a definir"}`,
     `Status Financeiro: ${servico.financeiro_status}`,
-    `Etapa atual: ${servico.estagio}`,
-  ].join("\n");
+    servico.numero ? `Etapa atual: ${servico.estagio}` : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
 }
 
-/** Opens wa.me with the serviço summary pre-filled; copies the same text to the clipboard. */
+/** Opens wa.me with the serviço/orçamento summary pre-filled; copies the same text to the clipboard. */
 export async function exportarWhatsapp(servico: Servico, clientePhone?: string | null) {
   const texto = buildWhatsappText(servico);
   try {
