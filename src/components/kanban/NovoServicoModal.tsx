@@ -26,7 +26,9 @@ export default function NovoServicoModal({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  // Serviço (catálogo) — sempre visível, calcula e preenche o valor automaticamente.
+  // Escolha explícita entre catálogo de preços ou fórmula sob projeto (custo×3+15%).
+  const [modoPreco, setModoPreco] = useState<"catalogo" | "formula" | null>(null);
+
   // Largura/altura são digitadas em centímetros e convertidas para m² no cálculo.
   const [itemId, setItemId] = useState("");
   const [larguraCm, setLarguraCm] = useState("");
@@ -104,71 +106,104 @@ export default function NovoServicoModal({
           className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
         />
 
-        <label className="mb-1 block text-xs text-text-secondary">Serviço (catálogo de preços)</label>
-        <select
-          value={itemId}
-          onChange={(e) => selecionarItem(e.target.value)}
-          className="mb-2 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
-        >
-          <option value="">— Nenhum (preencher valor manualmente) —</option>
-          {itensOrcamento.map((i) => (
-            <option key={i.id} value={i.id}>
-              {i.nome}
-              {i.preco != null
-                ? ` (${fmtBRL(i.preco)}${i.tipo_cobranca === "m2" ? "/m²" : ""})`
-                : " (sob projeto)"}
-            </option>
-          ))}
-        </select>
+        <label className="mb-1 block text-xs text-text-secondary">Como calcular o valor?</label>
+        <div className="mb-3 flex gap-2">
+          <button
+            type="button"
+            onClick={() => setModoPreco("catalogo")}
+            className={`flex-1 rounded-btn border py-2 text-[12.5px] ${
+              modoPreco === "catalogo"
+                ? "border-gold bg-gold/10 text-gold"
+                : "border-border-neutral text-text-secondary"
+            }`}
+          >
+            Escolher do Catálogo
+          </button>
+          <button
+            type="button"
+            onClick={() => setModoPreco("formula")}
+            className={`flex-1 rounded-btn border py-2 text-[12.5px] ${
+              modoPreco === "formula"
+                ? "border-gold bg-gold/10 text-gold"
+                : "border-border-neutral text-text-secondary"
+            }`}
+          >
+            Fórmula (custo × 3 + 15%)
+          </button>
+        </div>
 
-        {item && item.tipo_cobranca === "m2" && item.preco != null && (
-          <div className="mb-3 rounded-btn bg-card-secondary p-2.5">
-            <div className="mb-2 flex gap-2">
-              <input
-                type="number"
-                step="1"
-                value={larguraCm}
-                onChange={(e) => setLarguraCm(e.target.value)}
-                placeholder="Largura (cm)"
-                className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
-              />
-              <input
-                type="number"
-                step="1"
-                value={alturaCm}
-                onChange={(e) => setAlturaCm(e.target.value)}
-                placeholder="Altura (cm)"
-                className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[11px] text-text-muted">Área: {Math.max(area, 1).toFixed(2)} m² (mín. 1 m²)</p>
-                <p className="font-display text-sm font-bold text-gradient-gold">
-                  {precoCatalogo != null ? fmtBRL(precoCatalogo) : "—"}
-                </p>
-                {precoCatalogo === PEDIDO_MINIMO && (
-                  <p className="text-[11px] text-text-muted">Pedido mínimo aplicado (R$ 80)</p>
-                )}
+        {modoPreco === "catalogo" && (
+          <>
+            <select
+              value={itemId}
+              onChange={(e) => selecionarItem(e.target.value)}
+              className="mb-2 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+            >
+              <option value="">— Selecione um item —</option>
+              {itensOrcamento.map((i) => (
+                <option key={i.id} value={i.id}>
+                  {i.nome}
+                  {i.preco != null
+                    ? ` (${fmtBRL(i.preco)}${i.tipo_cobranca === "m2" ? "/m²" : ""})`
+                    : " (sob projeto)"}
+                </option>
+              ))}
+            </select>
+
+            {item && item.tipo_cobranca === "m2" && item.preco != null && (
+              <div className="mb-3 rounded-btn bg-card-secondary p-2.5">
+                <div className="mb-2 flex gap-2">
+                  <input
+                    type="number"
+                    step="1"
+                    value={larguraCm}
+                    onChange={(e) => setLarguraCm(e.target.value)}
+                    placeholder="Largura (cm)"
+                    className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    type="number"
+                    step="1"
+                    value={alturaCm}
+                    onChange={(e) => setAlturaCm(e.target.value)}
+                    placeholder="Altura (cm)"
+                    className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-[11px] text-text-muted">
+                      Área: {Math.max(area, 1).toFixed(2)} m² (mín. 1 m²)
+                    </p>
+                    <p className="font-display text-sm font-bold text-gradient-gold">
+                      {precoCatalogo != null ? fmtBRL(precoCatalogo) : "—"}
+                    </p>
+                    {precoCatalogo === PEDIDO_MINIMO && (
+                      <p className="text-[11px] text-text-muted">Pedido mínimo aplicado (R$ 80)</p>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={aplicarPrecoM2}
+                    className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg"
+                  >
+                    Usar este valor
+                  </button>
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={aplicarPrecoM2}
-                className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg"
-              >
-                Usar este valor
-              </button>
-            </div>
-          </div>
+            )}
+
+            {item && item.preco == null && (
+              <p className="mb-3 text-[11.5px] text-text-muted">
+                Esse item é sob projeto — use a opção &quot;Fórmula&quot; acima para calcular.
+              </p>
+            )}
+          </>
         )}
 
-        {item && item.preco == null && (
-          <p className="mb-3 text-[11.5px] text-text-muted">
-            Esse item é sob projeto — use &quot;Serviço específico&quot; abaixo para calcular.
-          </p>
+        {modoPreco === "formula" && (
+          <OrcamentoSobProjeto tipo={tipo} descricao={descricao} onAplicar={(v) => setValor(String(v))} />
         )}
-
-        <OrcamentoSobProjeto tipo={tipo} descricao={descricao} onAplicar={(v) => setValor(String(v))} />
 
         <div className="mb-3 flex gap-3">
           <div className="flex-1">

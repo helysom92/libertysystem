@@ -17,7 +17,6 @@ export default function OrcamentoSobProjeto({
   descricao: string;
   onAplicar: (valor: number) => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [custoDireto, setCustoDireto] = useState("");
   const [novoItemNome, setNovoItemNome] = useState("");
   const [salvandoCatalogo, setSalvandoCatalogo] = useState(false);
@@ -46,24 +45,8 @@ export default function OrcamentoSobProjeto({
     }
   }
 
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="mb-3 w-fit text-[12px] text-text-secondary underline-offset-2 hover:text-gold hover:underline"
-      >
-        Serviço específico (sob projeto, fora do catálogo)
-      </button>
-    );
-  }
-
   return (
-    <div className="mb-3 rounded-card border border-border-gold-strong bg-card-secondary p-3">
-      <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">
-        Orçamento Sob Projeto
-      </p>
-
+    <div className="mb-3 rounded-btn bg-card-secondary p-2.5">
       <label className="mb-1 block text-[10.5px] text-text-muted">Custo direto (material + terceiros)</label>
       <input
         type="number"
