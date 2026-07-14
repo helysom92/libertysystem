@@ -2,11 +2,17 @@
 
 import { useEffect, useState } from "react";
 import type { ServicoDetail } from "@/lib/domain/types";
-import { getSignedUrl, upsertFoto } from "@/lib/actions/servicoDetail";
+import { getSignedUrl, setCapaFoto, upsertFoto } from "@/lib/actions/servicoDetail";
 import { createClient } from "@/lib/supabase/client";
 import ImageDropzone from "@/components/dropzone/ImageDropzone";
 
-export default function FotosTab({ detail }: { detail: ServicoDetail }) {
+export default function FotosTab({
+  detail,
+  onChanged,
+}: {
+  detail: ServicoDetail;
+  onChanged: () => void;
+}) {
   const [urls, setUrls] = useState<Record<number, string | null>>({});
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
 
@@ -40,22 +46,49 @@ export default function FotosTab({ detail }: { detail: ServicoDetail }) {
       await upsertFoto(detail.servico.id, slot, path);
       const url = await getSignedUrl("fotos", path);
       setUrls((u) => ({ ...u, [slot]: url }));
+      onChanged();
     } finally {
       setUploadingSlot(null);
     }
   }
 
+  async function handleSetCapa(slot: number) {
+    const foto = detail.fotos.find((f) => f.slot === slot);
+    if (!foto) return;
+    await setCapaFoto(detail.servico.id, foto.id);
+    onChanged();
+  }
+
   return (
     <div className="grid grid-cols-3 gap-4">
-      {[1, 2, 3].map((slot) => (
-        <ImageDropzone
-          key={slot}
-          src={urls[slot] ?? null}
-          placeholder="Foto"
-          uploading={uploadingSlot === slot}
-          onDrop={(file) => handleDrop(slot, file)}
-        />
-      ))}
+      {[1, 2, 3].map((slot) => {
+        const foto = detail.fotos.find((f) => f.slot === slot);
+        const isCapa = foto && foto.id === detail.servico.capa_foto_id;
+        return (
+          <div key={slot} className="flex flex-col gap-2">
+            <ImageDropzone
+              src={urls[slot] ?? null}
+              placeholder="Foto"
+              uploading={uploadingSlot === slot}
+              onDrop={(file) => handleDrop(slot, file)}
+            />
+            {urls[slot] && (
+              <button
+                type="button"
+                onClick={() => handleSetCapa(slot)}
+                disabled={isCapa}
+                className={`rounded-btn border px-2 py-1 text-[11px] ${
+                  isCapa
+                    ? "border-gold text-gold"
+                    : "border-border-neutral text-text-secondary hover:text-text"
+                }`}
+              >
+                {isCapa ? "★ Capa do card" : "Definir como capa"}
+              </button>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

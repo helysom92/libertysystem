@@ -111,7 +111,7 @@ export default function CentralDoServico({
               {tab === "cliente" && <ClienteTab detail={detail} onChanged={reload} />}
               {tab === "medidas" && <MedidasTab detail={detail} onChanged={reload} />}
               {tab === "arquivos" && <ArquivosTab detail={detail} onChanged={reload} />}
-              {tab === "fotos" && <FotosTab detail={detail} />}
+              {tab === "fotos" && <FotosTab detail={detail} onChanged={reload} />}
               {tab === "checklist" && <ChecklistTab detail={detail} onChanged={reload} />}
               {tab === "timeline" && <TimelineTab detail={detail} />}
               {tab === "financeiro" && (

@@ -48,9 +48,19 @@ export async function removeArquivo(id: string, storagePath: string) {
 
 export async function upsertFoto(servicoId: string, slot: number, storagePath: string) {
   const supabase = await createClient();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("fotos")
-    .upsert({ servico_id: servicoId, slot, storage_path: storagePath }, { onConflict: "servico_id,slot" });
+    .upsert({ servico_id: servicoId, slot, storage_path: storagePath }, { onConflict: "servico_id,slot" })
+    .select("id")
+    .single();
+  if (error) throw error;
+  revalidatePath("/servicos");
+  return data.id as string;
+}
+
+export async function setCapaFoto(servicoId: string, fotoId: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("servicos").update({ capa_foto_id: fotoId }).eq("id", servicoId);
   if (error) throw error;
   revalidatePath("/servicos");
 }
