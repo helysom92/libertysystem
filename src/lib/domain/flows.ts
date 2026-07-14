@@ -71,6 +71,20 @@ export function flowFor(tipo: ServicoTipo): string[] {
   return FLOWS[tipo] || FLOWS.simples;
 }
 
+const PRODUCAO_FISICA_STAGES = new Set([
+  "Arquivo Final",
+  "Produção",
+  "Acabamento",
+  "Instalação",
+  "Entrega",
+  "Concluído",
+]);
+
+/** Coarse phase grouping for Kanban column coloring (plan §5, "cores por fase"). */
+export function faseDaEtapa(estagio: string): "interno" | "producao" {
+  return PRODUCAO_FISICA_STAGES.has(estagio) ? "producao" : "interno";
+}
+
 export function exigeMedida(tipo: ServicoTipo): boolean {
   return tipo === "medida_instalacao" || tipo === "medida_sem_instalacao";
 }
@@ -141,9 +155,29 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export function allowedTabs(role: Role): string[] {
-  if (role === "secretaria") return ["hoje", "servicos", "agenda", "financeiro"];
-  if (role === "producao") return ["hoje", "servicos", "agenda"];
-  return ["hoje", "servicos", "agenda", "financeiro", "gestao"];
+  if (role === "secretaria")
+    return [
+      "hoje",
+      "servicos",
+      "agenda",
+      "clientes",
+      "fornecedores",
+      "financeiro",
+      "relatorios",
+      "materiais",
+    ];
+  if (role === "producao") return ["hoje", "servicos", "agenda", "clientes"];
+  return [
+    "hoje",
+    "servicos",
+    "agenda",
+    "clientes",
+    "fornecedores",
+    "financeiro",
+    "relatorios",
+    "materiais",
+    "gestao",
+  ];
 }
 
 export interface DcItem {

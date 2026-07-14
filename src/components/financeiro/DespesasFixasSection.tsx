@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import type { DespesaFixa, DespesaFixaOcorrencia } from "@/lib/domain/types";
+import type { DespesaFixa, DespesaFixaOcorrencia, Fornecedor } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { toggleDespesaOcorrencia } from "@/lib/actions/financeiro";
 import NovaDespesaFixaModal from "./NovaDespesaFixaModal";
@@ -22,11 +22,13 @@ const STATUS_COLOR: Record<string, string> = {
 export default function DespesasFixasSection({
   despesas,
   ocorrencias,
+  fornecedores,
   ano,
   mes,
 }: {
   despesas: DespesaFixa[];
   ocorrencias: DespesaFixaOcorrencia[];
+  fornecedores: Fornecedor[];
   ano: number;
   mes: number;
 }) {
@@ -89,7 +91,7 @@ export default function DespesasFixasSection({
         )}
       </div>
 
-      {open && <NovaDespesaFixaModal onClose={() => setOpen(false)} />}
+      {open && <NovaDespesaFixaModal fornecedores={fornecedores} onClose={() => setOpen(false)} />}
     </div>
   );
 }

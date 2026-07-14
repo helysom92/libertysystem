@@ -1,8 +1,14 @@
 import { createClient } from "@/lib/supabase/server";
 import { fmtBRL } from "@/lib/domain/types";
-import type { Comprovante, DespesaFixa, DespesaFixaOcorrencia, Lancamento } from "@/lib/domain/types";
+import type {
+  Comprovante,
+  DespesaFixa,
+  DespesaFixaOcorrencia,
+  Fornecedor,
+  Lancamento,
+} from "@/lib/domain/types";
 import ComprovantesSection from "@/components/financeiro/ComprovantesSection";
-import LancamentosTable from "@/components/financeiro/LancamentosTable";
+import FluxoDiario from "@/components/financeiro/FluxoDiario";
 import DespesasFixasSection from "@/components/financeiro/DespesasFixasSection";
 
 export default async function FinanceiroPage() {
@@ -12,13 +18,16 @@ export default async function FinanceiroPage() {
   const ano = now.getFullYear();
   const mes = now.getMonth() + 1;
 
-  const [{ data: lancamentos }, { data: comprovantes }, { data: despesas }] = await Promise.all([
-    supabase.from("lancamentos").select("*").order("data", { ascending: false }),
-    supabase.from("comprovantes").select("*").order("data", { ascending: false }),
-    supabase.from("despesas_fixas").select("*").eq("ativo", true).order("dia_vencimento"),
-  ]);
+  const [{ data: lancamentos }, { data: comprovantes }, { data: despesas }, { data: fornecedores }] =
+    await Promise.all([
+      supabase.from("lancamentos").select("*").order("data", { ascending: false }),
+      supabase.from("comprovantes").select("*").order("data", { ascending: false }),
+      supabase.from("despesas_fixas").select("*").eq("ativo", true).order("dia_vencimento"),
+      supabase.from("fornecedores").select("*").eq("ativo", true).order("nome"),
+    ]);
 
   const despesasFixas = (despesas as DespesaFixa[]) ?? [];
+  const fornecedoresAtivos = (fornecedores as Fornecedor[]) ?? [];
 
   // Lazily ensure this month's occurrence row exists for every active despesa fixa (plan §2).
   if (despesasFixas.length > 0) {
@@ -35,8 +44,9 @@ export default async function FinanceiroPage() {
     .eq("mes", mes);
 
   const lancs = (lancamentos as Lancamento[]) ?? [];
-  const receitas = lancs.filter((l) => l.tipo === "Receita").reduce((a, l) => a + l.valor, 0);
-  const despesasTotal = lancs.filter((l) => l.tipo === "Despesa").reduce((a, l) => a + l.valor, 0);
+  const realizados = lancs.filter((l) => l.status === "realizado");
+  const receitas = realizados.filter((l) => l.tipo === "Receita").reduce((a, l) => a + l.valor, 0);
+  const despesasTotal = realizados.filter((l) => l.tipo === "Despesa").reduce((a, l) => a + l.valor, 0);
   const fluxoCaixa = receitas - despesasTotal;
 
   return (
@@ -71,12 +81,13 @@ export default async function FinanceiroPage() {
         <DespesasFixasSection
           despesas={despesasFixas}
           ocorrencias={(ocorrencias as DespesaFixaOcorrencia[]) ?? []}
+          fornecedores={fornecedoresAtivos}
           ano={ano}
           mes={mes}
         />
       </div>
 
-      <LancamentosTable lancamentos={lancs} />
+      <FluxoDiario lancamentos={lancs} fornecedores={fornecedoresAtivos} />
     </div>
   );
 }

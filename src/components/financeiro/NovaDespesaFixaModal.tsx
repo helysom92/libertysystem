@@ -2,12 +2,20 @@
 
 import { useState, useTransition } from "react";
 import { createDespesaFixa } from "@/lib/actions/financeiro";
+import type { Fornecedor } from "@/lib/domain/types";
 
-export default function NovaDespesaFixaModal({ onClose }: { onClose: () => void }) {
+export default function NovaDespesaFixaModal({
+  fornecedores,
+  onClose,
+}: {
+  fornecedores: Fornecedor[];
+  onClose: () => void;
+}) {
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
   const [diaVencimento, setDiaVencimento] = useState("10");
   const [categoria, setCategoria] = useState("Geral");
+  const [fornecedorId, setFornecedorId] = useState("");
   const [pending, startTransition] = useTransition();
 
   function submit(e: React.FormEvent) {
@@ -18,6 +26,7 @@ export default function NovaDespesaFixaModal({ onClose }: { onClose: () => void 
         valor: Number(valor) || 0,
         dia_vencimento: Number(diaVencimento) || 1,
         categoria,
+        fornecedor_id: fornecedorId || null,
       });
       onClose();
     });
@@ -68,6 +77,20 @@ export default function NovaDespesaFixaModal({ onClose }: { onClose: () => void 
             />
           </div>
         </div>
+
+        <label className="mb-1 block text-xs text-text-secondary">Fornecedor</label>
+        <select
+          value={fornecedorId}
+          onChange={(e) => setFornecedorId(e.target.value)}
+          className="mb-4 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+        >
+          <option value="">—</option>
+          {fornecedores.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.nome}
+            </option>
+          ))}
+        </select>
 
         <div className="flex justify-end gap-2">
           <button

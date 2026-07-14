@@ -10,6 +10,10 @@ export interface NovoLancamentoInput {
   valor: number;
   data: string;
   servico_id?: string | null;
+  fornecedor_id?: string | null;
+  banco?: string | null;
+  forma_pagamento?: string | null;
+  status?: "previsto" | "realizado" | "cancelado";
 }
 
 export async function createLancamento(input: NovoLancamentoInput) {
@@ -20,11 +24,20 @@ export async function createLancamento(input: NovoLancamentoInput) {
   revalidatePath("/hoje");
 }
 
+export async function marcarLancamentoRealizado(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("lancamentos").update({ status: "realizado" }).eq("id", id);
+  if (error) throw error;
+  revalidatePath("/financeiro");
+  revalidatePath("/hoje");
+}
+
 export interface NovaDespesaFixaInput {
   descricao: string;
   valor: number;
   dia_vencimento: number;
   categoria: string;
+  fornecedor_id?: string | null;
 }
 
 export async function createDespesaFixa(input: NovaDespesaFixaInput) {

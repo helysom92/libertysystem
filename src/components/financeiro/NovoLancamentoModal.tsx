@@ -3,13 +3,26 @@
 import { useState, useTransition } from "react";
 import { createLancamento } from "@/lib/actions/financeiro";
 import { todayISO } from "@/lib/domain/dates";
+import type { Fornecedor } from "@/lib/domain/types";
 
-export default function NovoLancamentoModal({ onClose }: { onClose: () => void }) {
+const FORMAS_PAGAMENTO = ["Pix", "Dinheiro", "Cartão de Débito", "Cartão de Crédito", "Boleto", "Transferência"];
+
+export default function NovoLancamentoModal({
+  fornecedores,
+  onClose,
+}: {
+  fornecedores: Fornecedor[];
+  onClose: () => void;
+}) {
   const [tipo, setTipo] = useState<"Receita" | "Despesa">("Receita");
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState("Geral");
+  const [fornecedorId, setFornecedorId] = useState("");
   const [valor, setValor] = useState("");
   const [data, setData] = useState(todayISO());
+  const [banco, setBanco] = useState("");
+  const [formaPagamento, setFormaPagamento] = useState(FORMAS_PAGAMENTO[0]);
+  const [status, setStatus] = useState<"previsto" | "realizado">("realizado");
   const [pending, startTransition] = useTransition();
 
   function submit(e: React.FormEvent) {
@@ -21,6 +34,10 @@ export default function NovoLancamentoModal({ onClose }: { onClose: () => void }
         categoria,
         valor: Number(valor) || 0,
         data,
+        fornecedor_id: fornecedorId || null,
+        banco: banco || null,
+        forma_pagamento: formaPagamento,
+        status,
       });
       onClose();
     });
@@ -58,7 +75,7 @@ export default function NovoLancamentoModal({ onClose }: { onClose: () => void }
           className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
         />
 
-        <div className="mb-4 flex gap-3">
+        <div className="mb-3 flex gap-3">
           <div className="flex-1">
             <label className="mb-1 block text-xs text-text-secondary">Categoria</label>
             <input
@@ -67,6 +84,24 @@ export default function NovoLancamentoModal({ onClose }: { onClose: () => void }
               className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
             />
           </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs text-text-secondary">Fornecedor</label>
+            <select
+              value={fornecedorId}
+              onChange={(e) => setFornecedorId(e.target.value)}
+              className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+            >
+              <option value="">—</option>
+              {fornecedores.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.nome}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="mb-3 flex gap-3">
           <div className="flex-1">
             <label className="mb-1 block text-xs text-text-secondary">Valor</label>
             <input
@@ -84,6 +119,51 @@ export default function NovoLancamentoModal({ onClose }: { onClose: () => void }
               onChange={(e) => setData(e.target.value)}
               className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
             />
+          </div>
+        </div>
+
+        <div className="mb-3 flex gap-3">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs text-text-secondary">Banco</label>
+            <input
+              value={banco}
+              onChange={(e) => setBanco(e.target.value)}
+              className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs text-text-secondary">Forma de Pagamento</label>
+            <select
+              value={formaPagamento}
+              onChange={(e) => setFormaPagamento(e.target.value)}
+              className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+            >
+              {FORMAS_PAGAMENTO.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="mb-4">
+          <label className="mb-1 block text-xs text-text-secondary">Status</label>
+          <div className="flex gap-2">
+            {(["previsto", "realizado"] as const).map((s) => (
+              <button
+                key={s}
+                type="button"
+                onClick={() => setStatus(s)}
+                className={`flex-1 rounded-btn border py-1.5 text-[12.5px] capitalize ${
+                  status === s
+                    ? "border-gold bg-gold/10 text-gold"
+                    : "border-border-neutral text-text-secondary"
+                }`}
+              >
+                {s}
+              </button>
+            ))}
           </div>
         </div>
 

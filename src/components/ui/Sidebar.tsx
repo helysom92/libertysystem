@@ -8,7 +8,11 @@ const TAB_LABELS: Record<string, string> = {
   hoje: "Hoje",
   servicos: "Serviços",
   agenda: "Agenda",
+  clientes: "Clientes",
+  fornecedores: "Fornecedores",
   financeiro: "Financeiro",
+  relatorios: "Relatórios",
+  materiais: "Materiais",
   gestao: "Gestão",
 };
 

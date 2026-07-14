@@ -25,7 +25,10 @@ export interface Servico {
   dc_admin: DcItem[];
   dc_producao: DcItem[];
   dc_invalidated_after_advance: boolean;
+  capa_foto_id: string | null;
 }
+
+export type ClienteStatus = "pre_cadastro" | "regularizado" | "inativo";
 
 export interface Cliente {
   id: string;
@@ -36,7 +39,27 @@ export interface Cliente {
   endereco: string | null;
   whatsapp: string | null;
   observacoes: string | null;
+  status: ClienteStatus;
   created_at: string;
+}
+
+export interface Fornecedor {
+  id: string;
+  nome: string;
+  categoria: string | null;
+  telefone: string | null;
+  email: string | null;
+  ativo: boolean;
+  created_at: string;
+}
+
+export interface Material {
+  id: string;
+  nome: string;
+  unidade: "m2" | "metro_linear" | "unidade";
+  preco_unitario: number;
+  categoria: string | null;
+  ativo: boolean;
 }
 
 export interface Comprovante {
@@ -103,6 +126,8 @@ export interface LogEntry {
   criado_em: string;
 }
 
+export type LancamentoStatus = "previsto" | "realizado" | "cancelado";
+
 export interface Lancamento {
   id: string;
   tipo: "Receita" | "Despesa";
@@ -111,6 +136,10 @@ export interface Lancamento {
   valor: number;
   data: string;
   servico_id: string | null;
+  fornecedor_id: string | null;
+  banco: string | null;
+  forma_pagamento: string | null;
+  status: LancamentoStatus;
 }
 
 export interface DespesaFixa {
@@ -119,6 +148,7 @@ export interface DespesaFixa {
   valor: number;
   dia_vencimento: number;
   categoria: string | null;
+  fornecedor_id: string | null;
   ativo: boolean;
 }
 
