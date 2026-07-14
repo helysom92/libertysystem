@@ -27,12 +27,13 @@ export default function NovoServicoModal({
   const [error, setError] = useState<string | null>(null);
 
   // Serviço (catálogo) — sempre visível, calcula e preenche o valor automaticamente.
+  // Largura/altura são digitadas em centímetros e convertidas para m² no cálculo.
   const [itemId, setItemId] = useState("");
-  const [largura, setLargura] = useState("");
-  const [altura, setAltura] = useState("");
+  const [larguraCm, setLarguraCm] = useState("");
+  const [alturaCm, setAlturaCm] = useState("");
 
   const item = itensOrcamento.find((i) => i.id === itemId) ?? null;
-  const area = (Number(largura) || 0) * (Number(altura) || 0);
+  const area = ((Number(larguraCm) || 0) / 100) * ((Number(alturaCm) || 0) / 100);
   const precoCatalogo = item && item.preco != null ? precoItemCatalogo(item, area) : null;
 
   function selecionarItem(id: string) {
@@ -125,18 +126,18 @@ export default function NovoServicoModal({
             <div className="mb-2 flex gap-2">
               <input
                 type="number"
-                step="0.01"
-                value={largura}
-                onChange={(e) => setLargura(e.target.value)}
-                placeholder="Largura (m)"
+                step="1"
+                value={larguraCm}
+                onChange={(e) => setLarguraCm(e.target.value)}
+                placeholder="Largura (cm)"
                 className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
               />
               <input
                 type="number"
-                step="0.01"
-                value={altura}
-                onChange={(e) => setAltura(e.target.value)}
-                placeholder="Altura (m)"
+                step="1"
+                value={alturaCm}
+                onChange={(e) => setAlturaCm(e.target.value)}
+                placeholder="Altura (cm)"
                 className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
               />
             </div>
