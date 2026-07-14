@@ -5,9 +5,9 @@ export type ServicoTipo =
   | "criacao";
 
 export const TIPO_LABELS: Record<ServicoTipo, string> = {
+  simples: "Serviço de Balcão",
   medida_instalacao: "Com medida + instalação",
   medida_sem_instalacao: "Com medida sem instalação",
-  simples: "Serviço simples",
   criacao: "Somente criação",
 };
 

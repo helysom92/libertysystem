@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
-import type { ItemOrcamento, Servico } from "@/lib/domain/types";
+import type { Cliente, ItemOrcamento, Servico } from "@/lib/domain/types";
 
 export default async function ServicosPage({
   searchParams,
@@ -12,9 +12,10 @@ export default async function ServicosPage({
   const supabase = await createClient();
   const profile = await getCurrentProfile();
 
-  const [{ data: servicos }, { data: itensOrcamento }] = await Promise.all([
+  const [{ data: servicos }, { data: itensOrcamento }, { data: clientes }] = await Promise.all([
     supabase.from("servicos").select("*").order("criado_em", { ascending: false }),
     supabase.from("itens_orcamento").select("*").eq("ativo", true).order("nome"),
+    supabase.from("clientes").select("*").order("nome"),
   ]);
 
   const svs = (servicos as Servico[]) ?? [];
@@ -68,6 +69,7 @@ export default async function ServicosPage({
       capaUrls={capaUrls}
       checklistProgress={checklistProgress}
       itensOrcamento={(itensOrcamento as ItemOrcamento[]) ?? []}
+      clientes={(clientes as Cliente[]) ?? []}
     />
   );
 }
