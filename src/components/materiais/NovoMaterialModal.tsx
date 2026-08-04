@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createMaterial } from "@/lib/actions/materiais";
+import type { Material } from "@/lib/domain/types";
+import { createMaterial, updateMaterial } from "@/lib/actions/materiais";
 
 const UNIDADES = [
   { value: "m2", label: "m² (área)" },
@@ -9,11 +10,17 @@ const UNIDADES = [
   { value: "unidade", label: "unidade" },
 ] as const;
 
-export default function NovoMaterialModal({ onClose }: { onClose: () => void }) {
-  const [nome, setNome] = useState("");
-  const [unidade, setUnidade] = useState<"m2" | "metro_linear" | "unidade">("m2");
-  const [preco, setPreco] = useState("");
-  const [categoria, setCategoria] = useState("");
+export default function NovoMaterialModal({
+  material,
+  onClose,
+}: {
+  material?: Material;
+  onClose: () => void;
+}) {
+  const [nome, setNome] = useState(material?.nome ?? "");
+  const [unidade, setUnidade] = useState<"m2" | "metro_linear" | "unidade">(material?.unidade ?? "m2");
+  const [preco, setPreco] = useState(material ? String(material.preco_unitario) : "");
+  const [categoria, setCategoria] = useState(material?.categoria ?? "");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -25,15 +32,20 @@ export default function NovoMaterialModal({ onClose }: { onClose: () => void }) 
     }
     startTransition(async () => {
       try {
-        await createMaterial({
+        const fields = {
           nome,
           unidade,
           preco_unitario: Number(preco) || 0,
           categoria: categoria || null,
-        });
+        };
+        if (material) {
+          await updateMaterial(material.id, fields);
+        } else {
+          await createMaterial(fields);
+        }
         onClose();
       } catch {
-        setError("Não foi possível criar o material.");
+        setError(material ? "Não foi possível salvar o material." : "Não foi possível criar o material.");
       }
     });
   }
@@ -44,7 +56,9 @@ export default function NovoMaterialModal({ onClose }: { onClose: () => void }) 
         onSubmit={submit}
         className="w-full max-w-md rounded-card border border-border-gold bg-card p-6"
       >
-        <h2 className="mb-4 font-display text-lg font-bold">Novo Material</h2>
+        <h2 className="mb-4 font-display text-lg font-bold">
+          {material ? "Editar Material" : "Novo Material"}
+        </h2>
 
         <label className="mb-1 block text-xs text-text-secondary">Nome</label>
         <input
@@ -103,7 +117,7 @@ export default function NovoMaterialModal({ onClose }: { onClose: () => void }) 
             disabled={pending}
             className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg disabled:opacity-60"
           >
-            {pending ? "Criando..." : "Criar Material"}
+            {pending ? "Salvando..." : material ? "Salvar" : "Criar Material"}
           </button>
         </div>
       </form>

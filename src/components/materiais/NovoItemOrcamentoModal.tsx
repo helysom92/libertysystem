@@ -1,14 +1,21 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createItemOrcamento } from "@/lib/actions/itensOrcamento";
+import type { ItemOrcamento } from "@/lib/domain/types";
+import { createItemOrcamento, updateItemOrcamento } from "@/lib/actions/itensOrcamento";
 
-export default function NovoItemOrcamentoModal({ onClose }: { onClose: () => void }) {
-  const [nome, setNome] = useState("");
-  const [tipoCobranca, setTipoCobranca] = useState<"m2" | "fixo">("m2");
-  const [preco, setPreco] = useState("");
-  const [semPreco, setSemPreco] = useState(false);
-  const [categoria, setCategoria] = useState("");
+export default function NovoItemOrcamentoModal({
+  item,
+  onClose,
+}: {
+  item?: ItemOrcamento;
+  onClose: () => void;
+}) {
+  const [nome, setNome] = useState(item?.nome ?? "");
+  const [tipoCobranca, setTipoCobranca] = useState<"m2" | "fixo">(item?.tipo_cobranca ?? "m2");
+  const [preco, setPreco] = useState(item?.preco != null ? String(item.preco) : "");
+  const [semPreco, setSemPreco] = useState(item ? item.preco == null : false);
+  const [categoria, setCategoria] = useState(item?.categoria ?? "");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -20,15 +27,20 @@ export default function NovoItemOrcamentoModal({ onClose }: { onClose: () => voi
     }
     startTransition(async () => {
       try {
-        await createItemOrcamento({
+        const fields = {
           nome,
           tipo_cobranca: tipoCobranca,
           preco: semPreco ? null : Number(preco) || 0,
           categoria: categoria || null,
-        });
+        };
+        if (item) {
+          await updateItemOrcamento(item.id, fields);
+        } else {
+          await createItemOrcamento(fields);
+        }
         onClose();
       } catch {
-        setError("Não foi possível criar o item.");
+        setError(item ? "Não foi possível salvar o item." : "Não foi possível criar o item.");
       }
     });
   }
@@ -39,7 +51,9 @@ export default function NovoItemOrcamentoModal({ onClose }: { onClose: () => voi
         onSubmit={submit}
         className="w-full max-w-md rounded-card border border-border-gold bg-card p-6"
       >
-        <h2 className="mb-4 font-display text-lg font-bold">Novo Item de Orçamento</h2>
+        <h2 className="mb-4 font-display text-lg font-bold">
+          {item ? "Editar Item de Orçamento" : "Novo Item de Orçamento"}
+        </h2>
 
         <label className="mb-1 block text-xs text-text-secondary">Nome</label>
         <input
@@ -110,7 +124,7 @@ export default function NovoItemOrcamentoModal({ onClose }: { onClose: () => voi
             disabled={pending}
             className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg disabled:opacity-60"
           >
-            {pending ? "Criando..." : "Criar Item"}
+            {pending ? "Salvando..." : item ? "Salvar" : "Criar Item"}
           </button>
         </div>
       </form>

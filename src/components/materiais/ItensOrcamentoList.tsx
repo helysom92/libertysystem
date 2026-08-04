@@ -10,6 +10,7 @@ import NovoItemOrcamentoModal from "./NovoItemOrcamentoModal";
 export default function ItensOrcamentoList({ itens }: { itens: ItemOrcamento[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<ItemOrcamento | null>(null);
   const [, startTransition] = useTransition();
 
   return (
@@ -37,6 +38,7 @@ export default function ItensOrcamentoList({ itens }: { itens: ItemOrcamento[] }
               <th className="px-3 py-2">Cobrança</th>
               <th className="px-3 py-2">Preço</th>
               <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -68,11 +70,20 @@ export default function ItensOrcamentoList({ itens }: { itens: ItemOrcamento[] }
                     {i.ativo ? "Ativo" : "Inativo"}
                   </button>
                 </td>
+                <td className="px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditing(i)}
+                    className="text-[11.5px] text-gold hover:underline"
+                  >
+                    Editar
+                  </button>
+                </td>
               </tr>
             ))}
             {itens.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-text-muted">
+                <td colSpan={6} className="px-3 py-6 text-center text-text-muted">
                   Nenhum item cadastrado.
                 </td>
               </tr>
@@ -85,6 +96,15 @@ export default function ItensOrcamentoList({ itens }: { itens: ItemOrcamento[] }
         <NovoItemOrcamentoModal
           onClose={() => {
             setOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
+      {editing && (
+        <NovoItemOrcamentoModal
+          item={editing}
+          onClose={() => {
+            setEditing(null);
             router.refresh();
           }}
         />

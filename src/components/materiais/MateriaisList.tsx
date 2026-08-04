@@ -16,6 +16,7 @@ const UNIDADE_LABELS: Record<Material["unidade"], string> = {
 export default function MateriaisList({ materiais }: { materiais: Material[] }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Material | null>(null);
   const [, startTransition] = useTransition();
 
   return (
@@ -45,6 +46,7 @@ export default function MateriaisList({ materiais }: { materiais: Material[] }) 
               <th className="px-3 py-2">Unidade</th>
               <th className="px-3 py-2">Preço Unitário</th>
               <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2"></th>
             </tr>
           </thead>
           <tbody>
@@ -74,11 +76,20 @@ export default function MateriaisList({ materiais }: { materiais: Material[] }) 
                     {m.ativo ? "Ativo" : "Inativo"}
                   </button>
                 </td>
+                <td className="px-3 py-2">
+                  <button
+                    type="button"
+                    onClick={() => setEditing(m)}
+                    className="text-[11.5px] text-gold hover:underline"
+                  >
+                    Editar
+                  </button>
+                </td>
               </tr>
             ))}
             {materiais.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-text-muted">
+                <td colSpan={6} className="px-3 py-6 text-center text-text-muted">
                   Nenhum material cadastrado.
                 </td>
               </tr>
@@ -91,6 +102,15 @@ export default function MateriaisList({ materiais }: { materiais: Material[] }) 
         <NovoMaterialModal
           onClose={() => {
             setOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
+      {editing && (
+        <NovoMaterialModal
+          material={editing}
+          onClose={() => {
+            setEditing(null);
             router.refresh();
           }}
         />
