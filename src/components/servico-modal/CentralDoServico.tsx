@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { fetchServicoDetail } from "@/lib/supabase/fetchServicoDetail";
-import { displayNumero, type ServicoDetail } from "@/lib/domain/types";
+import { displayNumero, type ItemOrcamento, type ServicoDetail } from "@/lib/domain/types";
 import type { Role } from "@/lib/domain/flows";
 import { exigeMedida } from "@/lib/domain/flows";
 import ResumoTab from "./ResumoTab";
@@ -14,10 +14,12 @@ import ChecklistTab from "./ChecklistTab";
 import TimelineTab from "./TimelineTab";
 import FinanceiroTab from "./FinanceiroTab";
 import HistoricoTab from "./HistoricoTab";
+import OrcamentoItensTab from "./OrcamentoItensTab";
 
 const BASE_TABS = [
   { id: "resumo", label: "Resumo" },
   { id: "cliente", label: "Cliente" },
+  { id: "itens", label: "Itens" },
   { id: "medidas", label: "Medidas" },
   { id: "arquivos", label: "Arquivos" },
   { id: "fotos", label: "Fotos" },
@@ -30,10 +32,12 @@ const BASE_TABS = [
 export default function CentralDoServico({
   servicoId,
   role,
+  itensOrcamento,
   onClose,
 }: {
   servicoId: string;
   role: Role;
+  itensOrcamento: ItemOrcamento[];
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<ServicoDetail | null>(null);
@@ -109,6 +113,7 @@ export default function CentralDoServico({
                 <ResumoTab detail={detail} role={role} onChanged={reload} onClose={onClose} />
               )}
               {tab === "cliente" && <ClienteTab detail={detail} onChanged={reload} />}
+              {tab === "itens" && <OrcamentoItensTab detail={detail} itensOrcamento={itensOrcamento} />}
               {tab === "medidas" && <MedidasTab detail={detail} onChanged={reload} />}
               {tab === "arquivos" && <ArquivosTab detail={detail} onChanged={reload} />}
               {tab === "fotos" && <FotosTab detail={detail} onChanged={reload} />}

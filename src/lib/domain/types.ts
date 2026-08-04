@@ -71,6 +71,23 @@ export interface ItemOrcamento {
   ativo: boolean;
 }
 
+/** Linha persistida de um orçamento multi-item (aba "Itens" da Central do Serviço). */
+export interface OrcamentoItemRow {
+  id: string;
+  servico_id: string;
+  ordem: number;
+  descricao: string;
+  categoria_prazo: "balcao" | "simples" | "complexo";
+  modo_calculo: "catalogo" | "formula" | "m2_manual";
+  item_orcamento_id: string | null;
+  largura_cm: number | null;
+  altura_cm: number | null;
+  quantidade: number;
+  custo_direto: number | null;
+  preco_m2_manual: number | null;
+  valor_final: number;
+}
+
 export interface Comprovante {
   id: string;
   descricao: string;
@@ -191,6 +208,7 @@ export interface ServicoDetail {
   checklist: ChecklistItem[];
   timeline: LogEntry[];
   historico: LogEntry[];
+  orcamentoItens: OrcamentoItemRow[];
 }
 
 /** Days between today and an ISO date string (positive = future, negative = past). Null if no date. */

@@ -1,48 +1,9 @@
-import type { ItemOrcamento, Material } from "./types";
-
-export interface OrcamentoItem {
-  materialId: string;
-  quantidade: number; // m² para unidade 'm2', metros para 'metro_linear', unidades para 'unidade'
-}
-
-export interface OrcamentoResultado {
-  custoMaterial: number;
-  valorBase: number;
-}
-
-/**
- * Cálculo por material bruto (custo × mão-de-obra% × margem%) — usado para itens
- * fora do catálogo de preços quando não se quer aplicar a fórmula de referência.
- */
-export function calcularOrcamento(
-  itens: OrcamentoItem[],
-  materiais: Material[],
-  maoDeObraPct: number,
-  margemPct: number
-): OrcamentoResultado {
-  const custoMaterial = itens.reduce((acc, item) => {
-    const material = materiais.find((m) => m.id === item.materialId);
-    if (!material) return acc;
-    return acc + item.quantidade * material.preco_unitario;
-  }, 0);
-
-  const valorBase = custoMaterial * (1 + maoDeObraPct / 100) * (1 + margemPct / 100);
-
-  return { custoMaterial, valorBase };
-}
+import type { ItemOrcamento } from "./types";
 
 // ── Regras de precificação Liberty (tabela de preços real) ─────────────
-export const PEDIDO_MINIMO = 80;
-export const AREA_MINIMA_M2 = 1;
+export const PEDIDO_MINIMO = 90;
 export const FORMULA_MULTIPLICADOR_MINIMO = 3; // "nunca negociando abaixo de custo × 3"
 export const FORMULA_MARGEM_REFERENCIA = 0.15; // +15% sobre custo × 3 para o valor de referência
-
-/** Preço de um item do catálogo, aplicando a área mínima de 1m² e o pedido mínimo de R$80. */
-export function precoItemCatalogo(item: ItemOrcamento, area: number): number {
-  if (item.preco == null) return 0; // "sob projeto" — sem preço tabelado
-  const bruto = item.tipo_cobranca === "m2" ? Math.max(area, AREA_MINIMA_M2) * item.preco : item.preco;
-  return Math.max(bruto, PEDIDO_MINIMO);
-}
 
 export interface FormulaPersonalizadaResultado {
   valorMinimo: number; // custo × 3 — nunca negociar abaixo disso
@@ -54,4 +15,87 @@ export function calcularFormulaPersonalizada(custoDireto: number): FormulaPerson
   const valorMinimo = custoDireto * FORMULA_MULTIPLICADOR_MINIMO;
   const valorReferencia = valorMinimo * (1 + FORMULA_MARGEM_REFERENCIA);
   return { valorMinimo, valorReferencia };
+}
+
+// ── Item de orçamento (linha do construtor multi-item) ─────────────────
+export type CategoriaPrazo = "balcao" | "simples" | "complexo";
+export type ModoCalculoItem = "catalogo" | "formula" | "m2_manual";
+
+export const CATEGORIA_PRAZO_INFO: Record<
+  CategoriaPrazo,
+  { label: string; prazoLabel: string; rank: number }
+> = {
+  balcao: { label: "Balcão", prazoLabel: "48 horas", rank: 1 },
+  simples: { label: "Serviço simples", prazoLabel: "7 dias úteis", rank: 2 },
+  complexo: { label: "Serviço complexo", prazoLabel: "15 dias úteis", rank: 3 },
+};
+
+export interface OrcamentoItemDraft {
+  categoriaPrazo: CategoriaPrazo;
+  modoCalculo: ModoCalculoItem;
+  itemOrcamentoId: string | null; // modo 'catalogo'
+  larguraCm: number;
+  alturaCm: number;
+  quantidade: number;
+  custoDireto: number; // modo 'formula'
+  precoM2Manual: number; // modo 'm2_manual'
+}
+
+export interface OrcamentoItemCalculo {
+  area: number | null;
+  sugerido: number;
+  unit: number;
+  minimoAplicado: boolean;
+}
+
+/**
+ * Espelha calcSugerido() do app Electron "Orçamento Liberty" — fonte de verdade da
+ * precificação real da empresa. Sem "área mínima": o único piso é o valor final
+ * (PEDIDO_MINIMO), aplicado apenas no modo 'catalogo'.
+ */
+export function calcularItemOrcamento(
+  draft: OrcamentoItemDraft,
+  itensOrcamento: ItemOrcamento[]
+): OrcamentoItemCalculo {
+  const quantidade = draft.quantidade || 0;
+
+  if (draft.modoCalculo === "catalogo") {
+    const item = itensOrcamento.find((i) => i.id === draft.itemOrcamentoId);
+    if (!item || item.preco == null) {
+      return { area: null, sugerido: 0, unit: 0, minimoAplicado: false };
+    }
+    let area: number | null = null;
+    let bruto: number;
+    if (item.tipo_cobranca === "fixo") {
+      bruto = item.preco * quantidade;
+    } else {
+      area = (draft.larguraCm / 100) * (draft.alturaCm / 100) * quantidade;
+      bruto = area * item.preco;
+    }
+    const sugerido = Math.max(bruto, quantidade > 0 ? PEDIDO_MINIMO : 0);
+    return { area, sugerido, unit: item.preco, minimoAplicado: quantidade > 0 && bruto < PEDIDO_MINIMO };
+  }
+
+  if (draft.modoCalculo === "m2_manual") {
+    const area = (draft.larguraCm / 100) * (draft.alturaCm / 100) * quantidade;
+    const sugerido = area * (draft.precoM2Manual || 0);
+    return { area, sugerido, unit: draft.precoM2Manual || 0, minimoAplicado: false };
+  }
+
+  // modo 'formula'
+  const unit = (draft.custoDireto || 0) * FORMULA_MULTIPLICADOR_MINIMO * (1 + FORMULA_MARGEM_REFERENCIA);
+  return { area: null, sugerido: unit * quantidade, unit, minimoAplicado: false };
+}
+
+export function novoItemOrcamentoDraft(categoriaPrazo: CategoriaPrazo = "balcao"): OrcamentoItemDraft {
+  return {
+    categoriaPrazo,
+    modoCalculo: "catalogo",
+    itemOrcamentoId: null,
+    larguraCm: 0,
+    alturaCm: 0,
+    quantidade: 1,
+    custoDireto: 0,
+    precoM2Manual: 0,
+  };
 }

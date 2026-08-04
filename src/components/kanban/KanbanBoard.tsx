@@ -108,7 +108,12 @@ export default function KanbanBoard({
         />
       )}
       {openId && (
-        <CentralDoServico servicoId={openId} role={role} onClose={() => setOpenId(null)} />
+        <CentralDoServico
+          servicoId={openId}
+          role={role}
+          itensOrcamento={itensOrcamento}
+          onClose={() => setOpenId(null)}
+        />
       )}
     </div>
   );

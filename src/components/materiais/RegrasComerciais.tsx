@@ -1,6 +1,8 @@
+import { PEDIDO_MINIMO } from "@/lib/domain/orcamento";
+import { fmtBRL } from "@/lib/domain/types";
+
 const REGRAS = [
-  "Pedido mínimo: R$ 80",
-  "Lona e adesivo: cobrança mínima de 1 m²",
+  `Pedido mínimo: ${fmtBRL(PEDIDO_MINIMO)}`,
   "Entrada de 50% e saldo na entrega",
   "Parcelamento em até 10x",
   "Desconto apenas em Pix/dinheiro, para serviços grandes e mediante aprovação",
