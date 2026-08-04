@@ -13,19 +13,16 @@ export function atrasados(servicos: Servico[]): Servico[] {
 }
 
 export function dcPendenteList(servicos: Servico[]): Servico[] {
-  return servicos.filter(
-    (s) => s.estagio === "Double Check de Medidas" && !dcComplete(s.dc_admin, s.dc_producao)
-  );
+  return servicos.filter((s) => s.estagio === "Aprovado" && !dcComplete(s.dc_admin, s.dc_producao));
 }
 
+/** Serviços não concluídos com prazo hoje (a etapa "Instalação" não existe mais). */
 export function instalacoesHoje(servicos: Servico[]): Servico[] {
-  return servicos.filter((s) => s.estagio === "Instalação" && daysUntil(s.prazo) === 0);
+  return servicos.filter((s) => s.estagio !== "Concluído" && daysUntil(s.prazo) === 0);
 }
 
 export function emProducao(servicos: Servico[]): Servico[] {
-  return servicos.filter((s) =>
-    ["Arquivo Final", "Produção", "Acabamento", "Criação"].includes(s.estagio)
-  );
+  return servicos.filter((s) => s.estagio === "Aprovado");
 }
 
 /** All outstanding balance across active serviços. */
@@ -71,7 +68,6 @@ export interface KpisProducao {
   osAbertas: number;
   entreguesMes: number;
   instalacoesHoje: number;
-  visitasTecnicasPendentes: number;
   emProducao: number;
   dcPendenteProducao: number;
 }
@@ -91,7 +87,6 @@ export function computeKpisProducao(servicos: Servico[], today: Date = new Date(
     osAbertas: naoConcluidos(servicos).length,
     entreguesMes,
     instalacoesHoje: instalacoesHoje(servicos).length,
-    visitasTecnicasPendentes: servicos.filter((s) => s.estagio === "Visita Técnica").length,
     emProducao: emProducao(servicos).length,
     dcPendenteProducao,
   };

@@ -65,7 +65,7 @@ function AdminKpis({ servicos }: { servicos: Servico[] }) {
     <div className="grid grid-cols-3 gap-3">
       <KpiCard label="Serviços Atrasados" value={k.atrasados} hint="Prazo vencido" />
       <KpiCard label="Double Check Pendente" value={k.dcPendente} hint="Aguardando validação" />
-      <KpiCard label="Instalações Hoje" value={k.instalacoesHoje} hint="Agendadas para hoje" />
+      <KpiCard label="Prazo Hoje" value={k.instalacoesHoje} hint="Serviços com prazo hoje" />
       <KpiCard label="Caixa Previsto" value={fmtBRL(k.caixaPrevisto)} hint="A receber dos serviços ativos" gold />
       <KpiCard
         label="Recebimentos Previstos"
@@ -73,11 +73,7 @@ function AdminKpis({ servicos }: { servicos: Servico[] }) {
         hint="Próximos 7 dias"
         gold
       />
-      <KpiCard
-        label="Em Produção"
-        value={k.emProducao}
-        hint="Arquivo final, produção, acabamento e criação"
-      />
+      <KpiCard label="Em Produção" value={k.emProducao} hint="Serviços aprovados em andamento" />
     </div>
   );
 }
@@ -88,8 +84,7 @@ function ProducaoKpis({ servicos }: { servicos: Servico[] }) {
     <div className="grid grid-cols-3 gap-3">
       <KpiCard label="OS Abertas" value={k.osAbertas} />
       <KpiCard label="Serviços Entregues (mês)" value={k.entreguesMes} />
-      <KpiCard label="Instalações Hoje" value={k.instalacoesHoje} />
-      <KpiCard label="Visitas Técnicas Pendentes" value={k.visitasTecnicasPendentes} />
+      <KpiCard label="Prazo Hoje" value={k.instalacoesHoje} />
       <KpiCard label="Em Produção" value={k.emProducao} />
       <KpiCard label="Double Check Pendente (Produção)" value={k.dcPendenteProducao} />
     </div>

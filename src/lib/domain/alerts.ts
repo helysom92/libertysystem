@@ -25,7 +25,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
       });
     }
 
-    if (s.estagio === "Double Check de Medidas" && !dcComplete(s.dc_admin, s.dc_producao)) {
+    if (s.estagio === "Aprovado" && !dcComplete(s.dc_admin, s.dc_producao)) {
       alerts.push({
         texto: `${displayNumero(s)} (${s.cliente}) com Double Check pendente`,
         color: COLOR_AMBER,
@@ -64,7 +64,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
       });
     }
 
-    if (["Entrega", "Instalação"].includes(s.estagio) && s.valor_pago < s.valor) {
+    if (s.estagio === "Aprovado" && s.valor_pago < s.valor) {
       alerts.push({
         texto: `${displayNumero(s)} (${s.cliente}) com saldo pendente`,
         color: COLOR_GOLD,

@@ -47,9 +47,7 @@ export function computeGestaoBuckets(servicos: Servico[], comprovantes: Comprova
   });
   const dcPendente = dcPendenteList(servicos);
   const dcPendenteOuInvalidado = servicos.filter(
-    (s) =>
-      (s.estagio === "Double Check de Medidas" && dcPendente.includes(s)) ||
-      s.dc_invalidated_after_advance
+    (s) => dcPendente.includes(s) || s.dc_invalidated_after_advance
   );
 
   const comprovantesPendentesItems: BucketItem[] = comprovantes
@@ -74,13 +72,9 @@ export function computeGestaoBuckets(servicos: Servico[], comprovantes: Comprova
     bucket("Double Check Pendente", dcPendenteOuInvalidado, "rgba(224,166,78,0.35)", "#E0A64E"),
     bucket(
       "Aguardando Cliente",
-      servicos.filter((s) => ["Orçamento", "Aprovação do Cliente"].includes(s.estagio))
+      servicos.filter((s) => s.estagio === "Orçamento")
     ),
     bucket("Aguardando Produção", emProducao(servicos)),
-    bucket(
-      "Aguardando Instalação",
-      servicos.filter((s) => s.estagio === "Instalação")
-    ),
     bucket(
       "Saldo Pendente",
       servicos.filter((s) => s.valor_pago < s.valor && s.estagio !== "Concluído"),

@@ -11,74 +11,29 @@ export const TIPO_LABELS: Record<ServicoTipo, string> = {
   criacao: "Somente criação",
 };
 
+const MASTER_FLOW = ["Orçamento", "Aprovado", "Concluído"];
+
 export const FLOWS: Record<ServicoTipo, string[]> = {
-  medida_instalacao: [
-    "Lead",
-    "Orçamento",
-    "Aprovado",
-    "Visita Técnica",
-    "Double Check de Medidas",
-    "Arquivo Final",
-    "Produção",
-    "Acabamento",
-    "Instalação",
-    "Entrega",
-    "Concluído",
-  ],
-  medida_sem_instalacao: [
-    "Lead",
-    "Orçamento",
-    "Aprovado",
-    "Conferência de Medidas",
-    "Double Check de Medidas",
-    "Arquivo Final",
-    "Produção",
-    "Entrega",
-    "Concluído",
-  ],
-  simples: ["Pedido", "Orçamento", "Aprovado", "Arquivo Final", "Produção", "Entrega", "Concluído"],
-  criacao: [
-    "Briefing",
-    "Orçamento",
-    "Aprovado",
-    "Criação",
-    "Aprovação do Cliente",
-    "Arquivo Final",
-    "Concluído",
-  ],
+  medida_instalacao: MASTER_FLOW,
+  medida_sem_instalacao: MASTER_FLOW,
+  simples: MASTER_FLOW,
+  criacao: MASTER_FLOW,
 };
 
-export const MASTER_STAGE_ORDER = [
-  "Briefing",
-  "Pedido",
-  "Lead",
-  "Orçamento",
-  "Aprovado",
-  "Visita Técnica",
-  "Conferência de Medidas",
-  "Double Check de Medidas",
-  "Criação",
-  "Aprovação do Cliente",
-  "Arquivo Final",
-  "Produção",
-  "Acabamento",
-  "Instalação",
-  "Entrega",
-  "Concluído",
-];
+export const MASTER_STAGE_ORDER = MASTER_FLOW;
+
+/** Rótulo de exibição por etapa — o valor cru salvo no banco não muda. */
+export const ESTAGIO_LABELS: Record<string, string> = {
+  Orçamento: "Orçamento",
+  Aprovado: "Ordem de Serviço (OS)",
+  Concluído: "Concluído",
+};
 
 export function flowFor(tipo: ServicoTipo): string[] {
   return FLOWS[tipo] || FLOWS.simples;
 }
 
-const PRODUCAO_FISICA_STAGES = new Set([
-  "Arquivo Final",
-  "Produção",
-  "Acabamento",
-  "Instalação",
-  "Entrega",
-  "Concluído",
-]);
+const PRODUCAO_FISICA_STAGES = new Set(["Aprovado"]);
 
 /** Coarse phase grouping for Kanban column coloring (plan §5, "cores por fase"). */
 export function faseDaEtapa(estagio: string): "interno" | "producao" {
@@ -114,21 +69,8 @@ export const DC_PROD_LABELS = [
 ];
 
 export const STAGE_ACTIONS: Record<string, { acao: string; responsavel: string }> = {
-  Briefing: { acao: "Fazer briefing com o cliente", responsavel: "Secretaria" },
-  Pedido: { acao: "Confirmar pedido", responsavel: "Secretaria" },
-  Lead: { acao: "Enviar orçamento", responsavel: "Secretaria" },
   Orçamento: { acao: "Aguardar aprovação do cliente", responsavel: "Secretaria" },
-  Aprovado: { acao: "Iniciar próxima etapa", responsavel: "Secretaria" },
-  "Visita Técnica": { acao: "Realizar visita técnica", responsavel: "Produção" },
-  "Conferência de Medidas": { acao: "Conferir medidas", responsavel: "Produção" },
-  "Double Check de Medidas": { acao: "Validar Double Check", responsavel: "Administrador" },
-  Criação: { acao: "Criar arte", responsavel: "Produção" },
-  "Aprovação do Cliente": { acao: "Aguardar aprovação da arte", responsavel: "Secretaria" },
-  "Arquivo Final": { acao: "Fechar arquivo de produção", responsavel: "Produção" },
-  Produção: { acao: "Produzir material", responsavel: "Produção" },
-  Acabamento: { acao: "Fazer acabamento", responsavel: "Produção" },
-  Instalação: { acao: "Instalar no cliente", responsavel: "Produção" },
-  Entrega: { acao: "Confirmar entrega", responsavel: "Secretaria" },
+  Aprovado: { acao: "Executar serviço (produção/instalação)", responsavel: "Produção" },
   Concluído: { acao: "Nenhuma", responsavel: "—" },
 };
 

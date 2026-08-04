@@ -1,12 +1,8 @@
+import { TIPO_LABELS } from "@/lib/domain/flows";
 import type { Servico } from "@/lib/domain/types";
 
-function categoria(estagio: string): string {
-  if (estagio === "Double Check de Medidas") return "Aprovações e Double Check";
-  if (["Visita Técnica", "Conferência de Medidas"].includes(estagio)) return "Medições e Visitas";
-  if (estagio === "Instalação") return "Instalações";
-  if (estagio === "Entrega") return "Entregas";
-  if (["Produção", "Acabamento", "Arquivo Final", "Criação"].includes(estagio)) return "Produção";
-  return "Outros";
+function categoria(servico: Servico): string {
+  return TIPO_LABELS[servico.tipo];
 }
 
 export default function MeuTrabalho({
@@ -22,7 +18,7 @@ export default function MeuTrabalho({
 
   const groups = new Map<string, Servico[]>();
   for (const s of meus) {
-    const cat = categoria(s.estagio);
+    const cat = categoria(s);
     groups.set(cat, [...(groups.get(cat) ?? []), s]);
   }
 

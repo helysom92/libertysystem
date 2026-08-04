@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import type { ServicoDetail } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { computeIaAlerts } from "@/lib/domain/alerts";
-import { dcComplete, flowFor, PRIORIDADES, type Role } from "@/lib/domain/flows";
+import { dcComplete, ESTAGIO_LABELS, flowFor, PRIORIDADES, type Role } from "@/lib/domain/flows";
 import {
   moveServico,
   toggleDcItem,
@@ -46,14 +46,20 @@ export default function ResumoTab({
   const noBack = idx <= 0;
   const noAdvance = idx >= flow.length - 1;
   const dcOk = dcComplete(servico.dc_admin, servico.dc_producao);
-  const blockedByDC = servico.estagio === "Double Check de Medidas" && !dcOk;
 
-  const entregaOk = !flow.includes("Entrega") || servico.entrega_confirmada;
+  const entregaOk = servico.entrega_confirmada;
   const financeiroOk = ["Pago", "Cortesia"].includes(servico.financeiro_status) || servico.liberado_admin;
   const blockedByConclusao = idx === flow.length - 2 && !(entregaOk && financeiroOk);
 
-  const showEntregaConfirm = flow.includes("Entrega") && servico.estagio === "Entrega";
+  const showEntregaConfirm = servico.estagio === "Aprovado";
   const showLiberarAdmin = idx === flow.length - 2 && role === "administrador";
+
+  const advanceLabel =
+    servico.estagio === "Orçamento"
+      ? "Aprovar Orçamento → Gerar OS"
+      : servico.estagio === "Aprovado"
+        ? "Concluir Serviço"
+        : "Avançar ▶";
 
   const dcAdminDisabled = role !== "administrador";
   const dcProducaoDisabled = !["administrador", "producao"].includes(role);
@@ -110,7 +116,7 @@ export default function ResumoTab({
           <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">
             Etapa Operacional
           </p>
-          <p className="text-sm font-semibold">{servico.estagio}</p>
+          <p className="text-sm font-semibold">{ESTAGIO_LABELS[servico.estagio] ?? servico.estagio}</p>
         </div>
         <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
           <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">
@@ -244,7 +250,7 @@ export default function ResumoTab({
       {(servico.dc_admin.length > 0 || servico.dc_producao.length > 0) && (
         <div className="rounded-card border border-border-gold-strong bg-card-secondary p-3">
           <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">
-            Double Check de Medidas {dcOk ? "· Completo" : "· Pendente"}
+            Marcadores de Acompanhamento (medidas) {dcOk ? "· Completo" : "· Pendente"}
           </p>
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -342,11 +348,11 @@ export default function ResumoTab({
         </button>
         <button
           type="button"
-          disabled={noAdvance || pending || blockedByDC}
+          disabled={noAdvance || pending}
           onClick={() => move(1)}
           className="flex-1 rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark py-2 text-sm font-semibold text-bg disabled:opacity-30"
         >
-          Avançar ▶
+          {advanceLabel}
         </button>
       </div>
 

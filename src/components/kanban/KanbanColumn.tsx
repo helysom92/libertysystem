@@ -1,7 +1,7 @@
 "use client";
 
 import { useDroppable } from "@dnd-kit/core";
-import { faseDaEtapa } from "@/lib/domain/flows";
+import { ESTAGIO_LABELS, faseDaEtapa } from "@/lib/domain/flows";
 import type { Servico } from "@/lib/domain/types";
 import ServicoCard from "./ServicoCard";
 
@@ -36,7 +36,7 @@ export default function KanbanColumn({
           className="h-1.5 w-1.5 rounded-full"
           style={{ backgroundColor: fase === "producao" ? "#C9A24B" : "rgba(244,242,236,0.35)" }}
         />
-        {estagio} · {items.length}
+        {ESTAGIO_LABELS[estagio] ?? estagio} · {items.length}
       </p>
       <div className="flex flex-col gap-3">
         {items.map((s) => (

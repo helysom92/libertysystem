@@ -2,7 +2,7 @@
 
 import { useDraggable } from "@dnd-kit/core";
 import { CSS } from "@dnd-kit/utilities";
-import { dcComplete, flowFor } from "@/lib/domain/flows";
+import { flowFor } from "@/lib/domain/flows";
 import { displayNumero, fmtBRL, type Servico } from "@/lib/domain/types";
 import FinanceiroBadge from "@/components/ui/FinanceiroBadge";
 import { moveServico } from "@/lib/actions/servicos";
@@ -27,9 +27,6 @@ export default function ServicoCard({
   const idx = flow.indexOf(servico.estagio);
   const noBack = idx <= 0;
   const noAdvance = idx >= flow.length - 1;
-  const blockedByDC =
-    servico.estagio === "Double Check de Medidas" &&
-    !dcComplete(servico.dc_admin, servico.dc_producao);
 
   function move(dir: 1 | -1) {
     startTransition(() => {
@@ -105,9 +102,8 @@ export default function ServicoCard({
           </button>
           <button
             type="button"
-            disabled={noAdvance || pending || blockedByDC}
+            disabled={noAdvance || pending}
             onClick={() => move(1)}
-            title={blockedByDC ? "Double Check pendente" : undefined}
             className="flex-1 rounded-btn border border-border-gold-strong bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark py-1.5 text-xs font-semibold text-bg disabled:opacity-30"
           >
             ▶
