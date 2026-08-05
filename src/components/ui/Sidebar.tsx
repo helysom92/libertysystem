@@ -6,6 +6,7 @@ import { signOut } from "@/lib/actions/auth";
 
 const TAB_LABELS: Record<string, string> = {
   hoje: "Hoje",
+  dashboard: "Dashboard",
   servicos: "Serviços",
   agenda: "Agenda",
   clientes: "Clientes",

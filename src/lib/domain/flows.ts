@@ -111,6 +111,7 @@ export function allowedTabs(role: Role): string[] {
   if (role === "producao") return ["hoje", "servicos", "agenda", "clientes"];
   return [
     "hoje",
+    "dashboard",
     "servicos",
     "agenda",
     "clientes",
