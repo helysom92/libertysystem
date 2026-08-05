@@ -1,6 +1,23 @@
 import { createClient } from "@/lib/supabase/server";
-import { displayNumero, fmtBRL } from "@/lib/domain/types";
+import { getSignedUrl } from "@/lib/actions/servicoDetail";
+import { calcularItemOrcamento, type OrcamentoItemDraft } from "@/lib/domain/orcamento";
+import { formatItemDetalhe } from "@/lib/domain/orcamentoText";
+import type { ItemOrcamento, OrcamentoItemRow } from "@/lib/domain/types";
+import OrcamentoDocumento, { type OrcamentoDocumentoItem } from "@/components/servico-modal/OrcamentoDocumento";
 import PrintTrigger from "./PrintTrigger";
+
+function toDraft(row: OrcamentoItemRow): OrcamentoItemDraft {
+  return {
+    categoriaPrazo: row.categoria_prazo,
+    modoCalculo: row.modo_calculo,
+    itemOrcamentoId: row.item_orcamento_id,
+    larguraCm: row.largura_cm ?? 0,
+    alturaCm: row.altura_cm ?? 0,
+    quantidade: row.quantidade,
+    custoDireto: row.custo_direto ?? 0,
+    precoM2Manual: row.preco_m2_manual ?? 0,
+  };
+}
 
 export default async function ImprimirServicoPage({
   params,
@@ -11,41 +28,59 @@ export default async function ImprimirServicoPage({
   const supabase = await createClient();
 
   const { data: servico } = await supabase.from("servicos").select("*").eq("id", id).single();
-  if (!servico) return <p>Serviço não encontrado.</p>;
+  if (!servico) return <p style={{ padding: 32 }}>Serviço não encontrado.</p>;
 
-  const { data: cliente } = await supabase
-    .from("clientes")
-    .select("*")
-    .eq("id", servico.cliente_id)
-    .single();
+  const [{ data: cliente }, { data: orcamentoItens }, { data: catalogo }] = await Promise.all([
+    supabase.from("clientes").select("*").eq("id", servico.cliente_id).single(),
+    supabase.from("orcamento_itens").select("*").eq("servico_id", id).order("ordem"),
+    supabase.from("itens_orcamento").select("*"),
+  ]);
 
-  const rows: [string, string][] = [
-    ["Cliente", servico.cliente],
-    ["Telefone", cliente?.whatsapp || "—"],
-    ["Valor", fmtBRL(servico.valor)],
-    ["Prazo", servico.prazo || "—"],
-    ["Financeiro", servico.financeiro_status],
-    ["Etapa", servico.estagio],
-  ];
+  const rows = (orcamentoItens as OrcamentoItemRow[]) ?? [];
+  const catalogItens = (catalogo as ItemOrcamento[]) ?? [];
+
+  const itens: OrcamentoDocumentoItem[] = rows.map((row) => {
+    const calc = calcularItemOrcamento(toDraft(row), catalogItens);
+    const itemCatalogo = catalogItens.find((i) => i.id === row.item_orcamento_id);
+    return {
+      descricao: row.descricao,
+      categoriaPrazo: row.categoria_prazo,
+      detalhe: formatItemDetalhe(row.modo_calculo, calc, {
+        itemNome: itemCatalogo?.nome,
+        larguraCm: row.largura_cm,
+        alturaCm: row.altura_cm,
+        quantidade: row.quantidade,
+      }),
+      valorUnit: calc.unit,
+      valorFinal: row.valor_final,
+    };
+  });
+
+  let fotoUrl: string | null = null;
+  if (servico.capa_foto_id) {
+    const { data: foto } = await supabase
+      .from("fotos")
+      .select("storage_path")
+      .eq("id", servico.capa_foto_id)
+      .single();
+    if (foto?.storage_path) fotoUrl = await getSignedUrl("fotos", foto.storage_path);
+  }
 
   return (
-    <div style={{ fontFamily: "sans-serif", padding: 32, color: "#111" }}>
-      <h1 style={{ fontSize: 22, marginBottom: 4 }}>LIBERTY VISUAL E MARKETING</h1>
-      <p style={{ marginBottom: 20, color: "#555" }}>
-        {displayNumero(servico)} — {servico.descricao}
-      </p>
-      <table style={{ borderCollapse: "collapse", width: "100%" }}>
-        <tbody>
-          {rows.map(([label, value]) => (
-            <tr key={label}>
-              <td style={{ padding: "6px 12px", fontWeight: 600, border: "1px solid #ccc" }}>
-                {label}
-              </td>
-              <td style={{ padding: "6px 12px", border: "1px solid #ccc" }}>{value}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div style={{ background: "#fff", minHeight: "100vh", paddingTop: 24 }}>
+      <style>{`@page { margin: 0.4in; }`}</style>
+      <OrcamentoDocumento
+        numero={servico.numero}
+        descricaoServico={servico.descricao}
+        valorServico={servico.valor}
+        clienteNome={cliente?.nome ?? servico.cliente}
+        linha={servico.linha_orcamento}
+        validadeDias={servico.validade_proposta_dias}
+        formaPagamentoTexto={servico.forma_pagamento_texto}
+        durabilidadeTexto={servico.durabilidade_texto}
+        itens={itens}
+        fotoUrl={fotoUrl}
+      />
       <PrintTrigger />
     </div>
   );

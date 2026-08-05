@@ -87,6 +87,33 @@ export function calcularItemOrcamento(
   return { area: null, sugerido: unit * quantidade, unit, minimoAplicado: false };
 }
 
+/** Maior prazo entre os itens do orçamento (rank mais alto vence), como texto pro cliente. */
+export function prazoEstimadoLabel(categorias: CategoriaPrazo[]): string | null {
+  const maxRank = categorias.reduce((max, c) => Math.max(max, CATEGORIA_PRAZO_INFO[c].rank), 0);
+  return Object.values(CATEGORIA_PRAZO_INFO).find((c) => c.rank === maxRank)?.prazoLabel ?? null;
+}
+
+// ── Linha comercial da proposta (Promocional/Custo-Benefício/Premium) ──────
+export type LinhaOrcamento = "promocional" | "custo_beneficio" | "premium";
+
+export const LINHA_ORCAMENTO_INFO: Record<LinhaOrcamento, { label: string; sub: string; ring: string }> = {
+  promocional: {
+    label: "Linha Promocional",
+    sub: "Opção de entrada, ótimo custo para resultado imediato.",
+    ring: "#dcd3bd",
+  },
+  custo_beneficio: {
+    label: "1ª Linha · Custo-Benefício",
+    sub: "Melhor equilíbrio entre durabilidade e investimento.",
+    ring: "#e8cf8a",
+  },
+  premium: {
+    label: "Linha Premium",
+    sub: "Máxima durabilidade e acabamento superior.",
+    ring: "#c89b3c",
+  },
+};
+
 export function novoItemOrcamentoDraft(categoriaPrazo: CategoriaPrazo = "balcao"): OrcamentoItemDraft {
   return {
     categoriaPrazo,

@@ -1,4 +1,5 @@
 import type { DcItem, FinanceiroStatus, Prioridade, ServicoTipo } from "./flows";
+import type { LinhaOrcamento } from "./orcamento";
 
 export interface Servico {
   id: string;
@@ -26,6 +27,11 @@ export interface Servico {
   dc_producao: DcItem[];
   dc_invalidated_after_advance: boolean;
   capa_foto_id: string | null;
+  linha_orcamento: LinhaOrcamento;
+  validade_proposta_dias: number;
+  forma_pagamento_texto: string | null;
+  durabilidade_texto: string | null;
+  share_token: string | null;
 }
 
 export type ClienteStatus = "pre_cadastro" | "regularizado" | "inativo";

@@ -6,7 +6,12 @@ import { createOrcamentoItens } from "@/lib/actions/orcamentoItens";
 import { TIPO_LABELS, type ServicoTipo } from "@/lib/domain/flows";
 import type { Cliente, ItemOrcamento } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
-import { CATEGORIA_PRAZO_INFO, calcularItemOrcamento } from "@/lib/domain/orcamento";
+import {
+  LINHA_ORCAMENTO_INFO,
+  calcularItemOrcamento,
+  prazoEstimadoLabel,
+  type LinhaOrcamento,
+} from "@/lib/domain/orcamento";
 import { buildOrcamentoText, type OrcamentoTextItem } from "@/lib/domain/orcamentoText";
 import ClienteAutocomplete from "./ClienteAutocomplete";
 import OrcamentoItemRow, { novoItemFormState, valorFinalDoItem, type ItemFormState } from "./OrcamentoItemRow";
@@ -37,6 +42,11 @@ export default function NovoServicoModal({
   const [observacoes, setObservacoes] = useState("");
   const [copiado, setCopiado] = useState(false);
 
+  const [linha, setLinha] = useState<LinhaOrcamento>("custo_beneficio");
+  const [formaPagamento, setFormaPagamento] = useState("");
+  const [formaPagamentoDirty, setFormaPagamentoDirty] = useState(false);
+  const [durabilidade, setDurabilidade] = useState("");
+
   const clienteRecord = clientes.find((c) => c.nome.toLowerCase() === cliente.toLowerCase()) ?? null;
 
   const total = useMemo(
@@ -44,11 +54,30 @@ export default function NovoServicoModal({
     [itens, itensOrcamento]
   );
 
-  const maxRank = useMemo(
-    () => itens.reduce((max, item) => Math.max(max, CATEGORIA_PRAZO_INFO[item.categoriaPrazo].rank), 0),
+  const prazoLabel = useMemo(
+    () => prazoEstimadoLabel(itens.map((i) => i.categoriaPrazo)),
     [itens]
   );
-  const prazoEstimadoLabel = Object.values(CATEGORIA_PRAZO_INFO).find((c) => c.rank === maxRank)?.prazoLabel;
+
+  function composeFormaPagamento(flags: { entrada: boolean; cartao: boolean; desconto: boolean }) {
+    const parts: string[] = [];
+    if (flags.entrada) parts.push("50% na entrada e 50% do valor na entrega do serviço.");
+    if (flags.cartao) parts.push("Parcelamos no cartão, consulte as condições.");
+    if (flags.desconto) parts.push("Desconto especial à vista, no Pix ou dinheiro.");
+    return parts.join(" ");
+  }
+
+  function onToggleCond(which: "entrada" | "cartao" | "desconto", value: boolean) {
+    const flags = {
+      entrada: which === "entrada" ? value : condEntrada,
+      cartao: which === "cartao" ? value : condCartao,
+      desconto: which === "desconto" ? value : condDesconto,
+    };
+    if (which === "entrada") setCondEntrada(value);
+    if (which === "cartao") setCondCartao(value);
+    if (which === "desconto") setCondDesconto(value);
+    if (!formaPagamentoDirty) setFormaPagamento(composeFormaPagamento(flags));
+  }
 
   function addItem() {
     setItens((prev) => [...prev, novoItemFormState()]);
@@ -115,6 +144,10 @@ export default function NovoServicoModal({
           valor: total,
           prazo: prazo || null,
           tipo,
+          linha_orcamento: linha,
+          validade_proposta_dias: Number(validadeDias) || 7,
+          forma_pagamento_texto: formaPagamento || null,
+          durabilidade_texto: durabilidade || null,
         });
         await createOrcamentoItens(
           servicoId,
@@ -195,9 +228,9 @@ export default function NovoServicoModal({
           <span className="text-[13px] font-semibold text-bg">Total do orçamento</span>
           <span className="font-display text-lg font-bold text-bg">{fmtBRL(total)}</span>
         </div>
-        {prazoEstimadoLabel && (
+        {prazoLabel && (
           <p className="mb-3 text-[11.5px] text-text-muted">
-            Prazo estimado de entrega: {prazoEstimadoLabel}
+            Prazo estimado de entrega: {prazoLabel}
           </p>
         )}
 
@@ -224,15 +257,27 @@ export default function NovoServicoModal({
 
         <div className="mb-3 flex flex-col gap-1.5 text-[12.5px]">
           <label className="flex items-center gap-2">
-            <input type="checkbox" checked={condEntrada} onChange={(e) => setCondEntrada(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={condEntrada}
+              onChange={(e) => onToggleCond("entrada", e.target.checked)}
+            />
             50% na entrada e 50% do valor na entrega do serviço
           </label>
           <label className="flex items-center gap-2">
-            <input type="checkbox" checked={condCartao} onChange={(e) => setCondCartao(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={condCartao}
+              onChange={(e) => onToggleCond("cartao", e.target.checked)}
+            />
             Parcelamos no cartão, consulte as condições
           </label>
           <label className="flex items-center gap-2">
-            <input type="checkbox" checked={condDesconto} onChange={(e) => setCondDesconto(e.target.checked)} />
+            <input
+              type="checkbox"
+              checked={condDesconto}
+              onChange={(e) => onToggleCond("desconto", e.target.checked)}
+            />
             Desconto especial à vista, no Pix ou dinheiro
           </label>
         </div>
@@ -242,6 +287,48 @@ export default function NovoServicoModal({
           onChange={(e) => setObservacoes(e.target.value)}
           placeholder="Outras observações (opcional)..."
           rows={2}
+          className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+        />
+
+        <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">
+          Documento da proposta (opcional)
+        </p>
+        <div className="mb-3 flex gap-1">
+          {(Object.keys(LINHA_ORCAMENTO_INFO) as LinhaOrcamento[]).map((l) => (
+            <button
+              key={l}
+              type="button"
+              onClick={() => setLinha(l)}
+              className={`flex-1 rounded-btn border px-2 py-1.5 text-[11.5px] ${
+                linha === l
+                  ? "border-gold bg-gold/10 text-gold"
+                  : "border-border-neutral text-text-secondary"
+              }`}
+            >
+              {LINHA_ORCAMENTO_INFO[l].label}
+            </button>
+          ))}
+        </div>
+        <label className="mb-1 block text-xs text-text-secondary">
+          Forma de pagamento (documento)
+        </label>
+        <textarea
+          value={formaPagamento}
+          onChange={(e) => {
+            setFormaPagamento(e.target.value);
+            setFormaPagamentoDirty(true);
+          }}
+          rows={2}
+          placeholder="A combinar"
+          className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+        />
+        <label className="mb-1 block text-xs text-text-secondary">
+          Durabilidade estimada (opcional)
+        </label>
+        <input
+          value={durabilidade}
+          onChange={(e) => setDurabilidade(e.target.value)}
+          placeholder="Ex: 2 a 5 anos, pintura sem desbotar"
           className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
         />
 

@@ -1,9 +1,33 @@
 import { fmtBRL } from "./types";
-import { CATEGORIA_PRAZO_INFO, type CategoriaPrazo, type ModoCalculoItem } from "./orcamento";
+import {
+  CATEGORIA_PRAZO_INFO,
+  prazoEstimadoLabel,
+  type CategoriaPrazo,
+  type ModoCalculoItem,
+  type OrcamentoItemCalculo,
+} from "./orcamento";
 
 // Dados fixos da empresa, iguais ao cabeçalho do app "Orçamento Liberty".
-const LIBERTY_TELEFONE = "(67) 99983-1562";
-const LIBERTY_CNPJ = "57.663.033/0001-39";
+export const LIBERTY_TELEFONE = "(67) 99983-1562";
+export const LIBERTY_CNPJ = "57.663.033/0001-39";
+export const LIBERTY_ENDERECO = "Dr. Julio Siqueira Maia, 2161, Progresso";
+export const LIBERTY_CIDADE = "Rio Brilhante - MS, 79.130-000";
+
+/** Linha de detalhe curta de um item (ex. "90cm x 120cm x 1un = 1,08 m²"), pro documento visual. */
+export function formatItemDetalhe(
+  modoCalculo: ModoCalculoItem,
+  calc: OrcamentoItemCalculo,
+  opts: { itemNome?: string | null; larguraCm?: number | null; alturaCm?: number | null; quantidade: number }
+): string {
+  if (modoCalculo === "catalogo") {
+    if (calc.area == null) return `${opts.itemNome ?? "-"} · Qtd: ${opts.quantidade}`;
+    return `${opts.itemNome ?? "-"} · ${opts.larguraCm ?? 0}cm x ${opts.alturaCm ?? 0}cm x ${opts.quantidade}un = ${calc.area.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} m²`;
+  }
+  if (modoCalculo === "m2_manual") {
+    return `${opts.larguraCm ?? 0}cm x ${opts.alturaCm ?? 0}cm x ${opts.quantidade}un = ${(calc.area ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} m² (${fmtBRL(calc.unit)}/m²)`;
+  }
+  return `Qtd: ${opts.quantidade} · Valor unit: ${fmtBRL(calc.unit)}`;
+}
 
 export interface OrcamentoTextItem {
   descricao: string;
@@ -44,10 +68,8 @@ export function buildOrcamentoText(itens: OrcamentoTextItem[], opts: OrcamentoTe
   lines.push("");
   lines.push("------------------------------");
 
-  let maxRank = 0;
   itens.forEach((item, idx) => {
     const info = CATEGORIA_PRAZO_INFO[item.categoriaPrazo];
-    if (info.rank > maxRank) maxRank = info.rank;
 
     lines.push(`${idx + 1}. ${item.descricao || "(sem descrição)"} [${info.label}]`);
 
@@ -75,10 +97,8 @@ export function buildOrcamentoText(itens: OrcamentoTextItem[], opts: OrcamentoTe
   const total = itens.reduce((sum, item) => sum + item.valorFinal, 0);
   lines.push(`*TOTAL: ${fmtBRL(total)}*`);
   lines.push("");
-  if (maxRank > 0) {
-    const info = Object.values(CATEGORIA_PRAZO_INFO).find((s) => s.rank === maxRank);
-    if (info) lines.push(`*Prazo estimado de entrega:* ${info.prazoLabel}`);
-  }
+  const prazo = prazoEstimadoLabel(itens.map((i) => i.categoriaPrazo));
+  if (prazo) lines.push(`*Prazo estimado de entrega:* ${prazo}`);
   lines.push(`Validade da proposta: ${opts.validadeDias} dias`);
 
   if (opts.condicoes.entrada50) lines.push("50% na entrada e 50% do valor na entrega do serviço.");

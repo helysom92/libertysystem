@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { ServicoTipo } from "@/lib/domain/flows";
+import type { LinhaOrcamento } from "@/lib/domain/orcamento";
 
 export interface NovoServicoInput {
   cliente: string;
@@ -10,6 +11,10 @@ export interface NovoServicoInput {
   valor: number;
   prazo: string | null;
   tipo: ServicoTipo;
+  linha_orcamento?: LinhaOrcamento;
+  validade_proposta_dias?: number;
+  forma_pagamento_texto?: string | null;
+  durabilidade_texto?: string | null;
 }
 
 export async function createServico(input: NovoServicoInput) {
@@ -29,6 +34,10 @@ export async function createServico(input: NovoServicoInput) {
       valor: input.valor,
       tipo: input.tipo,
       prazo: input.prazo,
+      linha_orcamento: input.linha_orcamento,
+      validade_proposta_dias: input.validade_proposta_dias,
+      forma_pagamento_texto: input.forma_pagamento_texto,
+      durabilidade_texto: input.durabilidade_texto,
     })
     .select("id")
     .single();
@@ -118,6 +127,28 @@ export async function updateFinanceiro(
   if (error) throw error;
   revalidatePath("/servicos");
   revalidatePath("/financeiro");
+}
+
+export async function updatePropostaOrcamento(
+  servicoId: string,
+  fields: Partial<{
+    linha_orcamento: LinhaOrcamento;
+    validade_proposta_dias: number;
+    forma_pagamento_texto: string | null;
+    durabilidade_texto: string | null;
+  }>
+) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("servicos").update(fields).eq("id", servicoId);
+  if (error) throw error;
+  revalidatePath("/servicos");
+}
+
+export async function ensureShareToken(servicoId: string): Promise<string> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("ensure_share_token", { p_servico_id: servicoId });
+  if (error) throw error;
+  return data as string;
 }
 
 export async function deleteServico(servicoId: string) {

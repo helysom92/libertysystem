@@ -113,7 +113,9 @@ export default function CentralDoServico({
                 <ResumoTab detail={detail} role={role} onChanged={reload} onClose={onClose} />
               )}
               {tab === "cliente" && <ClienteTab detail={detail} onChanged={reload} />}
-              {tab === "itens" && <OrcamentoItensTab detail={detail} itensOrcamento={itensOrcamento} />}
+              {tab === "itens" && (
+                <OrcamentoItensTab detail={detail} itensOrcamento={itensOrcamento} onChanged={reload} />
+              )}
               {tab === "medidas" && <MedidasTab detail={detail} onChanged={reload} />}
               {tab === "arquivos" && <ArquivosTab detail={detail} onChanged={reload} />}
               {tab === "fotos" && <FotosTab detail={detail} onChanged={reload} />}

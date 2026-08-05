@@ -30,10 +30,14 @@ export async function updateSession(request: NextRequest) {
   // "/" and "/reset-password" must render without a server-side redirect: the Supabase
   // recovery link lands here carrying the session tokens in the URL hash fragment, which
   // never reaches the server — only client-side JS on these pages can read and use it.
+  // "/proposta/[token]" is the public share link sent to clients over WhatsApp — they have
+  // no login, so it must never redirect to /login; the page itself only ever reads data
+  // through the narrow get_proposta_publica() RPC, never the authenticated tables directly.
   const isPublicRoute =
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname === "/" ||
-    request.nextUrl.pathname.startsWith("/reset-password");
+    request.nextUrl.pathname.startsWith("/reset-password") ||
+    request.nextUrl.pathname.startsWith("/proposta/");
 
   if (!user && !isPublicRoute) {
     const url = request.nextUrl.clone();
