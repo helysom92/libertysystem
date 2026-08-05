@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { createClient } from "./server";
 import type { Role } from "@/lib/domain/flows";
 
@@ -7,7 +8,10 @@ export interface Profile {
   role: Role;
 }
 
-export async function getCurrentProfile(): Promise<Profile | null> {
+// React's cache() dedupes calls within a single request — the (dashboard) layout
+// and every page both call getCurrentProfile(); without this each navigation did
+// two separate round trips (auth.getUser() + profiles select) for the same data.
+export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -21,4 +25,4 @@ export async function getCurrentProfile(): Promise<Profile | null> {
     .single();
 
   return data as Profile | null;
-}
+});

@@ -1,14 +1,16 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { createClient } from "@/lib/supabase/server";
+import { allowedTabs, homeTabFor } from "@/lib/domain/flows";
 import { computeGestaoBuckets } from "@/lib/domain/gestaoBuckets";
 import type { Comprovante, Servico } from "@/lib/domain/types";
 import BucketCard from "@/components/gestao/BucketCard";
 
 export default async function GestaoPage() {
   const profile = await getCurrentProfile();
-  if (profile?.role !== "administrador") {
-    redirect("/hoje");
+  const role = profile?.role ?? "secretaria";
+  if (!allowedTabs(role).includes("gestao")) {
+    redirect(`/${homeTabFor(role)}`);
   }
 
   const supabase = await createClient();

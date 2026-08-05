@@ -1,8 +1,9 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { computeKpisAdmin, computeKpisProducao } from "@/lib/domain/kpis";
 import { computeIaAlerts } from "@/lib/domain/alerts";
-import { ROLE_LABELS } from "@/lib/domain/flows";
+import { allowedTabs, homeTabFor, ROLE_LABELS } from "@/lib/domain/flows";
 import { fmtBRL } from "@/lib/domain/types";
 import type { Comprovante, Lancamento, Servico } from "@/lib/domain/types";
 import KpiCard from "@/components/hoje/KpiCard";
@@ -11,9 +12,13 @@ import AlertasIA from "@/components/hoje/AlertasIA";
 import SemFinanceiroPosEntrega from "@/components/hoje/SemFinanceiroPosEntrega";
 
 export default async function HojePage() {
-  const supabase = await createClient();
   const profile = await getCurrentProfile();
   const role = profile?.role ?? "secretaria";
+  if (!allowedTabs(role).includes("hoje")) {
+    redirect(`/${homeTabFor(role)}`);
+  }
+
+  const supabase = await createClient();
 
   const [{ data: servicos }, { data: comprovantes }, { data: lancamentos }] = await Promise.all([
     supabase.from("servicos").select("*"),

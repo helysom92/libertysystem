@@ -1,19 +1,20 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/lib/actions/auth";
 
 const TAB_LABELS: Record<string, string> = {
   hoje: "Hoje",
-  dashboard: "Dashboard",
+  administrativo: "Administrativo",
   servicos: "Serviços",
   agenda: "Agenda",
   clientes: "Clientes",
   fornecedores: "Fornecedores",
   financeiro: "Financeiro",
   relatorios: "Relatórios",
-  materiais: "Materiais",
+  produtos: "Produtos",
   gestao: "Gestão",
 };
 
@@ -31,8 +32,7 @@ export default function Sidebar({
   return (
     <aside className="no-print flex w-[230px] shrink-0 flex-col border-r border-border-neutral bg-card-secondary px-5 py-7">
       <div className="mb-1">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/liberty-logo.png" alt="Liberty" className="h-7 w-auto object-contain" />
+        <Image src="/liberty-logo.png" alt="Liberty" width={160} height={44} priority className="h-7 w-auto object-contain" />
       </div>
       <p className="mb-8 text-[10.5px] tracking-wide text-text-muted uppercase">
         Sistema Operacional

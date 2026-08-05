@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { createClient } from "@/lib/supabase/server";
+import { allowedTabs, homeTabFor } from "@/lib/domain/flows";
 import { todayISO } from "@/lib/domain/dates";
 import type {
   Cliente,
@@ -15,10 +16,11 @@ import type {
 import type { Meta } from "@/lib/domain/dashboardMetrics";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 
-export default async function DashboardPage() {
+export default async function AdministrativoPage() {
   const profile = await getCurrentProfile();
-  if (profile?.role !== "administrador") {
-    redirect("/hoje");
+  const role = profile?.role ?? "secretaria";
+  if (!allowedTabs(role).includes("administrativo")) {
+    redirect(`/${homeTabFor(role)}`);
   }
 
   const supabase = await createClient();
@@ -47,7 +49,7 @@ export default async function DashboardPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="font-display text-xl font-bold">Dashboard</h1>
+        <h1 className="font-display text-xl font-bold">Administrativo</h1>
         <p className="text-[13px] text-text-secondary">
           Painel administrativo — vendas, despesas, calendário e metas
         </p>

@@ -106,21 +106,27 @@ export function allowedTabs(role: Role): string[] {
       "fornecedores",
       "financeiro",
       "relatorios",
-      "materiais",
+      "produtos",
+      "gestao",
     ];
-  if (role === "producao") return ["hoje", "servicos", "agenda", "clientes"];
+  if (role === "producao") return ["servicos", "agenda"];
   return [
     "hoje",
-    "dashboard",
+    "administrativo",
     "servicos",
     "agenda",
     "clientes",
     "fornecedores",
     "financeiro",
     "relatorios",
-    "materiais",
+    "produtos",
     "gestao",
   ];
+}
+
+/** Pra onde mandar quem tenta abrir uma tela que o papel dele não tem acesso. */
+export function homeTabFor(role: Role): string {
+  return role === "producao" ? "servicos" : "hoje";
 }
 
 export interface DcItem {

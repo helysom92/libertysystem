@@ -1,4 +1,7 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/supabase/profile";
+import { allowedTabs, homeTabFor } from "@/lib/domain/flows";
 import { fmtBRL } from "@/lib/domain/types";
 import type {
   Comprovante,
@@ -12,6 +15,12 @@ import FluxoDiario from "@/components/financeiro/FluxoDiario";
 import DespesasFixasSection from "@/components/financeiro/DespesasFixasSection";
 
 export default async function FinanceiroPage() {
+  const profile = await getCurrentProfile();
+  const role = profile?.role ?? "secretaria";
+  if (!allowedTabs(role).includes("financeiro")) {
+    redirect(`/${homeTabFor(role)}`);
+  }
+
   const supabase = await createClient();
 
   const now = new Date();
