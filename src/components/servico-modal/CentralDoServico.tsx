@@ -5,6 +5,7 @@ import { fetchServicoDetail } from "@/lib/supabase/fetchServicoDetail";
 import { displayNumero, type ItemOrcamento, type ServicoDetail } from "@/lib/domain/types";
 import type { Role } from "@/lib/domain/flows";
 import { exigeMedida } from "@/lib/domain/flows";
+import type { Coluna } from "@/lib/domain/kanban";
 import ResumoTab from "./ResumoTab";
 import ClienteTab from "./ClienteTab";
 import MedidasTab from "./MedidasTab";
@@ -33,11 +34,13 @@ export default function CentralDoServico({
   servicoId,
   role,
   itensOrcamento,
+  colunasOS,
   onClose,
 }: {
   servicoId: string;
   role: Role;
   itensOrcamento: ItemOrcamento[];
+  colunasOS: Coluna[];
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<ServicoDetail | null>(null);
@@ -110,7 +113,13 @@ export default function CentralDoServico({
 
             <div className="flex-1 overflow-y-auto p-6">
               {tab === "resumo" && (
-                <ResumoTab detail={detail} role={role} onChanged={reload} onClose={onClose} />
+                <ResumoTab
+                  detail={detail}
+                  role={role}
+                  colunasOS={colunasOS}
+                  onChanged={reload}
+                  onClose={onClose}
+                />
               )}
               {tab === "cliente" && <ClienteTab detail={detail} onChanged={reload} />}
               {tab === "itens" && (

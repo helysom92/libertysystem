@@ -69,7 +69,6 @@ function AdminKpis({ servicos }: { servicos: Servico[] }) {
   return (
     <div className="grid grid-cols-3 gap-3">
       <KpiCard label="Serviços Atrasados" value={k.atrasados} hint="Prazo vencido" />
-      <KpiCard label="Double Check Pendente" value={k.dcPendente} hint="Aguardando validação" />
       <KpiCard label="Prazo Hoje" value={k.instalacoesHoje} hint="Serviços com prazo hoje" />
       <KpiCard label="Caixa Previsto" value={fmtBRL(k.caixaPrevisto)} hint="A receber dos serviços ativos" gold />
       <KpiCard
@@ -91,7 +90,6 @@ function ProducaoKpis({ servicos }: { servicos: Servico[] }) {
       <KpiCard label="Serviços Entregues (mês)" value={k.entreguesMes} />
       <KpiCard label="Prazo Hoje" value={k.instalacoesHoje} />
       <KpiCard label="Em Produção" value={k.emProducao} />
-      <KpiCard label="Double Check Pendente (Produção)" value={k.dcPendenteProducao} />
     </div>
   );
 }

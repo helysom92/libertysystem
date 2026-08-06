@@ -1,5 +1,6 @@
-import type { DcItem, FinanceiroStatus, Prioridade, ServicoTipo } from "./flows";
+import type { FinanceiroStatus, Prioridade, ServicoTipo } from "./flows";
 import type { LinhaOrcamento } from "./orcamento";
+import type { PrazoTipo } from "./kanban";
 
 export interface Servico {
   id: string;
@@ -10,8 +11,13 @@ export interface Servico {
   valor: number;
   valor_pago: number;
   tipo: ServicoTipo;
-  estagio: string;
-  prazo: string | null; // ISO date (yyyy-mm-dd)
+  estagio: string; // rótulo denormalizado da coluna atual (exibição/relatórios), não é mais o motor do fluxo
+  coluna_id: string | null;
+  concluido: boolean;
+  prazo: string | null; // ISO date (yyyy-mm-dd) — data-fim do prazo
+  prazo_tipo: PrazoTipo | null;
+  prazo_inicio: string | null; // ISO date
+  informacoes_adicionais: string | null;
   criado_em: string; // ISO timestamp
   concluido_em: string | null;
   responsavel: string;
@@ -23,9 +29,6 @@ export interface Servico {
   proxima_responsavel: string | null;
   proxima_prazo: string | null;
   motivo_espera: string | null;
-  dc_admin: DcItem[];
-  dc_producao: DcItem[];
-  dc_invalidated_after_advance: boolean;
   capa_foto_id: string | null;
   linha_orcamento: LinhaOrcamento;
   validade_proposta_dias: number;

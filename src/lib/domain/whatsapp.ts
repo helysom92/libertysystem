@@ -8,7 +8,7 @@ export function buildWhatsappText(servico: Servico): string {
     `Valor: ${fmtBRL(servico.valor)}`,
     `Prazo: ${servico.prazo ?? "a definir"}`,
     `Status Financeiro: ${servico.financeiro_status}`,
-    servico.numero ? `Etapa atual: ${servico.estagio}` : null,
+    `Etapa atual: ${servico.estagio}`,
   ]
     .filter(Boolean)
     .join("\n");

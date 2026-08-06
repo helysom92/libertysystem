@@ -1,8 +1,7 @@
-import { dcComplete } from "./flows";
 import { daysUntil, type Servico } from "./types";
 
 export function naoConcluidos(servicos: Servico[]): Servico[] {
-  return servicos.filter((s) => s.estagio !== "Concluído");
+  return servicos.filter((s) => !s.concluido);
 }
 
 export function atrasados(servicos: Servico[]): Servico[] {
@@ -12,17 +11,14 @@ export function atrasados(servicos: Servico[]): Servico[] {
   });
 }
 
-export function dcPendenteList(servicos: Servico[]): Servico[] {
-  return servicos.filter((s) => s.estagio === "Aprovado" && !dcComplete(s.dc_admin, s.dc_producao));
-}
-
-/** Serviços não concluídos com prazo hoje (a etapa "Instalação" não existe mais). */
+/** Serviços não concluídos com prazo hoje. */
 export function instalacoesHoje(servicos: Servico[]): Servico[] {
-  return servicos.filter((s) => s.estagio !== "Concluído" && daysUntil(s.prazo) === 0);
+  return servicos.filter((s) => !s.concluido && daysUntil(s.prazo) === 0);
 }
 
+/** OS ativas: já aprovadas (numeradas), ainda não concluídas. */
 export function emProducao(servicos: Servico[]): Servico[] {
-  return servicos.filter((s) => s.estagio === "Aprovado");
+  return servicos.filter((s) => s.numero != null && !s.concluido);
 }
 
 /** All outstanding balance across active serviços. */
@@ -46,7 +42,6 @@ export function recebimentosPrevistos(servicos: Servico[]): number {
 
 export interface KpisAdmin {
   atrasados: number;
-  dcPendente: number;
   instalacoesHoje: number;
   caixaPrevisto: number;
   recebimentosPrevistos: number;
@@ -56,7 +51,6 @@ export interface KpisAdmin {
 export function computeKpisAdmin(servicos: Servico[]): KpisAdmin {
   return {
     atrasados: atrasados(servicos).length,
-    dcPendente: dcPendenteList(servicos).length,
     instalacoesHoje: instalacoesHoje(servicos).length,
     caixaPrevisto: caixaPrevisto(servicos),
     recebimentosPrevistos: recebimentosPrevistos(servicos),
@@ -69,25 +63,19 @@ export interface KpisProducao {
   entreguesMes: number;
   instalacoesHoje: number;
   emProducao: number;
-  dcPendenteProducao: number;
 }
 
 export function computeKpisProducao(servicos: Servico[], today: Date = new Date()): KpisProducao {
   const entreguesMes = servicos.filter((s) => {
-    if (s.estagio !== "Concluído" || !s.concluido_em) return false;
+    if (!s.concluido || !s.concluido_em) return false;
     const d = new Date(s.concluido_em);
     return d.getMonth() === today.getMonth() && d.getFullYear() === today.getFullYear();
   }).length;
-
-  const dcPendenteProducao = dcPendenteList(servicos).filter(
-    (s) => !s.dc_producao.every((i) => i.done)
-  ).length;
 
   return {
     osAbertas: naoConcluidos(servicos).length,
     entreguesMes,
     instalacoesHoje: instalacoesHoje(servicos).length,
     emProducao: emProducao(servicos).length,
-    dcPendenteProducao,
   };
 }

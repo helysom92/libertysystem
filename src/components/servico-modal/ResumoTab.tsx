@@ -4,35 +4,41 @@ import { useState, useTransition } from "react";
 import type { ServicoDetail } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { computeIaAlerts } from "@/lib/domain/alerts";
-import { dcComplete, ESTAGIO_LABELS, flowFor, PRIORIDADES, type Role } from "@/lib/domain/flows";
+import { PRIORIDADES, type Role } from "@/lib/domain/flows";
+import { PRAZO_STATUS_COLOR, PRAZO_STATUS_LABEL, PRAZO_TIPO_INFO, prazoStatus, type Coluna, type PrazoTipo } from "@/lib/domain/kanban";
+import { fmtDatePtBR } from "@/lib/domain/dates";
 import {
-  moveServico,
-  toggleDcItem,
   toggleEntregaConfirmada,
   toggleLiberadoAdmin,
+  updateInformacoesAdicionais,
+  updatePrazoServico,
   updatePrioridade,
   updateProximaAcao,
   updateResponsavel,
   deleteServico,
 } from "@/lib/actions/servicos";
+import { aprovarOrcamento, moveCardParaColuna } from "@/lib/actions/kanban";
 import { exportarWhatsapp } from "@/lib/domain/whatsapp";
 import FinanceiroBadge from "@/components/ui/FinanceiroBadge";
 
 const RESPONSAVEIS = ["", "Secretaria", "Administrador", "Produção"];
+const PRAZO_TIPOS: PrazoTipo[] = ["balcao", "fachada", "complexo"];
 
 export default function ResumoTab({
   detail,
   role,
+  colunasOS,
   onChanged,
   onClose,
 }: {
   detail: ServicoDetail;
   role: Role;
+  colunasOS: Coluna[];
   onChanged: () => void;
   onClose: () => void;
 }) {
   const { servico, cliente } = detail;
-  const [pending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [acaoTexto, setAcaoTexto] = useState(servico.proxima_acao_texto ?? "");
   const [acaoResp, setAcaoResp] = useState(servico.proxima_responsavel ?? "");
   const [acaoPrazo, setAcaoPrazo] = useState(servico.proxima_prazo ?? "");
@@ -41,38 +47,20 @@ export default function ResumoTab({
   const [acaoSaving, setAcaoSaving] = useState(false);
   const [acaoError, setAcaoError] = useState<string | null>(null);
 
-  const flow = flowFor(servico.tipo);
-  const idx = flow.indexOf(servico.estagio);
-  const noBack = idx <= 0;
-  const noAdvance = idx >= flow.length - 1;
-  const dcOk = dcComplete(servico.dc_admin, servico.dc_producao);
+  const [infoTexto, setInfoTexto] = useState(servico.informacoes_adicionais ?? "");
+  const [infoDirty, setInfoDirty] = useState(false);
+  const [infoSaving, setInfoSaving] = useState(false);
 
-  const entregaOk = servico.entrega_confirmada;
-  const financeiroOk = ["Pago", "Cortesia"].includes(servico.financeiro_status) || servico.liberado_admin;
-  const blockedByConclusao = idx === flow.length - 2 && !(entregaOk && financeiroOk);
+  const [moverPara, setMoverPara] = useState(colunasOS[0]?.id ?? "");
+  const [moveError, setMoveError] = useState<string | null>(null);
+  const [aprovando, setAprovando] = useState(false);
 
-  const showEntregaConfirm = servico.estagio === "Aprovado";
-  const showLiberarAdmin = idx === flow.length - 2 && role === "administrador";
+  const showLiberarAdmin = role === "administrador" && !!servico.numero && !servico.concluido;
 
-  const advanceLabel =
-    servico.estagio === "Orçamento"
-      ? "Aprovar Orçamento → Gerar OS"
-      : servico.estagio === "Aprovado"
-        ? "Concluir Serviço"
-        : "Avançar ▶";
-
-  const dcAdminDisabled = role !== "administrador";
-  const dcProducaoDisabled = !["administrador", "producao"].includes(role);
+  const status = servico.prazo_tipo ? prazoStatus(servico.prazo_tipo, servico.prazo) : null;
 
   const alerts = computeIaAlerts([servico], []);
   const saldo = servico.valor - servico.valor_pago;
-
-  function move(dir: 1 | -1) {
-    startTransition(async () => {
-      await moveServico(servico.id, dir);
-      onChanged();
-    });
-  }
 
   async function saveProximaAcao() {
     setAcaoSaving(true);
@@ -91,6 +79,42 @@ export default function ResumoTab({
     } finally {
       setAcaoSaving(false);
     }
+  }
+
+  async function saveInformacoes() {
+    setInfoSaving(true);
+    try {
+      await updateInformacoesAdicionais(servico.id, infoTexto);
+      setInfoDirty(false);
+      onChanged();
+    } finally {
+      setInfoSaving(false);
+    }
+  }
+
+  async function handleAprovar() {
+    setAprovando(true);
+    try {
+      const result = await aprovarOrcamento(servico.id);
+      if (!result.ok) {
+        setMoveError(result.reason ?? "Não foi possível aprovar.");
+        return;
+      }
+      onChanged();
+    } finally {
+      setAprovando(false);
+    }
+  }
+
+  async function handleMover() {
+    if (!moverPara) return;
+    setMoveError(null);
+    const result = await moveCardParaColuna(servico.id, moverPara);
+    if (!result.ok) {
+      setMoveError(result.reason ?? "Não foi possível mover.");
+      return;
+    }
+    onChanged();
   }
 
   async function handleDelete() {
@@ -113,10 +137,8 @@ export default function ResumoTab({
 
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
-          <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">
-            Etapa Operacional
-          </p>
-          <p className="text-sm font-semibold">{ESTAGIO_LABELS[servico.estagio] ?? servico.estagio}</p>
+          <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Etapa Atual</p>
+          <p className="text-sm font-semibold">{servico.estagio}</p>
         </div>
         <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
           <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">
@@ -247,59 +269,71 @@ export default function ResumoTab({
         </div>
       </div>
 
-      {(servico.dc_admin.length > 0 || servico.dc_producao.length > 0) && (
-        <div className="rounded-card border border-border-gold-strong bg-card-secondary p-3">
-          <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">
-            Marcadores de Acompanhamento (medidas) {dcOk ? "· Completo" : "· Pendente"}
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="mb-1.5 text-[11.5px] font-semibold text-text-secondary">
-                Validação do Administrador
-              </p>
-              {servico.dc_admin.map((item, i) => (
-                <label key={i} className="mb-1 flex items-center gap-2 text-[12.5px]">
-                  <input
-                    type="checkbox"
-                    checked={item.done}
-                    disabled={dcAdminDisabled}
-                    onChange={() =>
-                      startTransition(async () => {
-                        await toggleDcItem(servico.id, "admin", i, servico.dc_admin);
-                        onChanged();
-                      })
-                    }
-                  />
-                  {item.texto}
-                </label>
-              ))}
-            </div>
-            <div>
-              <p className="mb-1.5 text-[11.5px] font-semibold text-text-secondary">
-                Validação da Produção
-              </p>
-              {servico.dc_producao.map((item, i) => (
-                <label key={i} className="mb-1 flex items-center gap-2 text-[12.5px]">
-                  <input
-                    type="checkbox"
-                    checked={item.done}
-                    disabled={dcProducaoDisabled}
-                    onChange={() =>
-                      startTransition(async () => {
-                        await toggleDcItem(servico.id, "producao", i, servico.dc_producao);
-                        onChanged();
-                      })
-                    }
-                  />
-                  {item.texto}
-                </label>
-              ))}
-            </div>
-          </div>
+      <div className="rounded-card border border-border-gold-strong bg-card-secondary p-3">
+        <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">Prazo do serviço</p>
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {PRAZO_TIPOS.map((t) => (
+            <button
+              key={t}
+              type="button"
+              onClick={() =>
+                startTransition(async () => {
+                  await updatePrazoServico(servico.id, t);
+                  onChanged();
+                })
+              }
+              className={`rounded-pill border px-3 py-1.5 text-[11.5px] font-semibold ${
+                servico.prazo_tipo === t
+                  ? "border-transparent bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark text-bg"
+                  : "border-border-gold-strong text-text-secondary"
+              }`}
+            >
+              {PRAZO_TIPO_INFO[t].label}
+            </button>
+          ))}
         </div>
-      )}
+        <div className="flex items-center gap-2">
+          {status && (
+            <span
+              className="rounded-pill px-2 py-0.5 text-[11px] font-semibold"
+              style={{ color: PRAZO_STATUS_COLOR[status], backgroundColor: `${PRAZO_STATUS_COLOR[status]}22` }}
+            >
+              ● {PRAZO_STATUS_LABEL[status]}
+            </span>
+          )}
+          <span className="text-[12px] text-text-secondary">
+            {servico.prazo_inicio && servico.prazo
+              ? `Início ${fmtDatePtBR(servico.prazo_inicio)} · Prazo ${fmtDatePtBR(servico.prazo)}`
+              : "Selecione o tipo de prazo"}
+          </span>
+        </div>
+      </div>
 
-      {showEntregaConfirm && (
+      <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
+        <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">
+          Informações adicionais · medidas, materiais, observações
+        </p>
+        <textarea
+          value={infoTexto}
+          onChange={(e) => {
+            setInfoTexto(e.target.value);
+            setInfoDirty(true);
+          }}
+          rows={3}
+          placeholder="Anote medidas, materiais, ferramentas, observações do local..."
+          className="mb-2 w-full rounded-btn border border-border-neutral bg-card px-3 py-1.5 text-sm"
+        />
+        <button
+          type="button"
+          onClick={saveInformacoes}
+          disabled={!infoDirty || infoSaving}
+          className="w-fit rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg disabled:opacity-40"
+        >
+          {infoSaving ? "Salvando..." : "Salvar"}
+        </button>
+      </div>
+
+      {!!servico.numero && !servico.concluido && (
         <label className="flex items-center gap-2 text-sm">
           <input
             type="checkbox"
@@ -331,30 +365,42 @@ export default function ResumoTab({
         </label>
       )}
 
-      {blockedByConclusao && (
-        <p className="text-[12.5px] text-danger">
-          Confirme a entrega e resolva o financeiro (ou libere como Administrador) para concluir.
-        </p>
-      )}
+      {moveError && <p className="text-[12.5px] text-danger">{moveError}</p>}
 
-      <div className="flex gap-2">
+      {!servico.numero ? (
         <button
           type="button"
-          disabled={noBack || pending}
-          onClick={() => move(-1)}
-          className="flex-1 rounded-btn border border-border-neutral py-2 text-sm text-text-secondary disabled:opacity-30"
+          disabled={aprovando}
+          onClick={handleAprovar}
+          className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark py-2.5 text-sm font-semibold text-bg disabled:opacity-40"
         >
-          ◀ Voltar
+          {aprovando ? "Aprovando..." : "Aprovar Orçamento → Gerar OS"}
         </button>
-        <button
-          type="button"
-          disabled={noAdvance || pending}
-          onClick={() => move(1)}
-          className="flex-1 rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark py-2 text-sm font-semibold text-bg disabled:opacity-30"
-        >
-          {advanceLabel}
-        </button>
-      </div>
+      ) : !servico.concluido ? (
+        <div className="flex gap-2">
+          <select
+            value={moverPara}
+            onChange={(e) => setMoverPara(e.target.value)}
+            className="flex-1 rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+          >
+            {colunasOS.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.label}
+                {c.is_conclusao ? " (conclusão)" : ""}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            onClick={handleMover}
+            className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg"
+          >
+            Mover
+          </button>
+        </div>
+      ) : (
+        <p className="text-center text-[12.5px] font-semibold text-success">✓ Serviço concluído</p>
+      )}
 
       <div className="flex flex-wrap gap-2 border-t border-border-neutral pt-4">
         <button

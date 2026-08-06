@@ -1,4 +1,4 @@
-import { emProducao, naoConcluidos, dcPendenteList } from "./kpis";
+import { emProducao, naoConcluidos } from "./kpis";
 import { daysUntil, type Comprovante, type Servico } from "./types";
 
 export interface BucketItem {
@@ -29,12 +29,6 @@ function bucket(
   return { titulo, items, count: items.length, empty: items.length === 0, borderColor, titleColor };
 }
 
-/**
- * Ported 1:1 from the prototype's 11 Gestão buckets (lines 1202-1215), plus the
- * decision-fix: "Double Check Pendente" also catches serviços that already advanced
- * past the DC stage and later had DC invalidated by a late file/measurement change
- * (dc_invalidated_after_advance) — the prototype had a gap here (see plan §4/§9e).
- */
 export function computeGestaoBuckets(servicos: Servico[], comprovantes: Comprovante[]): Bucket[] {
   const naoConc = naoConcluidos(servicos);
   const atrasadosList = naoConc.filter((s) => {
@@ -45,11 +39,6 @@ export function computeGestaoBuckets(servicos: Servico[], comprovantes: Comprova
     const d = daysUntil(s.prazo);
     return d !== null && d >= 0 && d <= 3;
   });
-  const dcPendente = dcPendenteList(servicos);
-  const dcPendenteOuInvalidado = servicos.filter(
-    (s) => dcPendente.includes(s) || s.dc_invalidated_after_advance
-  );
-
   const comprovantesPendentesItems: BucketItem[] = comprovantes
     .filter((c) => c.status === "pendente")
     .map((c) => ({
@@ -69,15 +58,14 @@ export function computeGestaoBuckets(servicos: Servico[], comprovantes: Comprova
       "Sem Responsável",
       naoConc.filter((s) => !s.responsavel)
     ),
-    bucket("Double Check Pendente", dcPendenteOuInvalidado, "rgba(224,166,78,0.35)", "#E0A64E"),
     bucket(
       "Aguardando Cliente",
-      servicos.filter((s) => s.estagio === "Orçamento")
+      servicos.filter((s) => s.numero == null)
     ),
     bucket("Aguardando Produção", emProducao(servicos)),
     bucket(
       "Saldo Pendente",
-      servicos.filter((s) => s.valor_pago < s.valor && s.estagio !== "Concluído"),
+      servicos.filter((s) => s.valor_pago < s.valor && !s.concluido),
       "rgba(201,162,75,0.3)",
       "#C9A24B"
     ),
@@ -91,7 +79,7 @@ export function computeGestaoBuckets(servicos: Servico[], comprovantes: Comprova
     },
     bucket(
       "Entregue e Não Encerrado",
-      servicos.filter((s) => s.entrega_confirmada && s.estagio !== "Concluído"),
+      servicos.filter((s) => s.entrega_confirmada && !s.concluido),
       "rgba(224,166,78,0.35)",
       "#E0A64E"
     ),

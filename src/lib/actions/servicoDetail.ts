@@ -65,6 +65,33 @@ export async function setCapaFoto(servicoId: string, fotoId: string) {
   revalidatePath("/servicos");
 }
 
+/** Cria um espaço de foto vazio (sem limite fixo) — próximo slot livre pra esse serviço. */
+export async function addFotoSlot(servicoId: string): Promise<number> {
+  const supabase = await createClient();
+  const { data: existentes } = await supabase
+    .from("fotos")
+    .select("slot")
+    .eq("servico_id", servicoId)
+    .order("slot", { ascending: false })
+    .limit(1);
+  const proximoSlot = (existentes?.[0]?.slot ?? 0) + 1;
+  const { error } = await supabase.from("fotos").insert({ servico_id: servicoId, slot: proximoSlot });
+  if (error) throw error;
+  revalidatePath("/servicos");
+  return proximoSlot;
+}
+
+export async function removeFoto(fotoId: string, storagePath: string | null) {
+  const supabase = await createClient();
+  if (storagePath) {
+    await supabase.storage.from("fotos").remove([storagePath]);
+  }
+  // capa_foto_id tem "on delete set null" — se essa era a capa, a referência já limpa sozinha.
+  const { error } = await supabase.from("fotos").delete().eq("id", fotoId);
+  if (error) throw error;
+  revalidatePath("/servicos");
+}
+
 export async function addChecklistItem(servicoId: string, texto: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("checklist_items").insert({ servico_id: servicoId, texto });

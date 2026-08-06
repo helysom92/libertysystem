@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
 import type { Cliente, ItemOrcamento, Servico } from "@/lib/domain/types";
+import type { Coluna } from "@/lib/domain/kanban";
 
 export default async function ServicosPage({
   searchParams,
@@ -12,11 +13,13 @@ export default async function ServicosPage({
   const supabase = await createClient();
   const profile = await getCurrentProfile();
 
-  const [{ data: servicos }, { data: itensOrcamento }, { data: clientes }] = await Promise.all([
-    supabase.from("servicos").select("*").order("criado_em", { ascending: false }),
-    supabase.from("itens_orcamento").select("*").eq("ativo", true).order("nome"),
-    supabase.from("clientes").select("*").order("nome"),
-  ]);
+  const [{ data: servicos }, { data: itensOrcamento }, { data: clientes }, { data: colunas }] =
+    await Promise.all([
+      supabase.from("servicos").select("*").order("criado_em", { ascending: false }),
+      supabase.from("itens_orcamento").select("*").eq("ativo", true).order("nome"),
+      supabase.from("clientes").select("*").order("nome"),
+      supabase.from("colunas").select("*").order("ordem"),
+    ]);
 
   const svs = (servicos as Servico[]) ?? [];
 
@@ -44,26 +47,20 @@ export default async function ServicosPage({
     }
   }
 
-  // Checklist progress badge: generic checklist items + Double Check items combined.
+  // Checklist progress badge.
   const checklistProgress: Record<string, { done: number; total: number }> = {};
   const { data: checklistRows } = await supabase.from("checklist_items").select("servico_id, done");
-  const checklistByServico = new Map<string, { done: number; total: number }>();
   for (const row of checklistRows ?? []) {
-    const entry = checklistByServico.get(row.servico_id) ?? { done: 0, total: 0 };
+    const entry = checklistProgress[row.servico_id] ?? { done: 0, total: 0 };
     entry.total += 1;
     if (row.done) entry.done += 1;
-    checklistByServico.set(row.servico_id, entry);
-  }
-  for (const s of svs) {
-    const base = checklistByServico.get(s.id) ?? { done: 0, total: 0 };
-    const dcTotal = s.dc_admin.length + s.dc_producao.length;
-    const dcDone = s.dc_admin.filter((i) => i.done).length + s.dc_producao.filter((i) => i.done).length;
-    checklistProgress[s.id] = { done: base.done + dcDone, total: base.total + dcTotal };
+    checklistProgress[row.servico_id] = entry;
   }
 
   return (
     <KanbanBoard
       servicos={svs}
+      colunas={(colunas as Coluna[]) ?? []}
       role={profile?.role ?? "secretaria"}
       initialOpenId={open ?? null}
       capaUrls={capaUrls}

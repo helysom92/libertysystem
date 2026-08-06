@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { ServicoTipo } from "@/lib/domain/flows";
 import type { LinhaOrcamento } from "@/lib/domain/orcamento";
+import { calcularPrazoFim, type PrazoTipo } from "@/lib/domain/kanban";
+import { todayISO } from "@/lib/domain/dates";
 
 export interface NovoServicoInput {
   cliente: string;
@@ -48,28 +50,29 @@ export async function createServico(input: NovoServicoInput) {
   return data.id as string;
 }
 
-export async function moveServico(servicoId: string, dir: 1 | -1) {
+export async function updatePrazoServico(servicoId: string, tipo: PrazoTipo) {
   const supabase = await createClient();
-  const { error } = await supabase.rpc("move_servico", {
-    p_servico_id: servicoId,
-    p_dir: dir,
-  });
+  const { data: sv } = await supabase
+    .from("servicos")
+    .select("prazo_inicio")
+    .eq("id", servicoId)
+    .single();
+  const inicio = sv?.prazo_inicio ?? todayISO();
+  const fim = calcularPrazoFim(inicio, tipo);
+  const { error } = await supabase
+    .from("servicos")
+    .update({ prazo_tipo: tipo, prazo_inicio: inicio, prazo: fim })
+    .eq("id", servicoId);
   if (error) throw error;
   revalidatePath("/servicos");
-  revalidatePath("/hoje");
-  revalidatePath("/gestao");
 }
 
-export async function toggleDcItem(
-  servicoId: string,
-  which: "admin" | "producao",
-  index: number,
-  items: { texto: string; done: boolean }[]
-) {
+export async function updateInformacoesAdicionais(servicoId: string, texto: string) {
   const supabase = await createClient();
-  const updated = items.map((item, i) => (i === index ? { ...item, done: !item.done } : item));
-  const column = which === "admin" ? "dc_admin" : "dc_producao";
-  const { error } = await supabase.from("servicos").update({ [column]: updated }).eq("id", servicoId);
+  const { error } = await supabase
+    .from("servicos")
+    .update({ informacoes_adicionais: texto })
+    .eq("id", servicoId);
   if (error) throw error;
   revalidatePath("/servicos");
 }
