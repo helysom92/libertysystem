@@ -14,7 +14,7 @@ export async function createMaterial(input: NovoMaterialInput) {
   const supabase = await createClient();
   const { error } = await supabase.from("materiais").insert(input);
   if (error) throw error;
-  revalidatePath("/produtos");
+  revalidatePath("/administrativo/produtos");
 }
 
 export async function updateMaterial(
@@ -30,5 +30,5 @@ export async function updateMaterial(
   const supabase = await createClient();
   const { error } = await supabase.from("materiais").update(fields).eq("id", id);
   if (error) throw error;
-  revalidatePath("/produtos");
+  revalidatePath("/administrativo/produtos");
 }

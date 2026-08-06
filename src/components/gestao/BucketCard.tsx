@@ -20,7 +20,7 @@ export default function BucketCard({ bucket }: { bucket: Bucket }) {
         {bucket.items.map((item) => (
           <a
             key={item.id}
-            href={isComprovanteBucket ? "/financeiro" : `/servicos?open=${item.id}`}
+            href={isComprovanteBucket ? "/administrativo/financeiro" : `/servicos?open=${item.id}`}
             className="rounded-btn bg-card-secondary px-2.5 py-1.5 hover:bg-card"
           >
             <p className="text-[13px] font-semibold">{item.cliente}</p>

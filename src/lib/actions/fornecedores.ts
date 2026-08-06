@@ -14,8 +14,8 @@ export async function createFornecedor(input: NovoFornecedorInput) {
   const supabase = await createClient();
   const { error } = await supabase.from("fornecedores").insert(input);
   if (error) throw error;
-  revalidatePath("/fornecedores");
-  revalidatePath("/financeiro");
+  revalidatePath("/administrativo/fornecedores");
+  revalidatePath("/administrativo/financeiro");
 }
 
 export async function updateFornecedor(
@@ -31,5 +31,5 @@ export async function updateFornecedor(
   const supabase = await createClient();
   const { error } = await supabase.from("fornecedores").update(fields).eq("id", id);
   if (error) throw error;
-  revalidatePath("/fornecedores");
+  revalidatePath("/administrativo/fornecedores");
 }

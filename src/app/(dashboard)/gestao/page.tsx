@@ -2,9 +2,21 @@ import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { createClient } from "@/lib/supabase/server";
 import { allowedTabs, homeTabFor } from "@/lib/domain/flows";
-import { computeGestaoBuckets } from "@/lib/domain/gestaoBuckets";
-import type { Comprovante, Servico } from "@/lib/domain/types";
-import BucketCard from "@/components/gestao/BucketCard";
+import { todayISO } from "@/lib/domain/dates";
+import type {
+  Cliente,
+  Comprovante,
+  DespesaFixa,
+  DespesaFixaOcorrencia,
+  Evento,
+  Fornecedor,
+  ItemOrcamento,
+  Lancamento,
+  OrcamentoItemRow,
+  Servico,
+} from "@/lib/domain/types";
+import type { Meta } from "@/lib/domain/dashboardMetrics";
+import DashboardShell from "@/components/dashboard/DashboardShell";
 
 export default async function GestaoPage() {
   const profile = await getCurrentProfile();
@@ -14,30 +26,55 @@ export default async function GestaoPage() {
   }
 
   const supabase = await createClient();
-  const [{ data: servicos }, { data: comprovantes }] = await Promise.all([
+  const [
+    { data: servicos },
+    { data: clientes },
+    { data: lancamentos },
+    { data: eventos },
+    { data: despesasFixas },
+    { data: despesasFixasOcorrencias },
+    { data: orcamentoItens },
+    { data: itensOrcamento },
+    { data: metas },
+    { data: fornecedores },
+    { data: comprovantes },
+  ] = await Promise.all([
     supabase.from("servicos").select("*"),
+    supabase.from("clientes").select("*").order("nome"),
+    supabase.from("lancamentos").select("*"),
+    supabase.from("eventos").select("*"),
+    supabase.from("despesas_fixas").select("*"),
+    supabase.from("despesas_fixas_ocorrencias").select("*"),
+    supabase.from("orcamento_itens").select("*"),
+    supabase.from("itens_orcamento").select("*"),
+    supabase.from("metas").select("*"),
+    supabase.from("fornecedores").select("*"),
     supabase.from("comprovantes").select("*"),
   ]);
-
-  const buckets = computeGestaoBuckets(
-    (servicos as Servico[]) ?? [],
-    (comprovantes as Comprovante[]) ?? []
-  );
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="font-display text-xl font-bold">Gestão</h1>
         <p className="text-[13px] text-text-secondary">
-          Indicadores, gargalos e visão geral da empresa
+          Visão geral, relatórios e indicadores — números reais do negócio
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        {buckets.map((b) => (
-          <BucketCard key={b.titulo} bucket={b} />
-        ))}
-      </div>
+      <DashboardShell
+        hojeISO={todayISO()}
+        servicos={(servicos as Servico[]) ?? []}
+        clientes={(clientes as Cliente[]) ?? []}
+        lancamentos={(lancamentos as Lancamento[]) ?? []}
+        eventos={(eventos as Evento[]) ?? []}
+        despesasFixas={(despesasFixas as DespesaFixa[]) ?? []}
+        despesasFixasOcorrencias={(despesasFixasOcorrencias as DespesaFixaOcorrencia[]) ?? []}
+        orcamentoItens={(orcamentoItens as OrcamentoItemRow[]) ?? []}
+        itensOrcamento={(itensOrcamento as ItemOrcamento[]) ?? []}
+        metas={(metas as Meta[]) ?? []}
+        fornecedores={(fornecedores as Fornecedor[]) ?? []}
+        comprovantes={(comprovantes as Comprovante[]) ?? []}
+      />
     </div>
   );
 }

@@ -4,9 +4,11 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type {
   Cliente,
+  Comprovante,
   DespesaFixa,
   DespesaFixaOcorrencia,
   Evento,
+  Fornecedor,
   ItemOrcamento,
   Lancamento,
   OrcamentoItemRow,
@@ -35,6 +37,8 @@ import HistoricoView from "./HistoricoView";
 import CalendarioView from "./CalendarioView";
 import ClientesView from "./ClientesView";
 import MetasView from "./MetasView";
+import GargalosView from "./GargalosView";
+import RelatoriosClient from "@/components/relatorios/RelatoriosClient";
 
 const TABS = [
   { key: "overview", label: "Visão Geral" },
@@ -45,6 +49,8 @@ const TABS = [
   { key: "calendar", label: "Calendário" },
   { key: "clients", label: "Clientes" },
   { key: "goals", label: "Metas" },
+  { key: "gargalos", label: "Gargalos" },
+  { key: "relatorios", label: "Relatórios" },
 ];
 
 function cap(s: string): string {
@@ -62,6 +68,8 @@ export default function DashboardShell({
   orcamentoItens,
   itensOrcamento,
   metas,
+  fornecedores,
+  comprovantes,
 }: {
   hojeISO: string;
   servicos: Servico[];
@@ -73,6 +81,8 @@ export default function DashboardShell({
   orcamentoItens: OrcamentoItemRow[];
   itensOrcamento: ItemOrcamento[];
   metas: Meta[];
+  fornecedores: Fornecedor[];
+  comprovantes: Comprovante[];
 }) {
   const router = useRouter();
   const hoje = useMemo(() => new Date(hojeISO + "T00:00:00"), [hojeISO]);
@@ -192,6 +202,15 @@ export default function DashboardShell({
       )}
       {view === "clients" && <ClientesView clientes={clientes} servicos={servicos} />}
       {view === "goals" && <MetasView metas={metas} atuais={atuais} onChanged={() => router.refresh()} />}
+      {view === "gargalos" && <GargalosView servicos={servicos} comprovantes={comprovantes} />}
+      {view === "relatorios" && (
+        <RelatoriosClient
+          servicos={servicos}
+          clientes={clientes}
+          lancamentos={lancamentos}
+          fornecedores={fornecedores}
+        />
+      )}
     </div>
   );
 }

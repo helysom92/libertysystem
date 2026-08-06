@@ -111,7 +111,7 @@ export default function KanbanBoard({
             onClick={() => setNovoOpen(true)}
             className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg"
           >
-            + Novo Serviço
+            + Novo Orçamento
           </button>
         </div>
       </div>

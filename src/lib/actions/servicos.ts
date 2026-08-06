@@ -129,7 +129,7 @@ export async function updateFinanceiro(
   const { error } = await supabase.from("servicos").update(fields).eq("id", servicoId);
   if (error) throw error;
   revalidatePath("/servicos");
-  revalidatePath("/financeiro");
+  revalidatePath("/administrativo/financeiro");
 }
 
 export async function updatePropostaOrcamento(

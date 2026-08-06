@@ -11,7 +11,7 @@ export default function AlertasIA({ alerts }: { alerts: IaAlert[] }) {
         {alerts.map((a, i) => (
           <a
             key={i}
-            href={a.servicoId ? `/servicos?open=${a.servicoId}` : "/financeiro"}
+            href={a.servicoId ? `/servicos?open=${a.servicoId}` : "/administrativo/financeiro"}
             className="rounded-btn px-2 py-1.5 text-[13px] hover:bg-card-secondary"
             style={{ color: a.color }}
           >
