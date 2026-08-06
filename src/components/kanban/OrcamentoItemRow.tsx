@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   CATEGORIA_PRAZO_INFO,
   calcularItemOrcamento,
@@ -52,6 +53,25 @@ export default function OrcamentoItemRow({
   const itemCatalogo = itensOrcamento.find((i) => i.id === item.itemOrcamentoId) ?? null;
   const calculo = calcularItemOrcamento(item, itensOrcamento);
   const valorFinal = item.valorOverride ?? calculo.sugerido;
+
+  // Metragem é obrigatória pro cálculo em alguns modos; fora deles fica opcional, só pro
+  // controle do usuário (não entra na conta). `mostrarMedidas` já cobre o caso obrigatório
+  // sem precisar sincronizar `medidasOn` via effect.
+  const medidasObrigatorias =
+    (item.modoCalculo === "catalogo" && itemCatalogo?.tipo_cobranca === "m2") ||
+    item.modoCalculo === "m2_manual";
+  const [medidasOn, setMedidasOn] = useState(medidasObrigatorias);
+  const mostrarMedidas = medidasOn || medidasObrigatorias;
+
+  // Digitar o valor livremente sem o campo reformatar (e "brigar" com o cursor) a cada tecla.
+  // Ajusta o texto exibido durante o render (não num effect) quando o sugerido muda por fora
+  // e não há valor manual — padrão recomendado pra "adjusting state when a prop changes".
+  const [valorTexto, setValorTexto] = useState(() => valorFinal.toFixed(2));
+  const [sugeridoAnterior, setSugeridoAnterior] = useState(calculo.sugerido);
+  if (item.valorOverride == null && calculo.sugerido !== sugeridoAnterior) {
+    setSugeridoAnterior(calculo.sugerido);
+    setValorTexto(calculo.sugerido.toFixed(2));
+  }
 
   function set(patch: Partial<ItemFormState>) {
     onChange({ ...item, ...patch });
@@ -116,26 +136,6 @@ export default function OrcamentoItemRow({
             ))}
           </select>
 
-          {itemCatalogo?.tipo_cobranca === "m2" && (
-            <div className="mb-2 flex gap-2">
-              <input
-                type="number"
-                step="1"
-                value={item.larguraCm || ""}
-                onChange={(e) => set({ larguraCm: Number(e.target.value) || 0 })}
-                placeholder="Largura (cm)"
-                className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
-              />
-              <input
-                type="number"
-                step="1"
-                value={item.alturaCm || ""}
-                onChange={(e) => set({ alturaCm: Number(e.target.value) || 0 })}
-                placeholder="Altura (cm)"
-                className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
-              />
-            </div>
-          )}
           <input
             type="number"
             step="1"
@@ -186,22 +186,6 @@ export default function OrcamentoItemRow({
               <input
                 type="number"
                 step="1"
-                value={item.larguraCm || ""}
-                onChange={(e) => set({ larguraCm: Number(e.target.value) || 0 })}
-                placeholder="Largura (cm)"
-                className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
-              />
-              <input
-                type="number"
-                step="1"
-                value={item.alturaCm || ""}
-                onChange={(e) => set({ alturaCm: Number(e.target.value) || 0 })}
-                placeholder="Altura (cm)"
-                className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
-              />
-              <input
-                type="number"
-                step="1"
                 min="1"
                 value={item.quantidade}
                 onChange={(e) => set({ quantidade: Number(e.target.value) || 0 })}
@@ -233,6 +217,39 @@ export default function OrcamentoItemRow({
         </>
       )}
 
+      <div className="mb-2">
+        <label className="mb-1 flex items-center gap-1.5 text-[11px] text-text-secondary">
+          <input
+            type="checkbox"
+            checked={mostrarMedidas}
+            disabled={medidasObrigatorias}
+            onChange={(e) => setMedidasOn(e.target.checked)}
+          />
+          Registrar metragem (largura × altura)
+          {medidasObrigatorias && " · necessário pro cálculo"}
+        </label>
+        {mostrarMedidas && (
+          <div className="flex gap-2">
+            <input
+              type="number"
+              step="1"
+              value={item.larguraCm || ""}
+              onChange={(e) => set({ larguraCm: Number(e.target.value) || 0 })}
+              placeholder="Largura (cm)"
+              className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+            />
+            <input
+              type="number"
+              step="1"
+              value={item.alturaCm || ""}
+              onChange={(e) => set({ alturaCm: Number(e.target.value) || 0 })}
+              placeholder="Altura (cm)"
+              className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+            />
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center justify-between border-t border-border-neutral pt-2">
         <div className="text-[11px] text-text-muted">
           {calculo.area != null && <>Área: {calculo.area.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} m² · </>}
@@ -243,15 +260,24 @@ export default function OrcamentoItemRow({
       <div className="mt-2 flex items-center justify-end gap-2">
         <label className="text-[11px] text-text-secondary">Valor final:</label>
         <input
-          type="number"
-          step="0.01"
-          value={valorFinal.toFixed(2)}
-          onChange={(e) => set({ valorOverride: Number(e.target.value) || 0 })}
+          type="text"
+          inputMode="decimal"
+          value={valorTexto}
+          onChange={(e) => {
+            const raw = e.target.value;
+            setValorTexto(raw);
+            const parsed = Number(raw.replace(",", "."));
+            if (!Number.isNaN(parsed)) set({ valorOverride: parsed });
+          }}
+          onBlur={() => setValorTexto((item.valorOverride ?? calculo.sugerido).toFixed(2))}
           className="w-32 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-right text-sm font-semibold"
         />
         <button
           type="button"
-          onClick={() => set({ valorOverride: null })}
+          onClick={() => {
+            set({ valorOverride: null });
+            setValorTexto(calculo.sugerido.toFixed(2));
+          }}
           className="rounded-btn border border-border-neutral px-2 py-1.5 text-[11px] text-text-secondary"
         >
           usar sugerido

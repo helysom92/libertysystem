@@ -26,6 +26,7 @@ export default function NovoServicoModal({
   onClose: () => void;
 }) {
   const [cliente, setCliente] = useState("");
+  const [clienteWhatsapp, setClienteWhatsapp] = useState("");
   const [descricao, setDescricao] = useState("");
   const [prazo, setPrazo] = useState("");
   const [tipo, setTipo] = useState<ServicoTipo>("simples");
@@ -91,7 +92,9 @@ export default function NovoServicoModal({
     setItens((prev) => prev.filter((_, i) => i !== index));
   }
 
-  async function copiarOrcamento() {
+  const whatsappCliente = clienteWhatsapp || clienteRecord?.whatsapp || "";
+
+  function montarTextoOrcamento(): string {
     const textItens: OrcamentoTextItem[] = itens.map((item) => {
       const calc = calcularItemOrcamento(item, itensOrcamento);
       const itemCatalogo = itensOrcamento.find((i) => i.id === item.itemOrcamentoId);
@@ -110,24 +113,30 @@ export default function NovoServicoModal({
       };
     });
 
-    const texto = buildOrcamentoText(textItens, {
+    return buildOrcamentoText(textItens, {
       clienteNome: cliente,
-      clienteTelefone: clienteRecord?.whatsapp,
+      clienteTelefone: whatsappCliente,
       local: local || clienteRecord?.endereco,
       validadeDias: Number(validadeDias) || 7,
       condicoes: { entrada50: condEntrada, cartao: condCartao, desconto: condDesconto },
       observacoes,
     });
+  }
 
+  async function copiarOrcamento() {
     try {
-      await navigator.clipboard.writeText(texto);
+      await navigator.clipboard.writeText(montarTextoOrcamento());
     } catch {
       // best-effort
     }
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2000);
-    const digits = (clienteRecord?.whatsapp ?? "").replace(/\D/g, "");
-    window.open(`https://wa.me/55${digits}?text=${encodeURIComponent(texto)}`, "_blank");
+  }
+
+  function enviarWhatsapp() {
+    const digits = whatsappCliente.replace(/\D/g, "");
+    const numero = digits ? `55${digits}` : "";
+    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(montarTextoOrcamento())}`, "_blank");
   }
 
   function submit(e: React.FormEvent) {
@@ -140,6 +149,7 @@ export default function NovoServicoModal({
       try {
         const servicoId = await createServico({
           cliente,
+          clienteWhatsapp: whatsappCliente || null,
           descricao,
           valor: total,
           prazo: prazo || null,
@@ -193,10 +203,26 @@ export default function NovoServicoModal({
           ))}
         </select>
 
-        <label className="mb-1 block text-xs text-text-secondary">Cliente</label>
-        <div className="mb-3">
-          <ClienteAutocomplete clientes={clientes} value={cliente} onChange={setCliente} />
+        <div className="mb-3 flex gap-3">
+          <div className="flex-1">
+            <label className="mb-1 block text-xs text-text-secondary">Cliente</label>
+            <ClienteAutocomplete clientes={clientes} value={cliente} onChange={setCliente} />
+          </div>
+          <div className="flex-1">
+            <label className="mb-1 block text-xs text-text-secondary">WhatsApp do cliente</label>
+            <input
+              value={clienteWhatsapp}
+              onChange={(e) => setClienteWhatsapp(e.target.value)}
+              placeholder={clienteRecord?.whatsapp ?? "(67) 9XXXX-XXXX"}
+              className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+            />
+          </div>
         </div>
+        {!clienteRecord && cliente && (
+          <p className="-mt-2 mb-3 text-[11px] text-text-muted">
+            Cliente novo — vai entrar como pré-cadastro.
+          </p>
+        )}
 
         <label className="mb-1 block text-xs text-text-secondary">Descrição geral</label>
         <input
@@ -332,15 +358,23 @@ export default function NovoServicoModal({
           className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
         />
 
-        <div className="mb-3 flex items-center gap-2">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={copiarOrcamento}
             disabled={!cliente || itens.length === 0}
             className="rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px] disabled:opacity-40"
-            style={{ color: "#25D366" }}
           >
             📋 Copiar Orçamento
+          </button>
+          <button
+            type="button"
+            onClick={enviarWhatsapp}
+            disabled={!cliente || itens.length === 0}
+            className="rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px] disabled:opacity-40"
+            style={{ color: "#25D366" }}
+          >
+            📲 Enviar no WhatsApp Web
           </button>
           {copiado && <span className="text-[11.5px] text-success">Copiado!</span>}
         </div>
@@ -372,7 +406,7 @@ export default function NovoServicoModal({
             disabled={pending}
             className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg disabled:opacity-60"
           >
-            {pending ? "Criando..." : "Criar Serviço"}
+            {pending ? "Concluindo..." : "Concluir Orçamento"}
           </button>
         </div>
       </form>

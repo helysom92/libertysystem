@@ -9,6 +9,7 @@ import { todayISO } from "@/lib/domain/dates";
 
 export interface NovoServicoInput {
   cliente: string;
+  clienteWhatsapp?: string | null;
   descricao: string;
   valor: number;
   prazo: string | null;
@@ -24,6 +25,7 @@ export async function createServico(input: NovoServicoInput) {
 
   const { data: clienteId, error: clienteErr } = await supabase.rpc("find_or_create_cliente", {
     p_nome: input.cliente,
+    p_whatsapp: input.clienteWhatsapp || null,
   });
   if (clienteErr) throw clienteErr;
 

@@ -1,6 +1,5 @@
 import { fmtBRL } from "./types";
 import {
-  CATEGORIA_PRAZO_INFO,
   prazoEstimadoLabel,
   type CategoriaPrazo,
   type ModoCalculoItem,
@@ -69,9 +68,7 @@ export function buildOrcamentoText(itens: OrcamentoTextItem[], opts: OrcamentoTe
   lines.push("------------------------------");
 
   itens.forEach((item, idx) => {
-    const info = CATEGORIA_PRAZO_INFO[item.categoriaPrazo];
-
-    lines.push(`${idx + 1}. ${item.descricao || "(sem descrição)"} [${info.label}]`);
+    lines.push(`${idx + 1}. ${item.descricao || "(sem descrição)"}`);
 
     if (item.modoCalculo === "catalogo") {
       if (item.area == null) {
