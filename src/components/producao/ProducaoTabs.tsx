@@ -4,13 +4,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/administrativo/clientes", label: "Clientes" },
-  { href: "/administrativo/fornecedores", label: "Fornecedores" },
-  { href: "/administrativo/produtos", label: "Produtos" },
-  { href: "/administrativo/financeiro", label: "Financeiro" },
+  { href: "/producao/servicos", label: "Serviços" },
+  { href: "/producao/agenda", label: "Agenda" },
 ];
 
-export default function AdministrativoTabs() {
+export default function ProducaoTabs() {
   const pathname = usePathname();
 
   return (

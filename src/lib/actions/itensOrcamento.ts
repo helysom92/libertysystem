@@ -18,8 +18,8 @@ export async function createItemOrcamento(input: NovoItemOrcamentoInput) {
     .select("*")
     .single();
   if (error) throw error;
-  revalidatePath("/administrativo/produtos");
-  revalidatePath("/servicos");
+  revalidatePath("/secretaria/produtos");
+  revalidatePath("/producao/servicos");
   return data;
 }
 
@@ -36,5 +36,5 @@ export async function updateItemOrcamento(
   const supabase = await createClient();
   const { error } = await supabase.from("itens_orcamento").update(fields).eq("id", id);
   if (error) throw error;
-  revalidatePath("/administrativo/produtos");
+  revalidatePath("/secretaria/produtos");
 }

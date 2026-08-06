@@ -24,7 +24,7 @@ export default function SemFinanceiroPosEntrega({
         {pendentes.map((s) => (
           <a
             key={s.id}
-            href={`/servicos?open=${s.id}`}
+            href={`/producao/servicos?open=${s.id}`}
             className="rounded-btn px-2 py-1.5 text-[13px] hover:bg-card-secondary"
           >
             {displayNumero(s)} — {s.cliente}

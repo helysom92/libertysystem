@@ -38,12 +38,12 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export function allowedTabs(role: Role): string[] {
-  if (role === "secretaria") return ["hoje", "servicos", "agenda", "administrativo"];
-  if (role === "producao") return ["servicos", "agenda"];
-  return ["hoje", "servicos", "agenda", "administrativo", "gestao"];
+  if (role === "secretaria") return ["hoje", "secretaria", "producao"];
+  if (role === "producao") return ["producao"];
+  return ["gestao", "hoje", "secretaria", "producao"];
 }
 
 /** Pra onde mandar quem tenta abrir uma tela que o papel dele não tem acesso. */
 export function homeTabFor(role: Role): string {
-  return role === "producao" ? "servicos" : "hoje";
+  return role === "producao" ? "producao" : "hoje";
 }

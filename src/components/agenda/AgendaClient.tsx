@@ -12,7 +12,7 @@ export default function AgendaClient({ data, eventos }: { data: string; eventos:
   const [novoOpen, setNovoOpen] = useState(false);
 
   function goTo(newDate: string) {
-    router.push(`/agenda?data=${newDate}`);
+    router.push(`/producao/agenda?data=${newDate}`);
   }
 
   return (
@@ -85,7 +85,7 @@ export default function AgendaClient({ data, eventos }: { data: string; eventos:
               )}
               {ev.servico_id && (
                 <a
-                  href="/servicos"
+                  href={`/producao/servicos?open=${ev.servico_id}`}
                   className="rounded-btn border border-border-gold-strong px-3 py-1.5 text-[12px] text-gold"
                 >
                   Abrir Serviço

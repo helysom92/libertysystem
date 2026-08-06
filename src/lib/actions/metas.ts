@@ -11,5 +11,5 @@ export async function updateMeta(tipo: MetaTipo, valorAlvo: number) {
     .update({ valor_alvo: valorAlvo, atualizado_em: new Date().toISOString() })
     .eq("tipo", tipo);
   if (error) throw error;
-  revalidatePath("/administrativo");
+  revalidatePath("/gestao");
 }

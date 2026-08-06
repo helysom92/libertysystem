@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { fetchServicoDetail } from "@/lib/supabase/fetchServicoDetail";
 import { displayNumero, type ItemOrcamento, type ServicoDetail } from "@/lib/domain/types";
 import type { Role } from "@/lib/domain/flows";
@@ -43,6 +44,7 @@ export default function CentralDoServico({
   colunasOS: Coluna[];
   onClose: () => void;
 }) {
+  const router = useRouter();
   const [detail, setDetail] = useState<ServicoDetail | null>(null);
   const [tab, setTab] = useState("resumo");
   const [loading, setLoading] = useState(true);
@@ -51,7 +53,10 @@ export default function CentralDoServico({
     const d = await fetchServicoDetail(servicoId);
     setDetail(d);
     setLoading(false);
-  }, [servicoId]);
+    // O board por trás do modal (capa do card, badge de checklist, coluna) é renderizado no
+    // servidor — sem isso ele fica com dado velho até uma navegação/refresh manual.
+    router.refresh();
+  }, [servicoId, router]);
 
   useEffect(() => {
     let cancelled = false;

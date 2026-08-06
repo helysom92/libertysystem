@@ -23,9 +23,10 @@ export default function ServicoCard({
 
   const status = servico.numero ? prazoStatus(servico.prazo_tipo, servico.prazo) : null;
 
-  const style = transform
-    ? { transform: CSS.Translate.toString(transform), zIndex: 50 }
-    : undefined;
+  const style = {
+    touchAction: "none",
+    ...(transform ? { transform: CSS.Translate.toString(transform), zIndex: 50 } : undefined),
+  };
 
   return (
     <div
@@ -33,6 +34,9 @@ export default function ServicoCard({
       style={style}
       {...attributes}
       {...listeners}
+      onClick={() => {
+        if (!isDragging) onOpen(servico.id);
+      }}
       className={`overflow-hidden rounded-card border border-border-gold bg-card cursor-grab active:cursor-grabbing ${
         isDragging ? "opacity-50" : ""
       }`}
@@ -54,14 +58,7 @@ export default function ServicoCard({
         >
           {displayNumero(servico)}
         </p>
-        <button
-          type="button"
-          onClick={() => onOpen(servico.id)}
-          onPointerDown={(e) => e.stopPropagation()}
-          className="mb-1 block w-full text-left text-[15px] font-semibold text-text hover:text-gold"
-        >
-          {servico.cliente}
-        </button>
+        <p className="mb-1 text-[15px] font-semibold text-text">{servico.cliente}</p>
         {servico.descricao && (
           <p className="mb-2 line-clamp-2 text-[12px] text-text-secondary">{servico.descricao}</p>
         )}

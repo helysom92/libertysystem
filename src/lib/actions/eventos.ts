@@ -18,12 +18,12 @@ export async function createEvento(input: NovoEventoInput) {
   const supabase = await createClient();
   const { error } = await supabase.from("eventos").insert(input);
   if (error) throw error;
-  revalidatePath("/agenda");
+  revalidatePath("/producao/agenda");
 }
 
 export async function deleteEvento(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("eventos").delete().eq("id", id);
   if (error) throw error;
-  revalidatePath("/agenda");
+  revalidatePath("/producao/agenda");
 }

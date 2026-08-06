@@ -103,7 +103,7 @@ export default function CalendarioView({
         <p className="mb-0.5 font-display text-[15px] font-bold text-text">Agenda</p>
         <div className="mb-4 flex items-center justify-between">
           <p className="text-[13px] text-text-secondary">{selectedDateLabel}</p>
-          <Link href={`/agenda?data=${selectedDate}`} className="text-[11.5px] font-semibold text-gold hover:underline">
+          <Link href={`/producao/agenda?data=${selectedDate}`} className="text-[11.5px] font-semibold text-gold hover:underline">
             Abrir na Agenda →
           </Link>
         </div>

@@ -23,7 +23,7 @@ export async function createCliente(input: NovoClienteInput) {
     .select("id")
     .single();
   if (error) throw error;
-  revalidatePath("/administrativo/clientes");
+  revalidatePath("/secretaria/clientes");
   return data.id as string;
 }
 
@@ -31,5 +31,5 @@ export async function updateClienteStatus(clienteId: string, status: ClienteStat
   const supabase = await createClient();
   const { error } = await supabase.from("clientes").update({ status }).eq("id", clienteId);
   if (error) throw error;
-  revalidatePath("/administrativo/clientes");
+  revalidatePath("/secretaria/clientes");
 }
