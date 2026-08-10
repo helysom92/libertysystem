@@ -13,6 +13,7 @@ import {
   type LinhaOrcamento,
 } from "@/lib/domain/orcamento";
 import { buildOrcamentoText, type OrcamentoTextItem } from "@/lib/domain/orcamentoText";
+import { whatsappAppUrl } from "@/lib/domain/whatsapp";
 import ClienteAutocomplete from "./ClienteAutocomplete";
 import OrcamentoItemRow, { novoItemFormState, valorFinalDoItem, type ItemFormState } from "./OrcamentoItemRow";
 
@@ -134,9 +135,7 @@ export default function NovoServicoModal({
   }
 
   function enviarWhatsapp() {
-    const digits = whatsappCliente.replace(/\D/g, "");
-    const numero = digits ? `55${digits}` : "";
-    window.open(`https://wa.me/${numero}?text=${encodeURIComponent(montarTextoOrcamento())}`, "_blank");
+    window.open(whatsappAppUrl(whatsappCliente, montarTextoOrcamento()), "_blank");
   }
 
   function submit(e: React.FormEvent) {

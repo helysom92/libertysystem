@@ -1,5 +1,19 @@
 import { displayNumero, fmtBRL, type Servico } from "./types";
 
+/**
+ * Monta um link `whatsapp://` — abre o WhatsApp Desktop/PWA instalado no computador direto,
+ * em vez de abrir o WhatsApp Web numa aba do navegador (`wa.me`/`web.whatsapp.com`).
+ * Sem número, cai no seletor de contato do próprio app.
+ */
+export function whatsappAppUrl(phone: string | null | undefined, text?: string): string {
+  const digits = (phone ?? "").replace(/\D/g, "");
+  const params = new URLSearchParams();
+  if (digits) params.set("phone", `55${digits}`);
+  if (text) params.set("text", text);
+  const query = params.toString();
+  return `whatsapp://send${query ? `?${query}` : ""}`;
+}
+
 export function buildWhatsappText(servico: Servico): string {
   const cabecalho = `*${displayNumero(servico)} - ${servico.descricao}*`;
   return [
@@ -14,7 +28,7 @@ export function buildWhatsappText(servico: Servico): string {
     .join("\n");
 }
 
-/** Opens wa.me with the serviço/orçamento summary pre-filled; copies the same text to the clipboard. */
+/** Abre o WhatsApp instalado com o resumo do serviço/orçamento pré-preenchido; copia o mesmo texto pro clipboard. */
 export async function exportarWhatsapp(servico: Servico, clientePhone?: string | null) {
   const texto = buildWhatsappText(servico);
   try {
@@ -22,7 +36,5 @@ export async function exportarWhatsapp(servico: Servico, clientePhone?: string |
   } catch {
     // best-effort, matches prototype's swallowed clipboard errors
   }
-  const digits = (clientePhone ?? "").replace(/\D/g, "");
-  const url = `https://wa.me/55${digits}?text=${encodeURIComponent(texto)}`;
-  window.open(url, "_blank");
+  window.open(whatsappAppUrl(clientePhone, texto), "_blank");
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ServicoDetail } from "@/lib/domain/types";
 import { updateClienteInline } from "@/lib/actions/servicos";
+import { whatsappAppUrl } from "@/lib/domain/whatsapp";
 
 const FIELDS: { key: keyof ServicoDetail["cliente"]; label: string }[] = [
   { key: "nome", label: "Nome" },
@@ -88,7 +89,7 @@ export default function ClienteTab({
 
       {values.whatsapp && (
         <a
-          href={`https://wa.me/55${values.whatsapp.replace(/\D/g, "")}`}
+          href={whatsappAppUrl(values.whatsapp)}
           target="_blank"
           rel="noreferrer"
           className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px]"

@@ -13,6 +13,7 @@ import {
 } from "@/lib/domain/orcamento";
 import { buildOrcamentoText, type OrcamentoTextItem } from "@/lib/domain/orcamentoText";
 import { ensureShareToken, updatePropostaOrcamento } from "@/lib/actions/servicos";
+import { whatsappAppUrl } from "@/lib/domain/whatsapp";
 
 function toDraft(row: OrcamentoItemRow): OrcamentoItemDraft {
   return {
@@ -77,8 +78,7 @@ export default function OrcamentoItensTab({
       const token = await ensureShareToken(servico.id);
       const link = `${window.location.origin}/proposta/${token}`;
       const texto = `Olá ${detail.cliente.nome.split(" ")[0]}! Segue sua proposta da Liberty Visual e Marketing: ${link}`;
-      const digits = (detail.cliente.whatsapp ?? "").replace(/\D/g, "");
-      window.open(`https://wa.me/55${digits}?text=${encodeURIComponent(texto)}`, "_blank");
+      window.open(whatsappAppUrl(detail.cliente.whatsapp, texto), "_blank");
     } finally {
       setEnviando(false);
     }
@@ -119,8 +119,7 @@ export default function OrcamentoItensTab({
     }
     setCopiado(true);
     setTimeout(() => setCopiado(false), 2000);
-    const digits = (detail.cliente.whatsapp ?? "").replace(/\D/g, "");
-    window.open(`https://wa.me/55${digits}?text=${encodeURIComponent(texto)}`, "_blank");
+    window.open(whatsappAppUrl(detail.cliente.whatsapp, texto), "_blank");
   }
 
   return (

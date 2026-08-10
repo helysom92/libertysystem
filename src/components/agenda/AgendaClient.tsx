@@ -6,6 +6,7 @@ import { addDays, fmtDateLabel, fmtDatePtBR } from "@/lib/domain/dates";
 import type { Evento } from "@/lib/domain/types";
 import NovoEventoModal from "./NovoEventoModal";
 import { deleteEvento } from "@/lib/actions/eventos";
+import { whatsappAppUrl } from "@/lib/domain/whatsapp";
 
 export default function AgendaClient({ data, eventos }: { data: string; eventos: Evento[] }) {
   const router = useRouter();
@@ -74,7 +75,7 @@ export default function AgendaClient({ data, eventos }: { data: string; eventos:
             <div className="flex items-center gap-2">
               {ev.whatsapp && (
                 <a
-                  href={`https://wa.me/55${ev.whatsapp.replace(/\D/g, "")}`}
+                  href={whatsappAppUrl(ev.whatsapp)}
                   target="_blank"
                   rel="noreferrer"
                   className="rounded-btn border border-border-neutral px-3 py-1.5 text-[12px]"
