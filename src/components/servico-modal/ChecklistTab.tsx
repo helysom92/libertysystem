@@ -13,19 +13,35 @@ export default function ChecklistTab({
 }) {
   const [texto, setTexto] = useState("");
   const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
+
+  function showError(err: unknown, fallback: string) {
+    console.error(fallback, err);
+    setError(err instanceof Error ? err.message : fallback);
+    setTimeout(() => setError(null), 6000);
+  }
 
   function add(e: React.FormEvent) {
     e.preventDefault();
     if (!texto.trim()) return;
     startTransition(async () => {
-      await addChecklistItem(detail.servico.id, texto.trim());
-      setTexto("");
-      onChanged();
+      try {
+        await addChecklistItem(detail.servico.id, texto.trim());
+        setTexto("");
+        onChanged();
+      } catch (err) {
+        showError(err, "Não foi possível adicionar esse item.");
+      }
     });
   }
 
   return (
     <div className="flex flex-col gap-3">
+      {error && (
+        <p className="rounded-btn border border-danger-border bg-card px-3 py-2 text-[12.5px] text-danger">
+          {error}
+        </p>
+      )}
       <form onSubmit={add} className="flex gap-2">
         <input
           value={texto}
@@ -53,8 +69,12 @@ export default function ChecklistTab({
                 checked={item.done}
                 onChange={(e) =>
                   startTransition(async () => {
-                    await toggleChecklistItem(item.id, e.target.checked);
-                    onChanged();
+                    try {
+                      await toggleChecklistItem(item.id, e.target.checked);
+                      onChanged();
+                    } catch (err) {
+                      showError(err, "Não foi possível marcar esse item.");
+                    }
                   })
                 }
               />
@@ -64,8 +84,12 @@ export default function ChecklistTab({
               type="button"
               onClick={() =>
                 startTransition(async () => {
-                  await removeChecklistItem(item.id);
-                  onChanged();
+                  try {
+                    await removeChecklistItem(item.id);
+                    onChanged();
+                  } catch (err) {
+                    showError(err, "Não foi possível remover esse item.");
+                  }
                 })
               }
               className="text-danger"

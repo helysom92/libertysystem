@@ -24,13 +24,20 @@ export default function MedidasTab({
 }) {
   const [form, setForm] = useState<NovaMedidaInput>(EMPTY);
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     startTransition(async () => {
-      await addMedida(detail.servico.id, form);
-      setForm(EMPTY);
-      onChanged();
+      try {
+        await addMedida(detail.servico.id, form);
+        setForm(EMPTY);
+        onChanged();
+      } catch (err) {
+        console.error("Falha ao adicionar medição", err);
+        setError(err instanceof Error ? err.message : "Não foi possível adicionar essa medição.");
+      }
     });
   }
 
@@ -102,6 +109,7 @@ export default function MedidasTab({
         >
           Adicionar Medição
         </button>
+        {error && <p className="col-span-3 text-[12px] text-danger">{error}</p>}
       </form>
 
       <div className="flex flex-col gap-2">

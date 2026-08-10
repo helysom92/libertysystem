@@ -42,9 +42,15 @@ export default function ArquivosTab({
   }
 
   function handleRemove(id: string, path: string) {
+    setError(null);
     startTransition(async () => {
-      await removeArquivo(id, path);
-      onChanged();
+      try {
+        await removeArquivo(id, path);
+        onChanged();
+      } catch (err) {
+        console.error("Falha ao remover arquivo", err);
+        setError("Não foi possível remover esse arquivo.");
+      }
     });
   }
 
