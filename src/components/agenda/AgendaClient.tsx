@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { addDays, fmtDateLabel, fmtDatePtBR } from "@/lib/domain/dates";
 import type { Evento } from "@/lib/domain/types";
 import NovoEventoModal from "./NovoEventoModal";
@@ -11,13 +11,34 @@ import { whatsappAppUrl } from "@/lib/domain/whatsapp";
 export default function AgendaClient({ data, eventos }: { data: string; eventos: Evento[] }) {
   const router = useRouter();
   const [novoOpen, setNovoOpen] = useState(false);
+  const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function goTo(newDate: string) {
     router.push(`/producao/agenda?data=${newDate}`);
   }
 
+  function handleDelete(id: string) {
+    if (!confirm("Excluir este evento?")) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        await deleteEvento(id);
+        router.refresh();
+      } catch (err) {
+        console.error("Falha ao excluir evento", err);
+        setError(err instanceof Error ? err.message : "Não foi possível excluir esse evento.");
+      }
+    });
+  }
+
   return (
     <div>
+      {error && (
+        <p className="mb-3 rounded-btn border border-danger-border bg-card px-3 py-2 text-[12.5px] text-danger">
+          {error}
+        </p>
+      )}
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="font-display text-xl font-bold">Agenda</h1>
@@ -94,7 +115,7 @@ export default function AgendaClient({ data, eventos }: { data: string; eventos:
               )}
               <button
                 type="button"
-                onClick={() => deleteEvento(ev.id)}
+                onClick={() => handleDelete(ev.id)}
                 className="text-[12px] text-text-muted hover:text-danger"
               >
                 ✕

@@ -12,9 +12,7 @@ export default function MeuTrabalho({
   servicos: Servico[];
   roleLabel: string;
 }) {
-  const meus = servicos.filter(
-    (s) => s.estagio !== "Concluído" && s.proxima_responsavel === roleLabel
-  );
+  const meus = servicos.filter((s) => !s.concluido && s.proxima_responsavel === roleLabel);
 
   const groups = new Map<string, Servico[]>();
   for (const s of meus) {

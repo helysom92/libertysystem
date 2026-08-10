@@ -50,6 +50,7 @@ export default function OrcamentoItensTab({
   const [propostaDirty, setPropostaDirty] = useState(false);
   const [propostaSaving, setPropostaSaving] = useState(false);
   const [propostaError, setPropostaError] = useState<string | null>(null);
+  const [enviarError, setEnviarError] = useState<string | null>(null);
 
   const total = itens.reduce((sum, item) => sum + item.valor_final, 0);
   const prazoLabel = prazoEstimadoLabel(itens.map((i) => i.categoria_prazo));
@@ -75,11 +76,15 @@ export default function OrcamentoItensTab({
 
   async function enviarPorWhatsapp() {
     setEnviando(true);
+    setEnviarError(null);
     try {
       const token = await ensureShareToken(servico.id);
       const link = `${window.location.origin}/proposta/${token}`;
       const texto = `Olá ${detail.cliente.nome.split(" ")[0]}! Segue sua proposta da Liberty Visual e Marketing: ${link}`;
       window.open(whatsappAppUrl(detail.cliente.whatsapp, texto), "_blank");
+    } catch (err) {
+      console.error("Falha ao gerar link da proposta", err);
+      setEnviarError(err instanceof Error ? err.message : "Não foi possível gerar o link da proposta.");
     } finally {
       setEnviando(false);
     }
@@ -234,7 +239,8 @@ export default function OrcamentoItensTab({
                       : `${itemCatalogo?.nome ?? "-"} · Qtd: ${row.quantidade}`)}
                   {row.modo_calculo === "m2_manual" &&
                     `${row.largura_cm}cm x ${row.altura_cm}cm x ${row.quantidade}un = ${(calc.area ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2 })} m² (${fmtBRL(calc.unit)}/m²)`}
-                  {row.modo_calculo === "formula" && `Qtd: ${row.quantidade} · Valor unit: ${fmtBRL(calc.unit)}`}
+                  {row.modo_calculo === "formula" &&
+                    `Qtd: ${row.quantidade} · Valor unit: ${fmtBRL(unitParaExibicao(row.modo_calculo, calc, row.valor_final, row.quantidade))}`}
                   {calc.minimoAplicado && " · pedido mínimo aplicado"}
                 </p>
                 <p className="mt-1 text-right font-semibold text-text">{fmtBRL(row.valor_final)}</p>
@@ -281,6 +287,7 @@ export default function OrcamentoItensTab({
         </button>
         {copiado && <span className="text-[11.5px] text-success">Copiado!</span>}
       </div>
+      {enviarError && <p className="text-[12px] text-danger">{enviarError}</p>}
     </div>
   );
 }

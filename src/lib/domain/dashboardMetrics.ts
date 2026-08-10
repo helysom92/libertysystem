@@ -42,6 +42,15 @@ function yearMonthKey(dateIso: string): string {
   return dateIso.slice(0, 7); // "YYYY-MM"
 }
 
+/**
+ * "YYYY-MM" a partir dos componentes LOCAIS de um Date — não usar `.toISOString()` aqui
+ * (converte pra UTC antes de formatar; no fuso do Brasil isso vira o mês seguinte nas
+ * últimas horas de todo dia 1º-3, fazendo o "mês atual" divergir do resto do dashboard).
+ */
+function yearMonthKeyLocal(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+
 // ── Série mensal (base pra Visão Geral, Vendas, Despesas, Comparativo, Histórico) ──
 export interface MonthPoint {
   key: string; // "YYYY-MM"
@@ -177,10 +186,10 @@ function toFatias(porLabel: Map<string, number>): CategoriaFatia[] {
 }
 
 export function vendasPorTipo(servicos: Servico[], refDate: Date): CategoriaFatia[] {
-  const key = yearMonthKey(refDate.toISOString());
+  const key = yearMonthKeyLocal(refDate);
   const porTipo = new Map<string, number>();
   for (const s of servicos) {
-    if (yearMonthKey(s.criado_em) !== key) continue;
+    if (yearMonthKeyLocal(new Date(s.criado_em)) !== key) continue;
     const label = TIPO_LABELS[s.tipo as ServicoTipo] ?? s.tipo;
     porTipo.set(label, (porTipo.get(label) ?? 0) + s.valor);
   }
@@ -188,7 +197,7 @@ export function vendasPorTipo(servicos: Servico[], refDate: Date): CategoriaFati
 }
 
 export function despesasPorCategoria(lancamentos: Lancamento[], refDate: Date): CategoriaFatia[] {
-  const key = yearMonthKey(refDate.toISOString());
+  const key = yearMonthKeyLocal(refDate);
   const porCategoria = new Map<string, number>();
   for (const l of lancamentos) {
     if (l.tipo !== "Despesa" || l.status !== "realizado" || yearMonthKey(l.data) !== key) continue;

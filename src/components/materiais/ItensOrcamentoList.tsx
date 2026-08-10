@@ -12,9 +12,15 @@ export default function ItensOrcamentoList({ itens }: { itens: ItemOrcamento[] }
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<ItemOrcamento | null>(null);
   const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <div className="mb-8">
+      {error && (
+        <p className="mb-3 rounded-btn border border-danger-border bg-card px-3 py-2 text-[12.5px] text-danger">
+          {error}
+        </p>
+      )}
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h2 className="font-display text-lg font-bold">Itens de Orçamento</h2>
@@ -57,8 +63,13 @@ export default function ItensOrcamentoList({ itens }: { itens: ItemOrcamento[] }
                     type="button"
                     onClick={() =>
                       startTransition(async () => {
-                        await updateItemOrcamento(i.id, { ativo: !i.ativo });
-                        router.refresh();
+                        try {
+                          await updateItemOrcamento(i.id, { ativo: !i.ativo });
+                          router.refresh();
+                        } catch (err) {
+                          console.error("Falha ao atualizar item", err);
+                          setError(err instanceof Error ? err.message : "Não foi possível atualizar esse item.");
+                        }
                       })
                     }
                     className="rounded-pill px-2 py-0.5 text-[10.5px] font-semibold"

@@ -10,25 +10,49 @@ export default function ComprovantesSection({ comprovantes }: { comprovantes: Co
   const [banco, setBanco] = useState("");
   const [valor, setValor] = useState("");
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const pendentes = comprovantes.filter((c) => c.status === "pendente");
 
   function submitNovo(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     startTransition(async () => {
-      await registrarComprovante({
-        descricao: "Comprovante recebido",
-        banco,
-        valor: Number(valor) || 0,
-      });
-      setBanco("");
-      setValor("");
-      setOpen(false);
+      try {
+        await registrarComprovante({
+          descricao: "Comprovante recebido",
+          banco,
+          valor: Number(valor) || 0,
+        });
+        setBanco("");
+        setValor("");
+        setOpen(false);
+      } catch (err) {
+        console.error("Falha ao registrar comprovante", err);
+        setError(err instanceof Error ? err.message : "Não foi possível registrar esse comprovante.");
+      }
+    });
+  }
+
+  function handleConfirmar(id: string) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        await confirmarComprovante(id);
+      } catch (err) {
+        console.error("Falha ao confirmar comprovante", err);
+        setError(err instanceof Error ? err.message : "Não foi possível confirmar esse comprovante.");
+      }
     });
   }
 
   return (
     <div className="rounded-card border border-border-neutral bg-card p-4">
+      {error && (
+        <p className="mb-3 rounded-btn border border-danger-border bg-card-secondary px-3 py-2 text-[12.5px] text-danger">
+          {error}
+        </p>
+      )}
       <div className="mb-3 flex items-center justify-between">
         <div>
           <h3 className="font-display text-sm font-bold">Comprovantes</h3>
@@ -84,7 +108,7 @@ export default function ComprovantesSection({ comprovantes }: { comprovantes: Co
               </span>
               <button
                 type="button"
-                onClick={() => startTransition(() => confirmarComprovante(c.id))}
+                onClick={() => handleConfirmar(c.id)}
                 className="rounded-btn border border-border-gold-strong px-3 py-1 text-[12px] text-gold"
               >
                 Confirmar Lançamento

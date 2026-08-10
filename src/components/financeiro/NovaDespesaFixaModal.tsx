@@ -17,18 +17,25 @@ export default function NovaDespesaFixaModal({
   const [categoria, setCategoria] = useState("Geral");
   const [fornecedorId, setFornecedorId] = useState("");
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     startTransition(async () => {
-      await createDespesaFixa({
-        descricao,
-        valor: Number(valor) || 0,
-        dia_vencimento: Number(diaVencimento) || 1,
-        categoria,
-        fornecedor_id: fornecedorId || null,
-      });
-      onClose();
+      try {
+        await createDespesaFixa({
+          descricao,
+          valor: Number(valor) || 0,
+          dia_vencimento: Number(diaVencimento) || 1,
+          categoria,
+          fornecedor_id: fornecedorId || null,
+        });
+        onClose();
+      } catch (err) {
+        console.error("Falha ao criar despesa fixa", err);
+        setError(err instanceof Error ? err.message : "Não foi possível salvar essa despesa fixa.");
+      }
     });
   }
 
@@ -91,6 +98,8 @@ export default function NovaDespesaFixaModal({
             </option>
           ))}
         </select>
+
+        {error && <p className="mb-3 text-sm text-danger">{error}</p>}
 
         <div className="flex justify-end gap-2">
           <button

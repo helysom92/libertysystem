@@ -24,22 +24,29 @@ export default function NovoLancamentoModal({
   const [formaPagamento, setFormaPagamento] = useState(FORMAS_PAGAMENTO[0]);
   const [status, setStatus] = useState<"previsto" | "realizado">("realizado");
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     startTransition(async () => {
-      await createLancamento({
-        tipo,
-        descricao,
-        categoria,
-        valor: Number(valor) || 0,
-        data,
-        fornecedor_id: fornecedorId || null,
-        banco: banco || null,
-        forma_pagamento: formaPagamento,
-        status,
-      });
-      onClose();
+      try {
+        await createLancamento({
+          tipo,
+          descricao,
+          categoria,
+          valor: Number(valor) || 0,
+          data,
+          fornecedor_id: fornecedorId || null,
+          banco: banco || null,
+          forma_pagamento: formaPagamento,
+          status,
+        });
+        onClose();
+      } catch (err) {
+        console.error("Falha ao criar lançamento", err);
+        setError(err instanceof Error ? err.message : "Não foi possível salvar esse lançamento.");
+      }
     });
   }
 
@@ -166,6 +173,8 @@ export default function NovoLancamentoModal({
             ))}
           </div>
         </div>
+
+        {error && <p className="mb-3 text-sm text-danger">{error}</p>}
 
         <div className="flex justify-end gap-2">
           <button

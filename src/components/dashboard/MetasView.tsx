@@ -24,15 +24,20 @@ function GoalCard({ meta, atual, onSaved }: { meta: Meta; atual: number; onSaved
   const [editing, setEditing] = useState(false);
   const [valor, setValor] = useState(String(meta.valor_alvo));
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const cls = classificarMeta(meta.tipo, meta.valor_alvo, atual);
 
   async function salvar() {
     setSaving(true);
+    setError(null);
     try {
       await updateMeta(meta.tipo, Number(valor) || 0);
       setEditing(false);
       onSaved();
+    } catch (err) {
+      console.error("Falha ao salvar meta", err);
+      setError(err instanceof Error ? err.message : "Não foi possível salvar essa meta.");
     } finally {
       setSaving(false);
     }
@@ -86,6 +91,7 @@ function GoalCard({ meta, atual, onSaved }: { meta: Meta; atual: number; onSaved
 
       <ProgressBar pct={cls.pct} />
       <p className="mt-1.5 text-right text-[12px] font-semibold text-text">{fmtPct(cls.pct, 0)}</p>
+      {error && <p className="mt-1.5 text-[12px] text-danger">{error}</p>}
     </div>
   );
 }

@@ -50,10 +50,25 @@ export default function ResumoTab({
   const [infoTexto, setInfoTexto] = useState(servico.informacoes_adicionais ?? "");
   const [infoDirty, setInfoDirty] = useState(false);
   const [infoSaving, setInfoSaving] = useState(false);
+  const [infoError, setInfoError] = useState<string | null>(null);
 
   const [moverPara, setMoverPara] = useState(colunasOS[0]?.id ?? "");
   const [moveError, setMoveError] = useState<string | null>(null);
   const [aprovando, setAprovando] = useState(false);
+  const [miscError, setMiscError] = useState<string | null>(null);
+
+  function runAction(fn: () => Promise<unknown>, fallback: string) {
+    setMiscError(null);
+    startTransition(async () => {
+      try {
+        await fn();
+        onChanged();
+      } catch (err) {
+        console.error(fallback, err);
+        setMiscError(err instanceof Error ? err.message : fallback);
+      }
+    });
+  }
 
   const showLiberarAdmin = role === "administrador" && !!servico.numero && !servico.concluido;
 
@@ -83,10 +98,14 @@ export default function ResumoTab({
 
   async function saveInformacoes() {
     setInfoSaving(true);
+    setInfoError(null);
     try {
       await updateInformacoesAdicionais(servico.id, infoTexto);
       setInfoDirty(false);
       onChanged();
+    } catch (err) {
+      console.error("Falha ao salvar informações adicionais", err);
+      setInfoError(err instanceof Error ? err.message : "Não foi possível salvar.");
     } finally {
       setInfoSaving(false);
     }
@@ -128,8 +147,14 @@ export default function ResumoTab({
 
   async function handleDelete() {
     if (!confirm("Excluir este serviço? Esta ação não pode ser desfeita.")) return;
-    await deleteServico(servico.id);
-    onClose();
+    setMiscError(null);
+    try {
+      await deleteServico(servico.id);
+      onClose();
+    } catch (err) {
+      console.error("Falha ao excluir serviço", err);
+      setMiscError(err instanceof Error ? err.message : "Não foi possível excluir esse serviço.");
+    }
   }
 
   return (
@@ -173,10 +198,10 @@ export default function ResumoTab({
             value={acaoResp}
             onChange={(e) => {
               setAcaoResp(e.target.value);
-              startTransition(async () => {
-                await updateProximaAcao(servico.id, { proxima_responsavel: e.target.value });
-                onChanged();
-              });
+              runAction(
+                () => updateProximaAcao(servico.id, { proxima_responsavel: e.target.value }),
+                "Não foi possível atualizar o responsável da próxima ação."
+              );
             }}
             className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
           >
@@ -241,10 +266,10 @@ export default function ResumoTab({
           <select
             defaultValue={servico.prioridade}
             onChange={(e) =>
-              startTransition(async () => {
-                await updatePrioridade(servico.id, e.target.value);
-                onChanged();
-              })
+              runAction(
+                () => updatePrioridade(servico.id, e.target.value),
+                "Não foi possível atualizar a prioridade."
+              )
             }
             className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
           >
@@ -262,10 +287,10 @@ export default function ResumoTab({
           <select
             defaultValue={servico.responsavel}
             onChange={(e) =>
-              startTransition(async () => {
-                await updateResponsavel(servico.id, e.target.value);
-                onChanged();
-              })
+              runAction(
+                () => updateResponsavel(servico.id, e.target.value),
+                "Não foi possível atualizar o responsável."
+              )
             }
             className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
           >
@@ -286,10 +311,10 @@ export default function ResumoTab({
               key={t}
               type="button"
               onClick={() =>
-                startTransition(async () => {
-                  await updatePrazoServico(servico.id, t);
-                  onChanged();
-                })
+                runAction(
+                  () => updatePrazoServico(servico.id, t),
+                  "Não foi possível atualizar o prazo."
+                )
               }
               className={`rounded-pill border px-3 py-1.5 text-[11.5px] font-semibold ${
                 servico.prazo_tipo === t
@@ -340,6 +365,7 @@ export default function ResumoTab({
         >
           {infoSaving ? "Salvando..." : "Salvar"}
         </button>
+        {infoError && <p className="mt-1.5 text-[12px] text-danger">Não foi possível salvar: {infoError}</p>}
       </div>
 
       {!!servico.numero && !servico.concluido && (
@@ -347,12 +373,13 @@ export default function ResumoTab({
           <input
             type="checkbox"
             checked={servico.entrega_confirmada}
-            onChange={(e) =>
-              startTransition(async () => {
-                await toggleEntregaConfirmada(servico.id, e.target.checked);
-                onChanged();
-              })
-            }
+            onChange={(e) => {
+              const checked = e.target.checked;
+              runAction(
+                () => toggleEntregaConfirmada(servico.id, checked),
+                "Não foi possível atualizar a entrega confirmada."
+              );
+            }}
           />
           Entrega confirmada
         </label>
@@ -363,17 +390,19 @@ export default function ResumoTab({
           <input
             type="checkbox"
             checked={servico.liberado_admin}
-            onChange={(e) =>
-              startTransition(async () => {
-                await toggleLiberadoAdmin(servico.id, e.target.checked);
-                onChanged();
-              })
-            }
+            onChange={(e) => {
+              const checked = e.target.checked;
+              runAction(
+                () => toggleLiberadoAdmin(servico.id, checked),
+                "Não foi possível atualizar a liberação."
+              );
+            }}
           />
           Liberar conclusão mesmo com financeiro pendente
         </label>
       )}
 
+      {miscError && <p className="text-[12.5px] text-danger">{miscError}</p>}
       {moveError && <p className="text-[12.5px] text-danger">{moveError}</p>}
 
       {!servico.numero ? (

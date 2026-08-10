@@ -10,9 +10,15 @@ export default function FornecedoresList({ fornecedores }: { fornecedores: Forne
   const router = useRouter();
   const [novoOpen, setNovoOpen] = useState(false);
   const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <div>
+      {error && (
+        <p className="mb-3 rounded-btn border border-danger-border bg-card px-3 py-2 text-[12.5px] text-danger">
+          {error}
+        </p>
+      )}
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="font-display text-xl font-bold">Fornecedores</h1>
@@ -50,8 +56,13 @@ export default function FornecedoresList({ fornecedores }: { fornecedores: Forne
                     type="button"
                     onClick={() =>
                       startTransition(async () => {
-                        await updateFornecedor(f.id, { ativo: !f.ativo });
-                        router.refresh();
+                        try {
+                          await updateFornecedor(f.id, { ativo: !f.ativo });
+                          router.refresh();
+                        } catch (err) {
+                          console.error("Falha ao atualizar fornecedor", err);
+                          setError(err instanceof Error ? err.message : "Não foi possível atualizar esse fornecedor.");
+                        }
                       })
                     }
                     className="rounded-pill px-2 py-0.5 text-[10.5px] font-semibold"

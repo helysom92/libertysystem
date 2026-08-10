@@ -18,9 +18,15 @@ export default function MateriaisList({ materiais }: { materiais: Material[] }) 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Material | null>(null);
   const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <div>
+      {error && (
+        <p className="mb-3 rounded-btn border border-danger-border bg-card px-3 py-2 text-[12.5px] text-danger">
+          {error}
+        </p>
+      )}
       <div className="mb-6 flex items-start justify-between">
         <div>
           <h2 className="font-display text-lg font-bold">Materiais (Custos de Referência)</h2>
@@ -63,8 +69,13 @@ export default function MateriaisList({ materiais }: { materiais: Material[] }) 
                     type="button"
                     onClick={() =>
                       startTransition(async () => {
-                        await updateMaterial(m.id, { ativo: !m.ativo });
-                        router.refresh();
+                        try {
+                          await updateMaterial(m.id, { ativo: !m.ativo });
+                          router.refresh();
+                        } catch (err) {
+                          console.error("Falha ao atualizar material", err);
+                          setError(err instanceof Error ? err.message : "Não foi possível atualizar esse material.");
+                        }
                       })
                     }
                     className="rounded-pill px-2 py-0.5 text-[10.5px] font-semibold"

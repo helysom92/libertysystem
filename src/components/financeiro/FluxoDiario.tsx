@@ -28,6 +28,7 @@ export default function FluxoDiario({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   const fornecedorNome = (id: string | null) => fornecedores.find((f) => f.id === id)?.nome ?? null;
 
@@ -41,6 +42,11 @@ export default function FluxoDiario({
 
   return (
     <div className="rounded-card border border-border-neutral bg-card p-4">
+      {error && (
+        <p className="mb-3 rounded-btn border border-danger-border bg-card-secondary px-3 py-2 text-[12.5px] text-danger">
+          {error}
+        </p>
+      )}
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-display text-sm font-bold">Fluxo Financeiro</h3>
         <button
@@ -113,8 +119,13 @@ export default function FluxoDiario({
                           type="button"
                           onClick={() =>
                             startTransition(async () => {
-                              await marcarLancamentoRealizado(l.id);
-                              router.refresh();
+                              try {
+                                await marcarLancamentoRealizado(l.id);
+                                router.refresh();
+                              } catch (err) {
+                                console.error("Falha ao marcar lançamento como realizado", err);
+                                setError(err instanceof Error ? err.message : "Não foi possível atualizar esse lançamento.");
+                              }
                             })
                           }
                           className="rounded-btn border border-border-gold-strong px-2 py-1 text-[11px] text-gold"

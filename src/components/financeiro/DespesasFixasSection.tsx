@@ -34,9 +34,15 @@ export default function DespesasFixasSection({
 }) {
   const [open, setOpen] = useState(false);
   const [, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   return (
     <div className="rounded-card border border-border-neutral bg-card p-4">
+      {error && (
+        <p className="mb-3 rounded-btn border border-danger-border bg-card-secondary px-3 py-2 text-[12.5px] text-danger">
+          {error}
+        </p>
+      )}
       <div className="mb-3 flex items-center justify-between">
         <h3 className="font-display text-sm font-bold">Despesas Fixas</h3>
         <button
@@ -74,11 +80,18 @@ export default function DespesasFixasSection({
                   <input
                     type="checkbox"
                     checked={ocorrencia?.pago ?? false}
-                    onChange={(e) =>
-                      startTransition(() =>
-                        toggleDespesaOcorrencia(d.id, ano, mes, e.target.checked)
-                      )
-                    }
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setError(null);
+                      startTransition(async () => {
+                        try {
+                          await toggleDespesaOcorrencia(d.id, ano, mes, checked);
+                        } catch (err) {
+                          console.error("Falha ao atualizar despesa fixa", err);
+                          setError(err instanceof Error ? err.message : "Não foi possível atualizar essa despesa.");
+                        }
+                      });
+                    }}
                   />
                   Pago
                 </label>

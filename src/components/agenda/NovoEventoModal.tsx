@@ -19,21 +19,28 @@ export default function NovoEventoModal({
   const [responsavel, setResponsavel] = useState("Secretaria");
   const [whatsapp, setWhatsapp] = useState("");
   const [pending, startTransition] = useTransition();
+  const [error, setError] = useState<string | null>(null);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    setError(null);
     startTransition(async () => {
-      await createEvento({
-        data,
-        hora,
-        tipo,
-        servico_id: null,
-        cliente,
-        endereco,
-        responsavel,
-        whatsapp,
-      });
-      onClose();
+      try {
+        await createEvento({
+          data,
+          hora,
+          tipo,
+          servico_id: null,
+          cliente,
+          endereco,
+          responsavel,
+          whatsapp,
+        });
+        onClose();
+      } catch (err) {
+        console.error("Falha ao criar evento", err);
+        setError(err instanceof Error ? err.message : "Não foi possível criar o evento.");
+      }
     });
   }
 
@@ -107,6 +114,8 @@ export default function NovoEventoModal({
             />
           </div>
         </div>
+
+        {error && <p className="mb-3 text-sm text-danger">{error}</p>}
 
         <div className="flex justify-end gap-2">
           <button
