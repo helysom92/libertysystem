@@ -14,7 +14,13 @@ import {
 } from "@/lib/domain/orcamento";
 import { buildOrcamentoText, type OrcamentoTextItem } from "@/lib/domain/orcamentoText";
 import { ensureShareToken, updatePropostaOrcamento } from "@/lib/actions/servicos";
+import { replaceOrcamentoItens } from "@/lib/actions/orcamentoItens";
 import { whatsappAppUrl } from "@/lib/domain/whatsapp";
+import OrcamentoItemRowEditor, {
+  novoItemFormState,
+  valorFinalDoItem,
+  type ItemFormState,
+} from "@/components/kanban/OrcamentoItemRow";
 
 function toDraft(row: OrcamentoItemRow): OrcamentoItemDraft {
   return {
@@ -26,6 +32,16 @@ function toDraft(row: OrcamentoItemRow): OrcamentoItemDraft {
     quantidade: row.quantidade,
     custoDireto: row.custo_direto ?? 0,
     precoM2Manual: row.preco_m2_manual ?? 0,
+  };
+}
+
+/** Ponto de partida da edição: começa mostrando exatamente o valor já salvo (nunca
+ * recalcula sozinho), o usuário decide se quer "usar sugerido" a partir daqui. */
+function toItemFormState(row: OrcamentoItemRow): ItemFormState {
+  return {
+    ...toDraft(row),
+    descricao: row.descricao,
+    valorOverride: row.valor_final,
   };
 }
 
@@ -42,6 +58,11 @@ export default function OrcamentoItensTab({
   const [copiado, setCopiado] = useState(false);
   const [enviando, setEnviando] = useState(false);
   const itens = detail.orcamentoItens;
+
+  const [editingItens, setEditingItens] = useState(false);
+  const [itensDraft, setItensDraft] = useState<ItemFormState[]>([]);
+  const [itensSaving, setItensSaving] = useState(false);
+  const [itensError, setItensError] = useState<string | null>(null);
 
   const [linha, setLinha] = useState<LinhaOrcamento>(servico.linha_orcamento);
   const [validadeDias, setValidadeDias] = useState(String(servico.validade_proposta_dias));
@@ -71,6 +92,54 @@ export default function OrcamentoItensTab({
       setPropostaError(err instanceof Error ? err.message : "Erro desconhecido ao salvar.");
     } finally {
       setPropostaSaving(false);
+    }
+  }
+
+  function startEditingItens() {
+    setItensDraft(itens.map(toItemFormState));
+    setItensError(null);
+    setEditingItens(true);
+  }
+
+  function addItemDraft() {
+    setItensDraft((prev) => [...prev, novoItemFormState()]);
+  }
+
+  function updateItemDraft(index: number, next: ItemFormState) {
+    setItensDraft((prev) => prev.map((it, i) => (i === index ? next : it)));
+  }
+
+  function removeItemDraft(index: number) {
+    setItensDraft((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function salvarItens() {
+    setItensSaving(true);
+    setItensError(null);
+    try {
+      await replaceOrcamentoItens(
+        servico.id,
+        itensDraft.map((item, ordem) => ({
+          ordem,
+          descricao: item.descricao,
+          categoriaPrazo: item.categoriaPrazo,
+          modoCalculo: item.modoCalculo,
+          itemOrcamentoId: item.itemOrcamentoId,
+          larguraCm: item.larguraCm || null,
+          alturaCm: item.alturaCm || null,
+          quantidade: item.quantidade,
+          custoDireto: item.custoDireto || null,
+          precoM2Manual: item.precoM2Manual || null,
+          valorFinal: valorFinalDoItem(item, itensOrcamento),
+        }))
+      );
+      setEditingItens(false);
+      onChanged();
+    } catch (err) {
+      console.error("Falha ao salvar itens do orçamento", err);
+      setItensError(err instanceof Error ? err.message : "Não foi possível salvar os itens.");
+    } finally {
+      setItensSaving(false);
     }
   }
 
@@ -214,10 +283,77 @@ export default function OrcamentoItensTab({
         </div>
       </div>
 
-      {itens.length === 0 ? (
-        <p className="text-sm text-text-muted">Este serviço não tem itens de orçamento detalhados.</p>
+      {editingItens ? (
+        <>
+          <p className="text-[10.5px] tracking-wide text-text-muted uppercase">Editar itens</p>
+          {itensDraft.map((item, index) => (
+            <OrcamentoItemRowEditor
+              key={index}
+              index={index}
+              item={item}
+              itensOrcamento={itensOrcamento}
+              onChange={(next) => updateItemDraft(index, next)}
+              onRemove={() => removeItemDraft(index)}
+            />
+          ))}
+          <button
+            type="button"
+            onClick={addItemDraft}
+            className="w-fit rounded-btn border border-border-gold-strong px-3 py-1.5 text-[12.5px] text-gold"
+          >
+            + Adicionar item
+          </button>
+
+          <div className="flex items-center justify-between rounded-card bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-3">
+            <span className="text-[13px] font-semibold text-bg">Total do orçamento</span>
+            <span className="font-display text-lg font-bold text-bg">
+              {fmtBRL(itensDraft.reduce((sum, item) => sum + valorFinalDoItem(item, itensOrcamento), 0))}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={salvarItens}
+              disabled={itensSaving}
+              className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg disabled:opacity-60"
+            >
+              {itensSaving ? "Salvando..." : "Salvar itens"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setEditingItens(false)}
+              disabled={itensSaving}
+              className="rounded-btn px-4 py-2 text-sm text-text-secondary hover:text-text"
+            >
+              Cancelar
+            </button>
+            {itensError && <p className="text-[12px] text-danger">{itensError}</p>}
+          </div>
+        </>
+      ) : itens.length === 0 ? (
+        <div>
+          <p className="mb-2 text-sm text-text-muted">Este serviço não tem itens de orçamento detalhados.</p>
+          <button
+            type="button"
+            onClick={startEditingItens}
+            className="w-fit rounded-btn border border-border-gold-strong px-3 py-1.5 text-[12.5px] text-gold"
+          >
+            + Adicionar itens
+          </button>
+        </div>
       ) : (
         <>
+          <div className="flex items-center justify-between">
+            <p className="text-[10.5px] tracking-wide text-text-muted uppercase">Itens do orçamento</p>
+            <button
+              type="button"
+              onClick={startEditingItens}
+              className="text-[11.5px] text-gold hover:underline"
+            >
+              Editar itens
+            </button>
+          </div>
           {itens.map((row) => {
             const calc = calcularItemOrcamento(toDraft(row), itensOrcamento);
             const itemCatalogo = itensOrcamento.find((i) => i.id === row.item_orcamento_id);

@@ -36,6 +36,7 @@ export async function createServico(input: NovoServicoInput) {
       cliente: input.cliente,
       descricao: input.descricao,
       valor: input.valor,
+      financeiro_status: input.valor > 0 ? "Orçado" : "Não orçado",
       tipo: input.tipo,
       prazo: input.prazo,
       linha_orcamento: input.linha_orcamento,
