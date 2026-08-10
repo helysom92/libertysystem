@@ -87,6 +87,25 @@ export function calcularItemOrcamento(
   return { area: null, sugerido: unit * quantidade, unit, minimoAplicado: false };
 }
 
+/**
+ * "Valor unit." exibido pro cliente. No modo fórmula, `calc.unit` é só a sugestão
+ * (custo × 3 × 1,15) — se o valor final do item foi editado à mão, o unitário precisa
+ * refletir esse valor real, senão o texto mostra o preço sugerido antigo, não o cobrado.
+ * Catálogo e m²-manual não sofrem disso: ali "unit" já é o preço/m² digitado ou tabelado,
+ * independente do valor final ter sido ajustado.
+ */
+export function unitParaExibicao(
+  modoCalculo: ModoCalculoItem,
+  calc: OrcamentoItemCalculo,
+  valorFinal: number,
+  quantidade: number
+): number {
+  if (modoCalculo === "formula") {
+    return valorFinal / (quantidade || 1);
+  }
+  return calc.unit;
+}
+
 /** Maior prazo entre os itens do orçamento (rank mais alto vence), como texto pro cliente. */
 export function prazoEstimadoLabel(categorias: CategoriaPrazo[]): string | null {
   const maxRank = categorias.reduce((max, c) => Math.max(max, CATEGORIA_PRAZO_INFO[c].rank), 0);

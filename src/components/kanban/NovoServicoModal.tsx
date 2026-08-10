@@ -10,6 +10,7 @@ import {
   LINHA_ORCAMENTO_INFO,
   calcularItemOrcamento,
   prazoEstimadoLabel,
+  unitParaExibicao,
   type LinhaOrcamento,
 } from "@/lib/domain/orcamento";
 import { buildOrcamentoText, type OrcamentoTextItem } from "@/lib/domain/orcamentoText";
@@ -99,6 +100,7 @@ export default function NovoServicoModal({
     const textItens: OrcamentoTextItem[] = itens.map((item) => {
       const calc = calcularItemOrcamento(item, itensOrcamento);
       const itemCatalogo = itensOrcamento.find((i) => i.id === item.itemOrcamentoId);
+      const valorFinal = valorFinalDoItem(item, itensOrcamento);
       return {
         descricao: item.descricao,
         categoriaPrazo: item.categoriaPrazo,
@@ -108,9 +110,9 @@ export default function NovoServicoModal({
         alturaCm: item.alturaCm,
         quantidade: item.quantidade,
         area: calc.area,
-        unit: calc.unit,
+        unit: unitParaExibicao(item.modoCalculo, calc, valorFinal, item.quantidade),
         minimoAplicado: calc.minimoAplicado,
-        valorFinal: valorFinalDoItem(item, itensOrcamento),
+        valorFinal,
       };
     });
 

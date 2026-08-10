@@ -8,6 +8,7 @@ import {
   LINHA_ORCAMENTO_INFO,
   calcularItemOrcamento,
   prazoEstimadoLabel,
+  unitParaExibicao,
   type LinhaOrcamento,
   type OrcamentoItemDraft,
 } from "@/lib/domain/orcamento";
@@ -97,7 +98,7 @@ export default function OrcamentoItensTab({
         alturaCm: row.altura_cm,
         quantidade: row.quantidade,
         area: calc.area,
-        unit: calc.unit,
+        unit: unitParaExibicao(row.modo_calculo, calc, row.valor_final, row.quantidade),
         minimoAplicado: calc.minimoAplicado,
         valorFinal: row.valor_final,
       };

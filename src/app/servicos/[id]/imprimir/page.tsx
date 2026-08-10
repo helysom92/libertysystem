@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getSignedUrl } from "@/lib/actions/servicoDetail";
-import { calcularItemOrcamento, type OrcamentoItemDraft } from "@/lib/domain/orcamento";
+import { calcularItemOrcamento, unitParaExibicao, type OrcamentoItemDraft } from "@/lib/domain/orcamento";
 import { formatItemDetalhe } from "@/lib/domain/orcamentoText";
 import type { ItemOrcamento, OrcamentoItemRow } from "@/lib/domain/types";
 import OrcamentoDocumento, { type OrcamentoDocumentoItem } from "@/components/servico-modal/OrcamentoDocumento";
@@ -41,17 +41,18 @@ export default async function ImprimirServicoPage({
 
   const itens: OrcamentoDocumentoItem[] = rows.map((row) => {
     const calc = calcularItemOrcamento(toDraft(row), catalogItens);
+    const unit = unitParaExibicao(row.modo_calculo, calc, row.valor_final, row.quantidade);
     const itemCatalogo = catalogItens.find((i) => i.id === row.item_orcamento_id);
     return {
       descricao: row.descricao,
       categoriaPrazo: row.categoria_prazo,
-      detalhe: formatItemDetalhe(row.modo_calculo, calc, {
+      detalhe: formatItemDetalhe(row.modo_calculo, { ...calc, unit }, {
         itemNome: itemCatalogo?.nome,
         larguraCm: row.largura_cm,
         alturaCm: row.altura_cm,
         quantidade: row.quantidade,
       }),
-      valorUnit: calc.unit,
+      valorUnit: unit,
       valorFinal: row.valor_final,
     };
   });
