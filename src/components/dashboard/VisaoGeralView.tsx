@@ -50,14 +50,14 @@ export default function VisaoGeralView({
 }) {
   return (
     <div>
-      <div className="mb-5 grid grid-cols-4 gap-4">
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard {...kpis.receita} />
         <KpiCard {...kpis.despesas} />
         <KpiCard {...kpis.lucro} />
         <KpiCard {...kpis.margem} />
       </div>
 
-      <div className="mb-5 grid grid-cols-2 gap-4">
+      <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-card border border-border-neutral bg-card-secondary p-5">
           <p className="mb-4 font-display text-[15px] font-bold text-text">Vendas x Despesas — últimos 6 meses</p>
           <BarChart
@@ -79,7 +79,7 @@ export default function VisaoGeralView({
         </div>
       </div>
 
-      <div className="grid grid-cols-[1.3fr_1fr] gap-4">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.3fr_1fr]">
         <div className="rounded-card border border-border-neutral bg-card p-5">
           <p className="mb-3 font-display text-[15px] font-bold text-text">Próximos vencimentos e compromissos</p>
           {upcoming.length === 0 && <p className="text-[12.5px] text-text-muted">Nada nos próximos dias.</p>}

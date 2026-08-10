@@ -45,7 +45,7 @@ export default function MedidasTab({
     <div className="flex flex-col gap-5">
       <form
         onSubmit={submit}
-        className="grid grid-cols-3 gap-2 rounded-card border border-border-neutral bg-card-secondary p-3"
+        className="grid grid-cols-1 gap-2 rounded-card border border-border-neutral bg-card-secondary p-3 sm:grid-cols-3"
       >
         <input
           type="number"

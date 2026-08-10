@@ -56,7 +56,7 @@ export default async function FinanceiroPage() {
         <p className="text-[13px] text-text-secondary">Receitas, despesas e comprovantes</p>
       </div>
 
-      <div className="mb-5 grid grid-cols-3 gap-3">
+      <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-card border border-border-neutral bg-card p-4">
           <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Receitas</p>
           <p className="font-display text-xl font-bold">{fmtBRL(receitas)}</p>

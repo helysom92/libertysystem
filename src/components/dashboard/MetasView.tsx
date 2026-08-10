@@ -106,7 +106,7 @@ export default function MetasView({
   onChanged: () => void;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-4">
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
       {metas.map((m) => (
         <GoalCard key={m.tipo} meta={m} atual={atuais[m.tipo] ?? 0} onSaved={onChanged} />
       ))}

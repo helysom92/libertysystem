@@ -50,7 +50,7 @@ export default function FinanceiroTab({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
           <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Valor Total</p>
           <p className="font-display text-sm font-bold text-gradient-gold">{fmtBRL(servico.valor)}</p>

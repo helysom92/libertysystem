@@ -50,7 +50,7 @@ export default async function HojePage() {
         <AdminKpis servicos={svs} />
       )}
 
-      <div className="mt-5 grid grid-cols-2 gap-4">
+      <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <MeuTrabalho servicos={svs} roleLabel={ROLE_LABELS[role]} />
         <AlertasIA alerts={alerts} />
       </div>
@@ -67,7 +67,7 @@ export default async function HojePage() {
 function AdminKpis({ servicos }: { servicos: Servico[] }) {
   const k = computeKpisAdmin(servicos);
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <KpiCard label="Serviços Atrasados" value={k.atrasados} hint="Prazo vencido" />
       <KpiCard label="Prazo Hoje" value={k.instalacoesHoje} hint="Serviços com prazo hoje" />
       <KpiCard label="Caixa Previsto" value={fmtBRL(k.caixaPrevisto)} hint="A receber dos serviços ativos" gold />
@@ -85,7 +85,7 @@ function AdminKpis({ servicos }: { servicos: Servico[] }) {
 function ProducaoKpis({ servicos }: { servicos: Servico[] }) {
   const k = computeKpisProducao(servicos);
   return (
-    <div className="grid grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <KpiCard label="OS Abertas" value={k.osAbertas} />
       <KpiCard label="Serviços Entregues (mês)" value={k.entreguesMes} />
       <KpiCard label="Prazo Hoje" value={k.instalacoesHoje} />

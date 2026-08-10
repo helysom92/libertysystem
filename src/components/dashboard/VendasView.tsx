@@ -24,7 +24,7 @@ export default function VendasView({
 
   return (
     <div>
-      <div className="mb-5 grid grid-cols-4 gap-4">
+      <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-card border border-border-neutral bg-card-secondary p-4">
           <p className="text-[12px] font-semibold text-text-secondary">Vendas do mês</p>
           <p className="mt-1 font-display text-[20px] font-bold text-text">{fmtBRL(mesAtual.sales)}</p>
@@ -48,7 +48,7 @@ export default function VendasView({
         </div>
       </div>
 
-      <div className="mb-5 grid grid-cols-[1.4fr_1fr] gap-4">
+      <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="rounded-card border border-border-neutral bg-card p-5">
           <p className="mb-4 font-display text-[15px] font-bold text-text">Vendas — 12 meses</p>
           <BarChart

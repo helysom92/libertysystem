@@ -169,7 +169,7 @@ export default function ResumoTab({
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
           <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Etapa Atual</p>
           <p className="text-sm font-semibold">{servico.estagio}</p>
@@ -243,7 +243,7 @@ export default function ResumoTab({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
           <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Valor Total</p>
           <p className="font-display text-sm font-bold text-gradient-gold">{fmtBRL(servico.valor)}</p>

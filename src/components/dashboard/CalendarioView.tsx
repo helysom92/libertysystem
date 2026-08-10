@@ -26,7 +26,7 @@ export default function CalendarioView({
   selectedDayEvents: CalendarEvent[];
 }) {
   return (
-    <div className="grid grid-cols-[1.5fr_1fr] gap-4">
+    <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr]">
       <div className="rounded-card border border-border-neutral bg-card p-5">
         <div className="mb-4 flex items-center justify-between">
           <p className="font-display text-[16px] font-bold text-text">{monthLabel}</p>
