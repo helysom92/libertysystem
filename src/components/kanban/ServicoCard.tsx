@@ -43,9 +43,9 @@ export default function ServicoCard({
     >
       {capaUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={capaUrl} alt="" className="h-24 w-full object-cover" />
+        <img src={capaUrl} alt="" className="h-44 w-full object-cover" />
       ) : (
-        <div className="flex h-16 items-center justify-center border-b border-border-neutral bg-card-secondary">
+        <div className="flex h-28 items-center justify-center border-b border-border-neutral bg-card-secondary">
           <span className="font-mono text-[9px] tracking-wide text-text-muted uppercase">
             capa · foto da arte/projeto
           </span>
