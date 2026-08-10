@@ -94,6 +94,7 @@ export default function ResumoTab({
 
   async function handleAprovar() {
     setAprovando(true);
+    setMoveError(null);
     try {
       const result = await aprovarOrcamento(servico.id);
       if (!result.ok) {
@@ -101,6 +102,9 @@ export default function ResumoTab({
         return;
       }
       onChanged();
+    } catch (err) {
+      console.error("Falha ao aprovar orçamento", err);
+      setMoveError(err instanceof Error ? err.message : "Não foi possível aprovar.");
     } finally {
       setAprovando(false);
     }
@@ -109,12 +113,17 @@ export default function ResumoTab({
   async function handleMover() {
     if (!moverPara) return;
     setMoveError(null);
-    const result = await moveCardParaColuna(servico.id, moverPara);
-    if (!result.ok) {
-      setMoveError(result.reason ?? "Não foi possível mover.");
-      return;
+    try {
+      const result = await moveCardParaColuna(servico.id, moverPara);
+      if (!result.ok) {
+        setMoveError(result.reason ?? "Não foi possível mover.");
+        return;
+      }
+      onChanged();
+    } catch (err) {
+      console.error("Falha ao mover serviço", err);
+      setMoveError(err instanceof Error ? err.message : "Não foi possível mover.");
     }
-    onChanged();
   }
 
   async function handleDelete() {

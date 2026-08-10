@@ -16,6 +16,13 @@ export default function FotosTab({
   const [urls, setUrls] = useState<Record<string, string | null>>({});
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const [addingSlot, setAddingSlot] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  function showError(err: unknown, fallback: string) {
+    console.error(fallback, err);
+    setError(err instanceof Error ? err.message : fallback);
+    setTimeout(() => setError(null), 6000);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -37,43 +44,66 @@ export default function FotosTab({
 
   async function handleDrop(fotoId: string, slot: number, file: File) {
     setUploadingId(fotoId);
+    setError(null);
     try {
       const supabase = createClient();
       const ext = file.name.split(".").pop() ?? "jpg";
       const path = `${detail.servico.id}/slot-${slot}.${ext}`;
-      const { error } = await supabase.storage.from("fotos").upload(path, file, { upsert: true });
-      if (error) throw error;
+      const { error: uploadError } = await supabase.storage
+        .from("fotos")
+        .upload(path, file, { upsert: true });
+      if (uploadError) throw uploadError;
       await upsertFoto(detail.servico.id, slot, path);
       const url = await getSignedUrl("fotos", path);
       setUrls((u) => ({ ...u, [fotoId]: url }));
       onChanged();
+    } catch (err) {
+      showError(err, "Não foi possível enviar essa foto.");
     } finally {
       setUploadingId(null);
     }
   }
 
   async function handleSetCapa(fotoId: string) {
-    await setCapaFoto(detail.servico.id, fotoId);
-    onChanged();
+    setError(null);
+    try {
+      await setCapaFoto(detail.servico.id, fotoId);
+      onChanged();
+    } catch (err) {
+      showError(err, "Não foi possível definir essa foto como capa.");
+    }
   }
 
   async function handleAddSlot() {
     setAddingSlot(true);
+    setError(null);
     try {
       await addFotoSlot(detail.servico.id);
       onChanged();
+    } catch (err) {
+      showError(err, "Não foi possível adicionar um espaço de foto.");
     } finally {
       setAddingSlot(false);
     }
   }
 
   async function handleRemove(fotoId: string, storagePath: string | null) {
-    await removeFoto(fotoId, storagePath);
-    onChanged();
+    setError(null);
+    try {
+      await removeFoto(fotoId, storagePath);
+      onChanged();
+    } catch (err) {
+      showError(err, "Não foi possível remover essa foto.");
+    }
   }
 
   return (
     <div className="flex flex-col gap-3">
+      {error && (
+        <p className="rounded-btn border border-danger-border bg-card px-3 py-2 text-[12.5px] text-danger">
+          {error}
+        </p>
+      )}
       <div className="grid grid-cols-3 gap-4">
         {detail.fotos.map((foto) => {
           const isCapa = foto.id === detail.servico.capa_foto_id;

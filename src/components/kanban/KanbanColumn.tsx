@@ -28,12 +28,23 @@ export default function KanbanColumn({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  function showError(err: unknown, fallback: string) {
+    console.error(fallback, err);
+    setError(err instanceof Error ? err.message : fallback);
+    setTimeout(() => setError(null), 5000);
+  }
+
   function saveLabel() {
     setEditing(false);
     if (label.trim() && label !== coluna.label) {
       startTransition(async () => {
-        await renameColuna(coluna.id, label.trim());
-        router.refresh();
+        try {
+          await renameColuna(coluna.id, label.trim());
+          router.refresh();
+        } catch (err) {
+          showError(err, "Não foi possível renomear essa coluna.");
+          setLabel(coluna.label);
+        }
       });
     } else {
       setLabel(coluna.label);
@@ -42,13 +53,16 @@ export default function KanbanColumn({
 
   function handleDelete() {
     startTransition(async () => {
-      const result = await deleteColuna(coluna.id);
-      if (!result.ok) {
-        setError(result.reason ?? "Não foi possível apagar essa coluna.");
-        setTimeout(() => setError(null), 4000);
-        return;
+      try {
+        const result = await deleteColuna(coluna.id);
+        if (!result.ok) {
+          showError(null, result.reason ?? "Não foi possível apagar essa coluna.");
+          return;
+        }
+        router.refresh();
+      } catch (err) {
+        showError(err, "Não foi possível apagar essa coluna.");
       }
-      router.refresh();
     });
   }
 
@@ -95,8 +109,12 @@ export default function KanbanColumn({
                 type="button"
                 onClick={() =>
                   startTransition(async () => {
-                    await toggleConclusaoColuna(coluna.id, !coluna.is_conclusao);
-                    router.refresh();
+                    try {
+                      await toggleConclusaoColuna(coluna.id, !coluna.is_conclusao);
+                      router.refresh();
+                    } catch (err) {
+                      showError(err, "Não foi possível alterar a coluna de conclusão.");
+                    }
                   })
                 }
                 title={coluna.is_conclusao ? "Remover marca de conclusão" : "Marcar como coluna de conclusão"}

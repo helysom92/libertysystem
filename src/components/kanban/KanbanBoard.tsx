@@ -2,7 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DndContext, type DragEndEvent, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
+import {
+  closestCenter,
+  DndContext,
+  type DragEndEvent,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
 import { createColuna, moveCardParaColuna } from "@/lib/actions/kanban";
 import type { Coluna, KanbanBoardKey } from "@/lib/domain/kanban";
 import type { Cliente, ItemOrcamento, Servico } from "@/lib/domain/types";
@@ -54,6 +61,11 @@ export default function KanbanBoard({
       }));
   }, [colunas, servicos, board]);
 
+  function showDragError(msg: string) {
+    setDragError(msg);
+    setTimeout(() => setDragError(null), 5000);
+  }
+
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     if (!over) return;
@@ -62,24 +74,33 @@ export default function KanbanBoard({
     const targetColunaId = String(over.id);
     if (!servico || servico.coluna_id === targetColunaId) return;
 
-    moveCardParaColuna(servico.id, targetColunaId).then((result) => {
-      if (!result.ok) {
-        setDragError(result.reason ?? "Não foi possível mover esse card.");
-        setTimeout(() => setDragError(null), 4000);
-        return;
-      }
-      router.refresh();
-    });
+    moveCardParaColuna(servico.id, targetColunaId)
+      .then((result) => {
+        if (!result.ok) {
+          showDragError(result.reason ?? "Não foi possível mover esse card.");
+          return;
+        }
+        router.refresh();
+      })
+      .catch((err) => {
+        console.error("Falha ao mover card", err);
+        showDragError(err instanceof Error ? err.message : "Não foi possível mover esse card.");
+      });
   }
 
   function submitNewColumn() {
     const text = newColText.trim();
     if (!text) return;
-    createColuna(board, text).then(() => {
-      setAddingColumn(false);
-      setNewColText("");
-      router.refresh();
-    });
+    createColuna(board, text)
+      .then(() => {
+        setAddingColumn(false);
+        setNewColText("");
+        router.refresh();
+      })
+      .catch((err) => {
+        console.error("Falha ao criar coluna", err);
+        showDragError(err instanceof Error ? err.message : "Não foi possível criar a coluna.");
+      });
   }
 
   return (
@@ -122,7 +143,7 @@ export default function KanbanBoard({
         </p>
       )}
 
-      <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <div className="flex flex-1 gap-4 overflow-x-auto pb-4">
           {columns.map((col) => (
             <KanbanColumn
