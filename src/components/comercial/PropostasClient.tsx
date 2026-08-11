@@ -96,6 +96,7 @@ export default function PropostasClient({
         <CentralDoServico
           servicoId={openId}
           role={role}
+          context="comercial"
           itensOrcamento={itensOrcamento}
           colunasOS={colunas.filter((c) => c.board === "os").sort((a, b) => a.ordem - b.ordem)}
           onClose={() => setOpenId(null)}

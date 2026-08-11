@@ -18,8 +18,14 @@ import FinanceiroTab from "./FinanceiroTab";
 import HistoricoTab from "./HistoricoTab";
 import OrcamentoItensTab from "./OrcamentoItensTab";
 import PropostaInterativaTab from "./PropostaInterativaTab";
+import StatusTab from "./StatusTab";
+import AgendaTab from "./AgendaTab";
+import PrazoTab from "./PrazoTab";
+import ExecucaoTab from "./ExecucaoTab";
 
-const BASE_TABS = [
+// Comercial (Kanban de Orçamentos, lista de Propostas) — as mesmas abas de sempre, sem
+// mudança: é onde se monta o orçamento e a proposta interativa mora.
+const TABS_COMERCIAL = [
   { id: "resumo", label: "Resumo" },
   { id: "cliente", label: "Cliente" },
   { id: "itens", label: "Itens" },
@@ -33,22 +39,39 @@ const BASE_TABS = [
   { id: "historico", label: "Histórico" },
 ];
 
+// Produção (Kanban de OS, Visão Geral de OS) — enxuto, focado em executar o serviço já
+// aprovado: sem Itens/Proposta Interativa (são do orçamento) nem Financeiro (é do menu
+// Financeiro agora).
+const TABS_PRODUCAO = [
+  { id: "status", label: "Status" },
+  { id: "agenda", label: "Agenda" },
+  { id: "checklist", label: "Checklist" },
+  { id: "prazo", label: "Prazo" },
+  { id: "execucao", label: "Execução" },
+  { id: "medidas", label: "Medidas" },
+  { id: "fotos", label: "Fotos" },
+  { id: "arquivos", label: "Arquivos" },
+  { id: "historico", label: "Histórico" },
+];
+
 export default function CentralDoServico({
   servicoId,
   role,
+  context,
   itensOrcamento,
   colunasOS,
   onClose,
 }: {
   servicoId: string;
   role: Role;
+  context: "comercial" | "producao";
   itensOrcamento: ItemOrcamento[];
   colunasOS: Coluna[];
   onClose: () => void;
 }) {
   const router = useRouter();
   const [detail, setDetail] = useState<ServicoDetail | null>(null);
-  const [tab, setTab] = useState("resumo");
+  const [tab, setTab] = useState(context === "producao" ? "status" : "resumo");
   const [loading, setLoading] = useState(true);
 
   const reload = useCallback(async () => {
@@ -72,7 +95,8 @@ export default function CentralDoServico({
     };
   }, [servicoId]);
 
-  const tabs = BASE_TABS.filter(
+  const baseTabs = context === "producao" ? TABS_PRODUCAO : TABS_COMERCIAL;
+  const tabs = baseTabs.filter(
     (t) => t.id !== "medidas" || (detail && exigeMedida(detail.servico.tipo))
   );
 
@@ -128,6 +152,18 @@ export default function CentralDoServico({
                   onClose={onClose}
                 />
               )}
+              {tab === "status" && (
+                <StatusTab
+                  detail={detail}
+                  role={role}
+                  colunasOS={colunasOS}
+                  onChanged={reload}
+                  onClose={onClose}
+                />
+              )}
+              {tab === "agenda" && <AgendaTab detail={detail} onChanged={reload} />}
+              {tab === "prazo" && <PrazoTab detail={detail} onChanged={reload} />}
+              {tab === "execucao" && <ExecucaoTab detail={detail} onChanged={reload} />}
               {tab === "cliente" && <ClienteTab detail={detail} onChanged={reload} />}
               {tab === "itens" && (
                 <OrcamentoItensTab detail={detail} itensOrcamento={itensOrcamento} onChanged={reload} />

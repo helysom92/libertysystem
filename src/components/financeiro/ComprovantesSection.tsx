@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import type { Comprovante } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
-import { confirmarComprovante, registrarComprovante } from "@/lib/actions/financeiro";
+import { confirmarComprovante, deleteComprovante, registrarComprovante } from "@/lib/actions/financeiro";
 
 export default function ComprovantesSection({ comprovantes }: { comprovantes: Comprovante[] }) {
   const [open, setOpen] = useState(false);
@@ -42,6 +42,22 @@ export default function ComprovantesSection({ comprovantes }: { comprovantes: Co
       } catch (err) {
         console.error("Falha ao confirmar comprovante", err);
         setError(err instanceof Error ? err.message : "Não foi possível confirmar esse comprovante.");
+      }
+    });
+  }
+
+  function handleExcluir(id: string) {
+    if (!confirm("Excluir esse comprovante? Essa ação não pode ser desfeita.")) return;
+    setError(null);
+    startTransition(async () => {
+      try {
+        const result = await deleteComprovante(id);
+        if (!result.ok) {
+          setError(result.reason ?? "Não foi possível excluir esse comprovante.");
+        }
+      } catch (err) {
+        console.error("Falha ao excluir comprovante", err);
+        setError(err instanceof Error ? err.message : "Não foi possível excluir esse comprovante.");
       }
     });
   }
@@ -106,13 +122,22 @@ export default function ComprovantesSection({ comprovantes }: { comprovantes: Co
               <span>
                 {c.banco} · {fmtBRL(c.valor)}
               </span>
-              <button
-                type="button"
-                onClick={() => handleConfirmar(c.id)}
-                className="rounded-btn border border-border-gold-strong px-3 py-1 text-[12px] text-gold"
-              >
-                Confirmar Lançamento
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleConfirmar(c.id)}
+                  className="rounded-btn border border-border-gold-strong px-3 py-1 text-[12px] text-gold"
+                >
+                  Confirmar Lançamento
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleExcluir(c.id)}
+                  className="rounded-btn border border-danger-border px-3 py-1 text-[12px] text-danger"
+                >
+                  Excluir
+                </button>
+              </div>
             </div>
           ))}
         </div>

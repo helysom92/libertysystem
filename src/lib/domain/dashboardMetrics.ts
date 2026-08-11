@@ -4,6 +4,8 @@ import type {
   Cliente,
   DespesaFixa,
   DespesaFixaOcorrencia,
+  DespesaVariavel,
+  DespesaVariavelOcorrencia,
   Evento,
   ItemOrcamento,
   Lancamento,
@@ -490,6 +492,84 @@ export function buildMonthGrid(
       hasCompromisso: evs.some((e) => e.tipo === "compromisso"),
     };
   });
+}
+
+// ── Contas a pagar (Financeiro › Visão Geral) ──
+export interface ContaAPagarItem {
+  id: string;
+  descricao: string;
+  valor: number;
+  vencimento: string; // "YYYY-MM-DD" — despesa variável usa hojeISO (sem dia fixo, só entra no grupo "este mês")
+  tipo: "fixa" | "variavel" | "previsto";
+  venceHoje: boolean;
+  atrasado: boolean;
+}
+
+/** Tudo que ainda está em aberto pro mês atual (hojeISO): despesas fixas não pagas, despesas
+ * variáveis não pagas e lançamentos previstos — junto numa lista só, ordenada por vencimento,
+ * pra dar uma visão real de "o que falta pagar" em vez de só um contador. */
+export function contasAPagar(
+  despesasFixas: DespesaFixa[],
+  despesasFixasOcorrencias: DespesaFixaOcorrencia[],
+  despesasVariaveis: DespesaVariavel[],
+  despesasVariaveisOcorrencias: DespesaVariavelOcorrencia[],
+  lancamentosPrevistos: Lancamento[],
+  hojeISO: string
+): ContaAPagarItem[] {
+  const [hy, hm] = hojeISO.split("-").map(Number);
+  const items: ContaAPagarItem[] = [];
+
+  for (const df of despesasFixas) {
+    if (!df.ativo) continue;
+    const ocorrencia = despesasFixasOcorrencias.find(
+      (o) => o.despesa_fixa_id === df.id && o.ano === hy && o.mes === hm
+    );
+    if (ocorrencia?.pago) continue;
+    const diasNoMes = new Date(hy, hm, 0).getDate();
+    const dia = Math.min(df.dia_vencimento, diasNoMes);
+    const vencimento = `${hy}-${String(hm).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+    items.push({
+      id: df.id,
+      descricao: df.descricao,
+      valor: df.valor,
+      vencimento,
+      tipo: "fixa",
+      venceHoje: vencimento === hojeISO,
+      atrasado: vencimento < hojeISO,
+    });
+  }
+
+  for (const dv of despesasVariaveis) {
+    if (!dv.ativo) continue;
+    const ocorrencia = despesasVariaveisOcorrencias.find(
+      (o) => o.despesa_variavel_id === dv.id && o.ano === hy && o.mes === hm
+    );
+    if (ocorrencia?.pago) continue;
+    items.push({
+      id: dv.id,
+      descricao: dv.descricao,
+      valor: ocorrencia?.valor_real ?? dv.valor_provisionado,
+      vencimento: hojeISO,
+      tipo: "variavel",
+      venceHoje: false,
+      atrasado: false,
+    });
+  }
+
+  for (const l of lancamentosPrevistos) {
+    if (l.tipo !== "Despesa" || l.status !== "previsto") continue;
+    items.push({
+      id: l.id,
+      descricao: l.descricao,
+      valor: l.valor,
+      vencimento: l.data,
+      tipo: "previsto",
+      venceHoje: l.data === hojeISO,
+      atrasado: l.data < hojeISO,
+    });
+  }
+
+  return items.sort((a, b) => a.vencimento.localeCompare(b.vencimento));
 }
 
 // ── Metas ──

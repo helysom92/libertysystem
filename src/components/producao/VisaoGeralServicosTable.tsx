@@ -154,6 +154,7 @@ export default function VisaoGeralServicosTable({
         <CentralDoServico
           servicoId={openId}
           role={role}
+          context="producao"
           itensOrcamento={itensOrcamento}
           colunasOS={colunas.filter((c) => c.board === "os").sort((a, b) => a.ordem - b.ordem)}
           onClose={() => setOpenId(null)}

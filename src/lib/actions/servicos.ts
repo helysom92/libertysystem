@@ -20,6 +20,7 @@ export interface NovoServicoInput {
   validade_proposta_dias?: number;
   forma_pagamento_texto?: string | null;
   durabilidade_texto?: string | null;
+  local_instalacao?: string | null;
 }
 
 export async function createServico(input: NovoServicoInput) {
@@ -45,6 +46,7 @@ export async function createServico(input: NovoServicoInput) {
       validade_proposta_dias: input.validade_proposta_dias,
       forma_pagamento_texto: input.forma_pagamento_texto,
       durabilidade_texto: input.durabilidade_texto,
+      local_instalacao: input.local_instalacao,
     })
     .select("id")
     .single();
@@ -77,6 +79,16 @@ export async function updateInformacoesAdicionais(servicoId: string, texto: stri
   const { error } = await supabase
     .from("servicos")
     .update({ informacoes_adicionais: texto })
+    .eq("id", servicoId);
+  if (error) throw error;
+  revalidateServicoPaths();
+}
+
+export async function updateLocalInstalacao(servicoId: string, texto: string) {
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("servicos")
+    .update({ local_instalacao: texto })
     .eq("id", servicoId);
   if (error) throw error;
   revalidateServicoPaths();

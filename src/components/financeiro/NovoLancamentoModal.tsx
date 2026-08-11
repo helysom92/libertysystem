@@ -1,29 +1,34 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { createLancamento } from "@/lib/actions/financeiro";
+import { createLancamento, deleteLancamento, updateLancamento } from "@/lib/actions/financeiro";
 import { todayISO } from "@/lib/domain/dates";
-import type { Fornecedor } from "@/lib/domain/types";
+import type { Fornecedor, Lancamento } from "@/lib/domain/types";
 
 const FORMAS_PAGAMENTO = ["Pix", "Dinheiro", "Cartão de Débito", "Cartão de Crédito", "Boleto", "Transferência"];
 
 export default function NovoLancamentoModal({
   fornecedores,
+  editing,
   onClose,
 }: {
   fornecedores: Fornecedor[];
+  editing?: Lancamento;
   onClose: () => void;
 }) {
-  const [tipo, setTipo] = useState<"Receita" | "Despesa">("Receita");
-  const [descricao, setDescricao] = useState("");
-  const [categoria, setCategoria] = useState("Geral");
-  const [fornecedorId, setFornecedorId] = useState("");
-  const [valor, setValor] = useState("");
-  const [data, setData] = useState(todayISO());
-  const [banco, setBanco] = useState("");
-  const [formaPagamento, setFormaPagamento] = useState(FORMAS_PAGAMENTO[0]);
-  const [status, setStatus] = useState<"previsto" | "realizado">("realizado");
+  const [tipo, setTipo] = useState<"Receita" | "Despesa">(editing?.tipo ?? "Receita");
+  const [descricao, setDescricao] = useState(editing?.descricao ?? "");
+  const [categoria, setCategoria] = useState(editing?.categoria ?? "Geral");
+  const [fornecedorId, setFornecedorId] = useState(editing?.fornecedor_id ?? "");
+  const [valor, setValor] = useState(editing ? String(editing.valor) : "");
+  const [data, setData] = useState(editing?.data ?? todayISO());
+  const [banco, setBanco] = useState(editing?.banco ?? "");
+  const [formaPagamento, setFormaPagamento] = useState(editing?.forma_pagamento ?? FORMAS_PAGAMENTO[0]);
+  const [status, setStatus] = useState<"previsto" | "realizado">(
+    editing?.status === "previsto" ? "previsto" : "realizado"
+  );
   const [pending, startTransition] = useTransition();
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   function submit(e: React.FormEvent) {
@@ -31,7 +36,7 @@ export default function NovoLancamentoModal({
     setError(null);
     startTransition(async () => {
       try {
-        await createLancamento({
+        const payload = {
           tipo,
           descricao,
           categoria,
@@ -41,13 +46,32 @@ export default function NovoLancamentoModal({
           banco: banco || null,
           forma_pagamento: formaPagamento,
           status,
-        });
+        };
+        if (editing) {
+          await updateLancamento(editing.id, payload);
+        } else {
+          await createLancamento(payload);
+        }
         onClose();
       } catch (err) {
-        console.error("Falha ao criar lançamento", err);
+        console.error("Falha ao salvar lançamento", err);
         setError(err instanceof Error ? err.message : "Não foi possível salvar esse lançamento.");
       }
     });
+  }
+
+  function handleDelete() {
+    if (!editing) return;
+    if (!confirm("Excluir esse lançamento? Essa ação não pode ser desfeita.")) return;
+    setDeleting(true);
+    setError(null);
+    deleteLancamento(editing.id)
+      .then(onClose)
+      .catch((err) => {
+        console.error("Falha ao excluir lançamento", err);
+        setError(err instanceof Error ? err.message : "Não foi possível excluir esse lançamento.");
+        setDeleting(false);
+      });
   }
 
   return (
@@ -56,7 +80,9 @@ export default function NovoLancamentoModal({
         onSubmit={submit}
         className="w-full max-w-md rounded-card border border-border-gold bg-card p-6"
       >
-        <h2 className="mb-4 font-display text-lg font-bold">Novo Lançamento</h2>
+        <h2 className="mb-4 font-display text-lg font-bold">
+          {editing ? "Editar Lançamento" : "Novo Lançamento"}
+        </h2>
 
         <div className="mb-3 flex gap-2">
           {(["Receita", "Despesa"] as const).map((t) => (
@@ -176,21 +202,35 @@ export default function NovoLancamentoModal({
 
         {error && <p className="mb-3 text-sm text-danger">{error}</p>}
 
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-btn px-4 py-2 text-sm text-text-secondary hover:text-text"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={pending}
-            className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg disabled:opacity-60"
-          >
-            {pending ? "Salvando..." : "Adicionar"}
-          </button>
+        <div className="flex items-center justify-between gap-2">
+          {editing ? (
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              className="rounded-btn border border-danger-border px-4 py-2 text-sm text-danger disabled:opacity-60"
+            >
+              {deleting ? "Excluindo..." : "Excluir"}
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-btn px-4 py-2 text-sm text-text-secondary hover:text-text"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={pending}
+              className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg disabled:opacity-60"
+            >
+              {pending ? "Salvando..." : editing ? "Salvar" : "Adicionar"}
+            </button>
+          </div>
         </div>
       </form>
     </div>

@@ -99,7 +99,7 @@ export default function OrcamentoItemRow({
                   : "border-border-neutral text-text-secondary"
               }`}
             >
-              {CATEGORIA_PRAZO_INFO[c].label}
+              {CATEGORIA_PRAZO_INFO[c].prazoLabel}
             </button>
           ))}
         </div>

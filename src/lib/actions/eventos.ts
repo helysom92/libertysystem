@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateServicoPaths } from "./revalidateServicos";
 
 export interface NovoEventoInput {
   data: string;
@@ -19,6 +20,7 @@ export async function createEvento(input: NovoEventoInput) {
   const { error } = await supabase.from("eventos").insert(input);
   if (error) throw error;
   revalidatePath("/producao/agenda");
+  revalidateServicoPaths();
 }
 
 export async function deleteEvento(id: string) {
@@ -26,4 +28,5 @@ export async function deleteEvento(id: string) {
   const { error } = await supabase.from("eventos").delete().eq("id", id);
   if (error) throw error;
   revalidatePath("/producao/agenda");
+  revalidateServicoPaths();
 }

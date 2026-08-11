@@ -3,7 +3,7 @@
 import { useState } from "react";
 import type { Cliente, ClienteStatus } from "@/lib/domain/types";
 import { updateClienteInline } from "@/lib/actions/servicos";
-import { updateClienteStatus } from "@/lib/actions/clientes";
+import { deleteCliente, updateClienteStatus } from "@/lib/actions/clientes";
 
 const FIELDS: { key: keyof Cliente; label: string }[] = [
   { key: "nome", label: "Nome" },
@@ -32,9 +32,14 @@ export default function ClienteEditModal({
 }) {
   const [values, setValues] = useState(cliente);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSave() {
+    if (!values.nome || !values.whatsapp) {
+      setError("Nome e WhatsApp são obrigatórios.");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -51,6 +56,25 @@ export default function ClienteEditModal({
       setError(err instanceof Error ? err.message : "Erro desconhecido ao salvar.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm(`Excluir o cliente "${cliente.nome}"? Essa ação não pode ser desfeita.`)) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const result = await deleteCliente(cliente.id);
+      if (!result.ok) {
+        setError(result.reason ?? "Não foi possível excluir esse cliente.");
+        return;
+      }
+      onChanged();
+      onClose();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro desconhecido ao excluir.");
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -98,22 +122,32 @@ export default function ClienteEditModal({
 
         {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 
-        <div className="mt-4 flex justify-end gap-2">
+        <div className="mt-4 flex items-center justify-between gap-2">
           <button
             type="button"
-            onClick={onClose}
-            className="rounded-btn px-4 py-2 text-sm text-text-secondary hover:text-text"
+            onClick={handleDelete}
+            disabled={deleting}
+            className="rounded-btn border border-danger-border px-4 py-2 text-sm text-danger disabled:opacity-60"
           >
-            Cancelar
+            {deleting ? "Excluindo..." : "Excluir Cliente"}
           </button>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saving}
-            className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg disabled:opacity-60"
-          >
-            {saving ? "Salvando..." : "Salvar"}
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-btn px-4 py-2 text-sm text-text-secondary hover:text-text"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving}
+              className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg disabled:opacity-60"
+            >
+              {saving ? "Salvando..." : "Salvar"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -199,6 +199,7 @@ export default function KanbanBoard({
         <CentralDoServico
           servicoId={openId}
           role={role}
+          context={board === "orcamento" ? "comercial" : "producao"}
           itensOrcamento={itensOrcamento}
           colunasOS={colunas.filter((c) => c.board === "os").sort((a, b) => a.ordem - b.ordem)}
           onClose={() => setOpenId(null)}

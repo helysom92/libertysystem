@@ -142,8 +142,8 @@ export default function NovoServicoModal({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!cliente || !descricao) {
-      setError("Cliente e descrição são obrigatórios.");
+    if (!cliente) {
+      setError("Cliente é obrigatório.");
       return;
     }
     startTransition(async () => {
@@ -159,6 +159,7 @@ export default function NovoServicoModal({
           validade_proposta_dias: Number(validadeDias) || 7,
           forma_pagamento_texto: formaPagamento || null,
           durabilidade_texto: durabilidade || null,
+          local_instalacao: local || null,
         });
         await createOrcamentoItens(
           servicoId,
@@ -225,7 +226,7 @@ export default function NovoServicoModal({
           </p>
         )}
 
-        <label className="mb-1 block text-xs text-text-secondary">Descrição geral</label>
+        <label className="mb-1 block text-xs text-text-secondary">Descrição geral (opcional)</label>
         <input
           value={descricao}
           onChange={(e) => setDescricao(e.target.value)}

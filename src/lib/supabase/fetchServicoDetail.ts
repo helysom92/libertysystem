@@ -21,6 +21,7 @@ export async function fetchServicoDetail(servicoId: string): Promise<ServicoDeta
     { data: historico },
     { data: orcamentoItens },
     { data: propostaOpcoes },
+    { data: eventos },
   ] = await Promise.all([
     supabase.from("clientes").select("*").eq("id", servico.cliente_id).single(),
     supabase.from("medicoes").select("*").eq("servico_id", servicoId).order("data", { ascending: false }),
@@ -31,6 +32,7 @@ export async function fetchServicoDetail(servicoId: string): Promise<ServicoDeta
     supabase.from("historico_entries").select("*").eq("servico_id", servicoId).order("criado_em", { ascending: false }),
     supabase.from("orcamento_itens").select("*").eq("servico_id", servicoId).order("ordem"),
     supabase.from("proposta_opcoes").select("*").eq("servico_id", servicoId).order("ordem"),
+    supabase.from("eventos").select("*").eq("servico_id", servicoId).order("data"),
   ]);
 
   return {
@@ -44,5 +46,6 @@ export async function fetchServicoDetail(servicoId: string): Promise<ServicoDeta
     historico: historico ?? [],
     orcamentoItens: orcamentoItens ?? [],
     propostaOpcoes: propostaOpcoes ?? [],
+    eventos: eventos ?? [],
   };
 }

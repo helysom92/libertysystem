@@ -33,3 +33,26 @@ export async function updateClienteStatus(clienteId: string, status: ClienteStat
   if (error) throw error;
   revalidatePath("/secretaria/clientes");
 }
+
+export interface DeleteResult {
+  ok: boolean;
+  reason?: string;
+}
+
+export async function deleteCliente(clienteId: string): Promise<DeleteResult> {
+  const supabase = await createClient();
+  const { count } = await supabase
+    .from("servicos")
+    .select("id", { count: "exact", head: true })
+    .eq("cliente_id", clienteId);
+  if (count && count > 0) {
+    return {
+      ok: false,
+      reason: `Esse cliente tem ${count} serviço(s) vinculado(s) — não é possível excluir.`,
+    };
+  }
+  const { error } = await supabase.from("clientes").delete().eq("id", clienteId);
+  if (error) throw error;
+  revalidatePath("/secretaria/clientes");
+  return { ok: true };
+}

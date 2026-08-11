@@ -37,8 +37,8 @@ export default function NovoClienteModal({ onClose }: { onClose: () => void }) {
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!nome) {
-      setError("Nome é obrigatório.");
+    if (!nome || !whatsapp) {
+      setError("Nome e WhatsApp são obrigatórios.");
       return;
     }
     startTransition(async () => {

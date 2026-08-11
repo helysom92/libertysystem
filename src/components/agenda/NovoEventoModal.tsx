@@ -7,17 +7,26 @@ const TIPOS = ["Visita Técnica", "Instalação", "Entrega", "Reunião", "Retorn
 
 export default function NovoEventoModal({
   data,
+  defaultServicoId,
+  defaultCliente,
+  defaultEndereco,
+  defaultWhatsapp,
   onClose,
 }: {
   data: string;
+  defaultServicoId?: string;
+  defaultCliente?: string;
+  defaultEndereco?: string;
+  defaultWhatsapp?: string;
   onClose: () => void;
 }) {
+  const [dataEvento, setDataEvento] = useState(data);
   const [hora, setHora] = useState("08:00");
   const [tipo, setTipo] = useState(TIPOS[0]);
-  const [cliente, setCliente] = useState("");
-  const [endereco, setEndereco] = useState("");
+  const [cliente, setCliente] = useState(defaultCliente ?? "");
+  const [endereco, setEndereco] = useState(defaultEndereco ?? "");
   const [responsavel, setResponsavel] = useState("Secretaria");
-  const [whatsapp, setWhatsapp] = useState("");
+  const [whatsapp, setWhatsapp] = useState(defaultWhatsapp ?? "");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -27,10 +36,10 @@ export default function NovoEventoModal({
     startTransition(async () => {
       try {
         await createEvento({
-          data,
+          data: dataEvento,
           hora,
           tipo,
-          servico_id: null,
+          servico_id: defaultServicoId ?? null,
           cliente,
           endereco,
           responsavel,
@@ -54,6 +63,15 @@ export default function NovoEventoModal({
 
         <div className="mb-3 flex gap-3">
           <div className="flex-1">
+            <label className="mb-1 block text-xs text-text-secondary">Data</label>
+            <input
+              type="date"
+              value={dataEvento}
+              onChange={(e) => setDataEvento(e.target.value)}
+              className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex-1">
             <label className="mb-1 block text-xs text-text-secondary">Hora</label>
             <input
               type="time"
@@ -62,6 +80,8 @@ export default function NovoEventoModal({
               className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
             />
           </div>
+        </div>
+        <div className="mb-3">
           <div className="flex-1">
             <label className="mb-1 block text-xs text-text-secondary">Tipo</label>
             <select

@@ -33,6 +33,22 @@ export async function marcarLancamentoRealizado(id: string) {
   revalidatePath("/hoje");
 }
 
+export async function updateLancamento(id: string, input: NovoLancamentoInput) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("lancamentos").update(input).eq("id", id);
+  if (error) throw error;
+  revalidateFinanceiroPaths();
+  revalidatePath("/hoje");
+}
+
+export async function deleteLancamento(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("lancamentos").delete().eq("id", id);
+  if (error) throw error;
+  revalidateFinanceiroPaths();
+  revalidatePath("/hoje");
+}
+
 export interface NovaDespesaFixaInput {
   descricao: string;
   valor: number;
@@ -44,6 +60,20 @@ export interface NovaDespesaFixaInput {
 export async function createDespesaFixa(input: NovaDespesaFixaInput) {
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_fixas").insert(input);
+  if (error) throw error;
+  revalidateFinanceiroPaths();
+}
+
+export async function updateDespesaFixa(id: string, input: NovaDespesaFixaInput) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("despesas_fixas").update(input).eq("id", id);
+  if (error) throw error;
+  revalidateFinanceiroPaths();
+}
+
+export async function deleteDespesaFixa(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("despesas_fixas").delete().eq("id", id);
   if (error) throw error;
   revalidateFinanceiroPaths();
 }
@@ -79,6 +109,20 @@ export interface NovaDespesaVariavelInput {
 export async function createDespesaVariavel(input: NovaDespesaVariavelInput) {
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_variaveis").insert(input);
+  if (error) throw error;
+  revalidateFinanceiroPaths();
+}
+
+export async function updateDespesaVariavel(id: string, input: NovaDespesaVariavelInput) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("despesas_variaveis").update(input).eq("id", id);
+  if (error) throw error;
+  revalidateFinanceiroPaths();
+}
+
+export async function deleteDespesaVariavel(id: string) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("despesas_variaveis").delete().eq("id", id);
   if (error) throw error;
   revalidateFinanceiroPaths();
 }
@@ -137,6 +181,22 @@ export async function registrarComprovante(input: {
   if (error) throw error;
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+}
+
+export async function deleteComprovante(id: string): Promise<{ ok: boolean; reason?: string }> {
+  const supabase = await createClient();
+  const { data: comprovante } = await supabase
+    .from("comprovantes")
+    .select("status")
+    .eq("id", id)
+    .single();
+  if (comprovante?.status !== "pendente") {
+    return { ok: false, reason: "Só é possível excluir comprovantes ainda pendentes." };
+  }
+  const { error } = await supabase.from("comprovantes").delete().eq("id", id);
+  if (error) throw error;
+  revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
 export async function confirmarComprovante(id: string) {

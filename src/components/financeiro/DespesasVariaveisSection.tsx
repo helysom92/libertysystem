@@ -11,11 +11,13 @@ function LinhaDespesaVariavel({
   ocorrencia,
   ano,
   mes,
+  onEditar,
 }: {
   despesa: DespesaVariavel;
   ocorrencia: DespesaVariavelOcorrencia | undefined;
   ano: number;
   mes: number;
+  onEditar: () => void;
 }) {
   const valorInicial = ocorrencia?.valor_real ?? despesa.valor_provisionado;
   const [valor, setValor] = useState(String(valorInicial));
@@ -50,12 +52,12 @@ function LinhaDespesaVariavel({
   return (
     <div className="flex flex-col gap-1.5 rounded-btn bg-card-secondary px-3 py-2 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <button type="button" onClick={onEditar} className="text-left hover:underline">
           <p className="font-medium">{despesa.descricao}</p>
           <p className="text-[11.5px] text-text-muted">
             {despesa.categoria} · provisionado {fmtBRL(despesa.valor_provisionado)}
           </p>
-        </div>
+        </button>
         <div className="flex items-center gap-2">
           <input
             type="number"
@@ -103,6 +105,7 @@ export default function DespesasVariaveisSection({
   mes: number;
 }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<DespesaVariavel | null>(null);
 
   return (
     <div className="rounded-card border border-border-neutral bg-card p-4">
@@ -130,6 +133,7 @@ export default function DespesasVariaveisSection({
             ocorrencia={ocorrencias.find((o) => o.despesa_variavel_id === d.id)}
             ano={ano}
             mes={mes}
+            onEditar={() => setEditing(d)}
           />
         ))}
         {despesas.length === 0 && (
@@ -138,6 +142,13 @@ export default function DespesasVariaveisSection({
       </div>
 
       {open && <NovaDespesaVariavelModal fornecedores={fornecedores} onClose={() => setOpen(false)} />}
+      {editing && (
+        <NovaDespesaVariavelModal
+          fornecedores={fornecedores}
+          editing={editing}
+          onClose={() => setEditing(null)}
+        />
+      )}
     </div>
   );
 }

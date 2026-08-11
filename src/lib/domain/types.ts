@@ -18,6 +18,7 @@ export interface Servico {
   prazo_tipo: PrazoTipo | null;
   prazo_inicio: string | null; // ISO date
   informacoes_adicionais: string | null;
+  local_instalacao: string | null;
   criado_em: string; // ISO timestamp
   concluido_em: string | null;
   responsavel: string;
@@ -254,6 +255,7 @@ export interface ServicoDetail {
   historico: LogEntry[];
   orcamentoItens: OrcamentoItemRow[];
   propostaOpcoes: PropostaOpcao[];
+  eventos: Evento[];
 }
 
 /** Days between today and an ISO date string (positive = future, negative = past). Null if no date. */

@@ -27,6 +27,7 @@ export default function FluxoDiario({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<Lancamento | null>(null);
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -87,7 +88,8 @@ export default function FluxoDiario({
                 {lancs.map((l) => (
                   <div
                     key={l.id}
-                    className="flex items-center justify-between rounded-btn px-3 py-2 text-[12.5px] hover:bg-card-secondary"
+                    onClick={() => setEditing(l)}
+                    className="flex cursor-pointer items-center justify-between rounded-btn px-3 py-2 text-[12.5px] hover:bg-card-secondary"
                   >
                     <div>
                       <p className="font-medium">{l.descricao}</p>
@@ -117,7 +119,8 @@ export default function FluxoDiario({
                       {l.status === "previsto" && (
                         <button
                           type="button"
-                          onClick={() =>
+                          onClick={(e) => {
+                            e.stopPropagation();
                             startTransition(async () => {
                               try {
                                 await marcarLancamentoRealizado(l.id);
@@ -126,8 +129,8 @@ export default function FluxoDiario({
                                 console.error("Falha ao marcar lançamento como realizado", err);
                                 setError(err instanceof Error ? err.message : "Não foi possível atualizar esse lançamento.");
                               }
-                            })
-                          }
+                            });
+                          }}
                           className="rounded-btn border border-border-gold-strong px-2 py-1 text-[11px] text-gold"
                         >
                           Marcar realizado
@@ -150,6 +153,16 @@ export default function FluxoDiario({
           fornecedores={fornecedores}
           onClose={() => {
             setOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
+      {editing && (
+        <NovoLancamentoModal
+          fornecedores={fornecedores}
+          editing={editing}
+          onClose={() => {
+            setEditing(null);
             router.refresh();
           }}
         />

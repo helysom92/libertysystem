@@ -33,6 +33,7 @@ export default function DespesasFixasSection({
   mes: number;
 }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState<DespesaFixa | null>(null);
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -63,12 +64,16 @@ export default function DespesasFixasSection({
               key={d.id}
               className="flex items-center justify-between rounded-btn bg-card-secondary px-3 py-2 text-sm"
             >
-              <div>
+              <button
+                type="button"
+                onClick={() => setEditing(d)}
+                className="text-left hover:underline"
+              >
                 <p className="font-medium">{d.descricao}</p>
                 <p className="text-[11.5px] text-text-muted">
                   {d.categoria} · vence dia {d.dia_vencimento} · {fmtBRL(d.valor)}
                 </p>
-              </div>
+              </button>
               <div className="flex items-center gap-3">
                 <span
                   className="rounded-pill px-2 py-0.5 text-[10.5px] font-semibold"
@@ -105,6 +110,9 @@ export default function DespesasFixasSection({
       </div>
 
       {open && <NovaDespesaFixaModal fornecedores={fornecedores} onClose={() => setOpen(false)} />}
+      {editing && (
+        <NovaDespesaFixaModal fornecedores={fornecedores} editing={editing} onClose={() => setEditing(null)} />
+      )}
     </div>
   );
 }
