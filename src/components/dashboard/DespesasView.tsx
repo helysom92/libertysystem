@@ -3,6 +3,7 @@ import { fmtPct, type CategoriaFatia, type MonthPoint } from "@/lib/domain/dashb
 import BarChart from "./charts/BarChart";
 import DonutChart from "./charts/DonutChart";
 import Pill from "./Pill";
+import MonthNavBar from "./MonthNavBar";
 
 export default function DespesasView({
   mesAtual,
@@ -10,12 +11,22 @@ export default function DespesasView({
   monthly12,
   porCategoria,
   ultimosLancamentos,
+  monthLabel,
+  isMesAtual,
+  onPrevMonth,
+  onNextMonth,
+  disableNext,
 }: {
   mesAtual: MonthPoint;
   mesAnterior: MonthPoint | null;
   monthly12: MonthPoint[];
   porCategoria: CategoriaFatia[];
   ultimosLancamentos: Lancamento[];
+  monthLabel: string;
+  isMesAtual: boolean;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
+  disableNext: boolean;
 }) {
   const variacao =
     mesAnterior && mesAnterior.expenses > 0
@@ -25,6 +36,7 @@ export default function DespesasView({
 
   return (
     <div>
+      <MonthNavBar label={monthLabel} onPrev={onPrevMonth} onNext={onNextMonth} disableNext={disableNext} isCurrent={isMesAtual} />
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-card border border-border-neutral bg-card-secondary p-4">
           <p className="text-[12px] font-semibold text-text-secondary">Despesas do mês</p>

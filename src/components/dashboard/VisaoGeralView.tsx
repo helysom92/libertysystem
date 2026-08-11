@@ -1,8 +1,16 @@
 import { fmtBRL } from "@/lib/domain/types";
-import { fmtPct, type KpisVisaoGeral, type MonthPoint, type ProximoItem, type TopClienteItem } from "@/lib/domain/dashboardMetrics";
+import {
+  fmtPct,
+  type KpisVisaoGeral,
+  type MonthPoint,
+  type MtdComparativo,
+  type ProximoItem,
+  type TopClienteItem,
+} from "@/lib/domain/dashboardMetrics";
 import ProgressRing from "./charts/ProgressRing";
 import BarChart from "./charts/BarChart";
 import LineAreaChart from "./charts/LineAreaChart";
+import MonthNavBar from "./MonthNavBar";
 
 function KpiCard({
   label,
@@ -35,27 +43,86 @@ function KpiCard({
   );
 }
 
+function MtdRow({
+  label,
+  atual,
+  anterior,
+  deltaPct,
+  invertColor,
+}: {
+  label: string;
+  atual: number;
+  anterior: number;
+  deltaPct: number | null;
+  invertColor?: boolean;
+}) {
+  const positivo = deltaPct != null && (invertColor ? deltaPct <= 0 : deltaPct >= 0);
+  const deltaColor = deltaPct == null ? "var(--color-text-muted)" : positivo ? "var(--color-success)" : "var(--color-danger)";
+  return (
+    <div className="rounded-btn bg-card-secondary p-3.5">
+      <p className="text-[12px] font-semibold text-text-secondary">{label}</p>
+      <p className="mt-0.5 font-display text-[18px] font-bold text-text">{fmtBRL(atual)}</p>
+      <p className="mt-1 text-[12px] text-text-muted">mesmo período mês passado: {fmtBRL(anterior)}</p>
+      <p className="mt-0.5 text-[12px] font-semibold" style={{ color: deltaColor }}>
+        {deltaPct == null ? "sem comparativo" : `${deltaPct >= 0 ? "↑" : "↓"} ${fmtPct(Math.abs(deltaPct))}`}
+      </p>
+    </div>
+  );
+}
+
 export default function VisaoGeralView({
   kpis,
   monthly6,
   monthly12,
   upcoming,
   topClientes,
+  monthLabel,
+  isMesAtual,
+  onPrevMonth,
+  onNextMonth,
+  disableNext,
+  mtd,
 }: {
   kpis: KpisVisaoGeral;
   monthly6: MonthPoint[];
   monthly12: MonthPoint[];
   upcoming: ProximoItem[];
   topClientes: TopClienteItem[];
+  monthLabel: string;
+  isMesAtual: boolean;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
+  disableNext: boolean;
+  mtd: MtdComparativo | null;
 }) {
   return (
     <div>
+      <MonthNavBar label={monthLabel} onPrev={onPrevMonth} onNext={onNextMonth} disableNext={disableNext} isCurrent={isMesAtual} />
+
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard {...kpis.receita} />
         <KpiCard {...kpis.despesas} />
         <KpiCard {...kpis.lucro} />
         <KpiCard {...kpis.margem} />
       </div>
+
+      {mtd && (
+        <div className="mb-5 rounded-card border border-border-neutral bg-card p-5">
+          <p className="mb-3 font-display text-[15px] font-bold text-text">
+            Até dia {mtd.diaCorte} — contra o mesmo período do mês passado
+          </p>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <MtdRow label="Vendido" atual={mtd.vendasAtual} anterior={mtd.vendasAnterior} deltaPct={mtd.deltaVendasPct} />
+            <MtdRow
+              label="Gasto"
+              atual={mtd.despesasAtual}
+              anterior={mtd.despesasAnterior}
+              deltaPct={mtd.deltaDespesasPct}
+              invertColor
+            />
+          </div>
+        </div>
+      )}
 
       <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <div className="rounded-card border border-border-neutral bg-card-secondary p-5">

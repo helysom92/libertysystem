@@ -102,10 +102,14 @@ function pctDelta(atual: number, anterior: number): number | null {
   return ((atual - anterior) / anterior) * 100;
 }
 
-export function kpisVisaoGeral(monthly: MonthPoint[], metas: Meta[]): KpisVisaoGeral {
+export function kpisVisaoGeral(
+  monthly: MonthPoint[],
+  metas: Meta[],
+  index: number = monthly.length - 1
+): KpisVisaoGeral {
   const metaByTipo = new Map(metas.map((m) => [m.tipo, m.valor_alvo]));
-  const atual = monthly[monthly.length - 1];
-  const anterior = monthly.length > 1 ? monthly[monthly.length - 2] : null;
+  const atual = monthly[index];
+  const anterior = index > 0 ? monthly[index - 1] : null;
 
   const lucroAtual = atual.sales - atual.expenses;
   const lucroAnterior = anterior ? anterior.sales - anterior.expenses : 0;
@@ -148,6 +152,58 @@ export function kpisVisaoGeral(monthly: MonthPoint[], metas: Meta[]): KpisVisaoG
       deltaPct: anterior ? margemAtual - margemAnterior : null,
       ringPct: Math.min(100, Math.max(0, (margemAtual / (metaMargem || 40)) * 100)),
     },
+  };
+}
+
+// ── "Até hoje" — só faz sentido pro mês em andamento: quanto já vendi/gastei até este dia,
+// contra o mesmo dia do mês anterior (não o mês inteiro, que ainda nem terminou). ──
+export interface MtdComparativo {
+  diaCorte: number;
+  vendasAtual: number;
+  vendasAnterior: number;
+  deltaVendasPct: number | null;
+  despesasAtual: number;
+  despesasAnterior: number;
+  deltaDespesasPct: number | null;
+}
+
+export function mtdComparativo(
+  lancamentos: Lancamento[],
+  year: number,
+  month: number, // 0-11
+  diaCorte: number
+): MtdComparativo {
+  function somaAteDia(y: number, m: number, dia: number, tipo: "Receita" | "Despesa"): number {
+    return lancamentos
+      .filter((l) => l.status === "realizado" && l.tipo === tipo)
+      .filter((l) => {
+        const d = new Date(l.data + "T00:00:00");
+        return d.getFullYear() === y && d.getMonth() === m && d.getDate() <= dia;
+      })
+      .reduce((acc, l) => acc + l.valor, 0);
+  }
+
+  const prevDate = new Date(year, month - 1, 1);
+  const prevYear = prevDate.getFullYear();
+  const prevMonth = prevDate.getMonth();
+  // Fevereiro não tem dia 31 — se o corte for maior que os dias do mês anterior, usa o
+  // último dia dele (equivalente a "o mês inteiro" nesse caso).
+  const diasNoMesAnterior = new Date(prevYear, prevMonth + 1, 0).getDate();
+  const diaCorteAnterior = Math.min(diaCorte, diasNoMesAnterior);
+
+  const vendasAtual = somaAteDia(year, month, diaCorte, "Receita");
+  const vendasAnterior = somaAteDia(prevYear, prevMonth, diaCorteAnterior, "Receita");
+  const despesasAtual = somaAteDia(year, month, diaCorte, "Despesa");
+  const despesasAnterior = somaAteDia(prevYear, prevMonth, diaCorteAnterior, "Despesa");
+
+  return {
+    diaCorte,
+    vendasAtual,
+    vendasAnterior,
+    deltaVendasPct: pctDelta(vendasAtual, vendasAnterior),
+    despesasAtual,
+    despesasAnterior,
+    deltaDespesasPct: pctDelta(despesasAtual, despesasAnterior),
   };
 }
 

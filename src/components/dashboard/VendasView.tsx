@@ -2,6 +2,7 @@ import { fmtBRL } from "@/lib/domain/types";
 import { fmtPct, type CategoriaFatia, type MonthPoint, type TopItemCatalogo } from "@/lib/domain/dashboardMetrics";
 import BarChart from "./charts/BarChart";
 import DonutChart from "./charts/DonutChart";
+import MonthNavBar from "./MonthNavBar";
 
 export default function VendasView({
   mesAtual,
@@ -10,6 +11,11 @@ export default function VendasView({
   monthly12,
   porTipo,
   topItens,
+  monthLabel,
+  isMesAtual,
+  onPrevMonth,
+  onNextMonth,
+  disableNext,
 }: {
   mesAtual: MonthPoint;
   mesAnterior: MonthPoint | null;
@@ -17,6 +23,11 @@ export default function VendasView({
   monthly12: MonthPoint[];
   porTipo: CategoriaFatia[];
   topItens: TopItemCatalogo[];
+  monthLabel: string;
+  isMesAtual: boolean;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
+  disableNext: boolean;
 }) {
   const ticketMedio = numPedidos > 0 ? mesAtual.sales / numPedidos : 0;
   const crescimento =
@@ -24,6 +35,7 @@ export default function VendasView({
 
   return (
     <div>
+      <MonthNavBar label={monthLabel} onPrev={onPrevMonth} onNext={onNextMonth} disableNext={disableNext} isCurrent={isMesAtual} />
       <div className="mb-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
         <div className="rounded-card border border-border-neutral bg-card-secondary p-4">
           <p className="text-[12px] font-semibold text-text-secondary">Vendas do mês</p>

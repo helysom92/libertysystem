@@ -22,6 +22,7 @@ import {
   historico12Meses,
   kpisVisaoGeral,
   monthlySeries,
+  mtdComparativo,
   proximosEventos,
   topClientesGeral,
   topItensCatalogo,
@@ -91,14 +92,33 @@ export default function DashboardShell({
   const [cal, setCal] = useState({ year: hoje.getFullYear(), month: hoje.getMonth() });
   const [selectedDate, setSelectedDate] = useState(hojeISO);
 
-  const monthly = useMemo(() => monthlySeries(lancamentos, hoje, 13), [lancamentos, hoje]);
+  // 25 meses = mês atual + 24 pra trás — dá pra navegar uns 2 anos pro passado no painel
+  // estratégico (Visão Geral/Vendas/Despesas), sem precisar recalcular a série a cada clique.
+  const monthly = useMemo(() => monthlySeries(lancamentos, hoje, 25), [lancamentos, hoje]);
   const [compareA, setCompareA] = useState(Math.max(0, monthly.length - 2));
   const [compareB, setCompareB] = useState(monthly.length - 1);
 
-  const mesAtual = monthly[monthly.length - 1];
-  const mesAnterior = monthly.length > 1 ? monthly[monthly.length - 2] : null;
+  // Mês navegável, compartilhado entre Visão Geral/Vendas/Despesas — independente do
+  // calendário (que navega por dia, não por mês de referência dos KPIs).
+  const [viewIdx, setViewIdx] = useState(monthly.length - 1);
+  const isMesAtual = viewIdx === monthly.length - 1;
+  const mesAtual = monthly[viewIdx];
+  const mesAnterior = viewIdx > 0 ? monthly[viewIdx - 1] : null;
+  const viewMonthLabel = cap(
+    new Date(mesAtual.year, mesAtual.month, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+  );
+  function prevViewMonth() {
+    setViewIdx((i) => Math.max(0, i - 1));
+  }
+  function nextViewMonth() {
+    setViewIdx((i) => Math.min(monthly.length - 1, i + 1));
+  }
 
-  const kpis = useMemo(() => kpisVisaoGeral(monthly, metas), [monthly, metas]);
+  const kpis = useMemo(() => kpisVisaoGeral(monthly, metas, viewIdx), [monthly, metas, viewIdx]);
+  const mtd = useMemo(
+    () => (isMesAtual ? mtdComparativo(lancamentos, hoje.getFullYear(), hoje.getMonth(), hoje.getDate()) : null),
+    [isMesAtual, lancamentos, hoje]
+  );
   const upcoming = useMemo(
     () => proximosEventos(eventos, despesasFixas, despesasFixasOcorrencias, lancamentos, hojeISO),
     [eventos, despesasFixas, despesasFixasOcorrencias, lancamentos, hojeISO]
@@ -109,10 +129,14 @@ export default function DashboardShell({
     () => servicos.filter((s) => s.criado_em.slice(0, 7) === mesAtual.key).length,
     [servicos, mesAtual]
   );
-  const porTipo = useMemo(() => vendasPorTipo(servicos, hoje), [servicos, hoje]);
+  const mesAtualRefDate = useMemo(() => new Date(mesAtual.year, mesAtual.month, 1), [mesAtual]);
+  const porTipo = useMemo(() => vendasPorTipo(servicos, mesAtualRefDate), [servicos, mesAtualRefDate]);
   const topItens = useMemo(() => topItensCatalogo(orcamentoItens, itensOrcamento), [orcamentoItens, itensOrcamento]);
 
-  const porCategoria = useMemo(() => despesasPorCategoria(lancamentos, hoje), [lancamentos, hoje]);
+  const porCategoria = useMemo(
+    () => despesasPorCategoria(lancamentos, mesAtualRefDate),
+    [lancamentos, mesAtualRefDate]
+  );
   const ultimosLancamentosDespesa = useMemo(
     () =>
       lancamentos
@@ -150,11 +174,16 @@ export default function DashboardShell({
     setSelectedDate(hojeISO);
   }
 
+  // Metas sempre olham pro mês corrente de verdade (não pro mês navegado em Visão
+  // Geral/Vendas/Despesas) — "como estou indo esse mês" não deve mudar se o usuário só
+  // deu uma olhada em Março numa aba diferente.
+  const mesCorrente = monthly[monthly.length - 1];
+  const kpisCorrente = useMemo(() => kpisVisaoGeral(monthly, metas), [monthly, metas]);
   const atuais: Record<MetaTipo, number> = {
-    vendas_mensais: mesAtual.sales,
-    despesas_mensais: mesAtual.expenses,
-    novos_clientes: clientes.filter((c) => c.created_at.slice(0, 7) === mesAtual.key).length,
-    margem_liquida: kpis.margem.value,
+    vendas_mensais: mesCorrente.sales,
+    despesas_mensais: mesCorrente.expenses,
+    novos_clientes: clientes.filter((c) => c.created_at.slice(0, 7) === mesCorrente.key).length,
+    margem_liquida: kpisCorrente.margem.value,
   };
 
   return (
@@ -175,13 +204,48 @@ export default function DashboardShell({
       </div>
 
       {view === "overview" && (
-        <VisaoGeralView kpis={kpis} monthly6={monthly.slice(-6)} monthly12={monthly.slice(-12)} upcoming={upcoming} topClientes={topClientes} />
+        <VisaoGeralView
+          kpis={kpis}
+          monthly6={monthly.slice(-6)}
+          monthly12={monthly.slice(-12)}
+          upcoming={upcoming}
+          topClientes={topClientes}
+          monthLabel={viewMonthLabel}
+          isMesAtual={isMesAtual}
+          onPrevMonth={prevViewMonth}
+          onNextMonth={nextViewMonth}
+          disableNext={viewIdx === monthly.length - 1}
+          mtd={mtd}
+        />
       )}
       {view === "sales" && (
-        <VendasView mesAtual={mesAtual} mesAnterior={mesAnterior} numPedidos={numPedidosMes} monthly12={monthly.slice(-12)} porTipo={porTipo} topItens={topItens} />
+        <VendasView
+          mesAtual={mesAtual}
+          mesAnterior={mesAnterior}
+          numPedidos={numPedidosMes}
+          monthly12={monthly.slice(-12)}
+          porTipo={porTipo}
+          topItens={topItens}
+          monthLabel={viewMonthLabel}
+          isMesAtual={isMesAtual}
+          onPrevMonth={prevViewMonth}
+          onNextMonth={nextViewMonth}
+          disableNext={viewIdx === monthly.length - 1}
+        />
       )}
       {view === "expenses" && (
-        <DespesasView mesAtual={mesAtual} mesAnterior={mesAnterior} monthly12={monthly.slice(-12)} porCategoria={porCategoria} ultimosLancamentos={ultimosLancamentosDespesa} />
+        <DespesasView
+          mesAtual={mesAtual}
+          mesAnterior={mesAnterior}
+          monthly12={monthly.slice(-12)}
+          porCategoria={porCategoria}
+          ultimosLancamentos={ultimosLancamentosDespesa}
+          monthLabel={viewMonthLabel}
+          isMesAtual={isMesAtual}
+          onPrevMonth={prevViewMonth}
+          onNextMonth={nextViewMonth}
+          disableNext={viewIdx === monthly.length - 1}
+        />
       )}
       {view === "compare" && (
         <ComparativoView monthly={monthly} indexA={compareA} indexB={compareB} onChangeA={setCompareA} onChangeB={setCompareB} compareBars={compareBars} />
