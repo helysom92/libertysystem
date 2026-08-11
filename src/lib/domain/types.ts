@@ -210,6 +210,27 @@ export interface DespesaFixaOcorrencia {
   pago_em: string | null;
 }
 
+/** Água, energia, comissão etc. — sem valor fixo nem dia certo; valor_provisionado é só a
+ * estimativa mensal, o valor real de cada mês fica na ocorrência (editável). */
+export interface DespesaVariavel {
+  id: string;
+  descricao: string;
+  valor_provisionado: number;
+  categoria: string | null;
+  fornecedor_id: string | null;
+  ativo: boolean;
+}
+
+export interface DespesaVariavelOcorrencia {
+  id: string;
+  despesa_variavel_id: string;
+  ano: number;
+  mes: number;
+  valor_real: number | null;
+  pago: boolean;
+  pago_em: string | null;
+}
+
 export interface Evento {
   id: string;
   data: string;

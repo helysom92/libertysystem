@@ -70,7 +70,8 @@ export default function ResumoTab({
     });
   }
 
-  const showLiberarAdmin = role === "administrador" && !!servico.numero && !servico.concluido;
+  const showLiberarAdmin =
+    (role === "administrador" || role === "secretaria") && !!servico.numero && !servico.concluido;
 
   const status = servico.prazo_tipo ? prazoStatus(servico.prazo_tipo, servico.prazo) : null;
 

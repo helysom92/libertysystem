@@ -69,6 +69,56 @@ export async function toggleDespesaOcorrencia(
   revalidateFinanceiroPaths();
 }
 
+export interface NovaDespesaVariavelInput {
+  descricao: string;
+  valor_provisionado: number;
+  categoria: string;
+  fornecedor_id?: string | null;
+}
+
+export async function createDespesaVariavel(input: NovaDespesaVariavelInput) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("despesas_variaveis").insert(input);
+  if (error) throw error;
+  revalidateFinanceiroPaths();
+}
+
+export async function updateDespesaVariavelValor(
+  despesaVariavelId: string,
+  ano: number,
+  mes: number,
+  valorReal: number
+) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("despesas_variaveis_ocorrencias").upsert(
+    { despesa_variavel_id: despesaVariavelId, ano, mes, valor_real: valorReal },
+    { onConflict: "despesa_variavel_id,ano,mes" }
+  );
+  if (error) throw error;
+  revalidateFinanceiroPaths();
+}
+
+export async function toggleDespesaVariavelPago(
+  despesaVariavelId: string,
+  ano: number,
+  mes: number,
+  pago: boolean
+) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("despesas_variaveis_ocorrencias").upsert(
+    {
+      despesa_variavel_id: despesaVariavelId,
+      ano,
+      mes,
+      pago,
+      pago_em: pago ? new Date().toISOString() : null,
+    },
+    { onConflict: "despesa_variavel_id,ano,mes" }
+  );
+  if (error) throw error;
+  revalidateFinanceiroPaths();
+}
+
 /** Manual-entry equivalent of the prototype's "Simular Envio" (see plan §9 comprovante note). */
 export async function registrarComprovante(input: {
   descricao: string;

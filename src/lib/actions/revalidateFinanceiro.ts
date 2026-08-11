@@ -6,5 +6,6 @@ export function revalidateFinanceiroPaths() {
   revalidatePath("/financeiro/visao-geral");
   revalidatePath("/financeiro/lancamentos");
   revalidatePath("/financeiro/despesas-fixas");
+  revalidatePath("/financeiro/despesas-variaveis");
   revalidatePath("/financeiro/comprovantes");
 }
