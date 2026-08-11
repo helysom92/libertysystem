@@ -4,13 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const TABS = [
-  { href: "/secretaria/visao-geral", label: "Visão Geral" },
-  { href: "/secretaria/clientes", label: "Clientes" },
-  { href: "/secretaria/fornecedores", label: "Fornecedores" },
-  { href: "/secretaria/produtos", label: "Produtos" },
+  { href: "/financeiro/visao-geral", label: "Visão Geral" },
+  { href: "/financeiro/lancamentos", label: "Lançamentos" },
+  { href: "/financeiro/despesas-fixas", label: "Despesas Fixas" },
+  { href: "/financeiro/comprovantes", label: "Comprovantes" },
 ];
 
-export default function SecretariaTabs() {
+export default function FinanceiroTabs() {
   const pathname = usePathname();
 
   return (

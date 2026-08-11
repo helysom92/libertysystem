@@ -15,7 +15,7 @@ export default function AlertasIA({ alerts }: { alerts: IaAlert[] }) {
             href={
               a.servicoId
                 ? servicoOpenHref({ id: a.servicoId, numero: a.servicoNumero })
-                : "/secretaria/financeiro"
+                : "/financeiro/comprovantes"
             }
             className="rounded-btn px-2 py-1.5 text-[13px] hover:bg-card-secondary"
             style={{ color: a.color }}

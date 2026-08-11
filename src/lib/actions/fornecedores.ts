@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateFinanceiroPaths } from "./revalidateFinanceiro";
 
 export interface NovoFornecedorInput {
   nome: string;
@@ -15,7 +16,7 @@ export async function createFornecedor(input: NovoFornecedorInput) {
   const { error } = await supabase.from("fornecedores").insert(input);
   if (error) throw error;
   revalidatePath("/secretaria/fornecedores");
-  revalidatePath("/secretaria/financeiro");
+  revalidateFinanceiroPaths();
 }
 
 export async function updateFornecedor(

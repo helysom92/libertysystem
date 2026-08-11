@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateFinanceiroPaths } from "./revalidateFinanceiro";
 
 export interface NovoLancamentoInput {
   tipo: "Receita" | "Despesa";
@@ -20,7 +21,7 @@ export async function createLancamento(input: NovoLancamentoInput) {
   const supabase = await createClient();
   const { error } = await supabase.from("lancamentos").insert(input);
   if (error) throw error;
-  revalidatePath("/secretaria/financeiro");
+  revalidateFinanceiroPaths();
   revalidatePath("/hoje");
 }
 
@@ -28,7 +29,7 @@ export async function marcarLancamentoRealizado(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("lancamentos").update({ status: "realizado" }).eq("id", id);
   if (error) throw error;
-  revalidatePath("/secretaria/financeiro");
+  revalidateFinanceiroPaths();
   revalidatePath("/hoje");
 }
 
@@ -44,7 +45,7 @@ export async function createDespesaFixa(input: NovaDespesaFixaInput) {
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_fixas").insert(input);
   if (error) throw error;
-  revalidatePath("/secretaria/financeiro");
+  revalidateFinanceiroPaths();
 }
 
 export async function toggleDespesaOcorrencia(
@@ -65,7 +66,7 @@ export async function toggleDespesaOcorrencia(
     { onConflict: "despesa_fixa_id,ano,mes" }
   );
   if (error) throw error;
-  revalidatePath("/secretaria/financeiro");
+  revalidateFinanceiroPaths();
 }
 
 /** Manual-entry equivalent of the prototype's "Simular Envio" (see plan §9 comprovante note). */
@@ -84,7 +85,7 @@ export async function registrarComprovante(input: {
     status: "pendente",
   });
   if (error) throw error;
-  revalidatePath("/secretaria/financeiro");
+  revalidateFinanceiroPaths();
   revalidatePath("/hoje");
 }
 
@@ -113,7 +114,7 @@ export async function confirmarComprovante(id: string) {
     .eq("id", id);
   if (updErr) throw updErr;
 
-  revalidatePath("/secretaria/financeiro");
+  revalidateFinanceiroPaths();
   revalidatePath("/hoje");
   revalidatePath("/gestao");
 }

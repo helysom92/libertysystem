@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function SecretariaIndexPage() {
-  redirect("/secretaria/clientes");
+  redirect("/secretaria/visao-geral");
 }

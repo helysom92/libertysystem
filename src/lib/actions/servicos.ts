@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateServicoPaths } from "./revalidateServicos";
+import { revalidateFinanceiroPaths } from "./revalidateFinanceiro";
 import type { ServicoTipo } from "@/lib/domain/flows";
 import type { LinhaOrcamento } from "@/lib/domain/orcamento";
 import { calcularPrazoFim, type PrazoTipo } from "@/lib/domain/kanban";
@@ -133,7 +134,7 @@ export async function updateFinanceiro(
   const { error } = await supabase.from("servicos").update(fields).eq("id", servicoId);
   if (error) throw error;
   revalidateServicoPaths();
-  revalidatePath("/secretaria/financeiro");
+  revalidateFinanceiroPaths();
 }
 
 export async function updatePropostaOrcamento(

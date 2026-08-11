@@ -9,6 +9,7 @@ const TAB_LABELS: Record<string, string> = {
   gestao: "Gestão",
   hoje: "Hoje",
   secretaria: "Secretaria",
+  financeiro: "Financeiro",
   comercial: "Comercial",
   producao: "Produção",
 };
@@ -17,6 +18,7 @@ const TAB_ICONS: Record<string, string> = {
   gestao: "📊",
   hoje: "☀️",
   secretaria: "🗂️",
+  financeiro: "💰",
   comercial: "💼",
   producao: "🛠️",
 };
