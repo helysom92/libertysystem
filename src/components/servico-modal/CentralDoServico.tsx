@@ -17,11 +17,13 @@ import TimelineTab from "./TimelineTab";
 import FinanceiroTab from "./FinanceiroTab";
 import HistoricoTab from "./HistoricoTab";
 import OrcamentoItensTab from "./OrcamentoItensTab";
+import PropostaInterativaTab from "./PropostaInterativaTab";
 
 const BASE_TABS = [
   { id: "resumo", label: "Resumo" },
   { id: "cliente", label: "Cliente" },
   { id: "itens", label: "Itens" },
+  { id: "proposta", label: "Proposta Interativa" },
   { id: "medidas", label: "Medidas" },
   { id: "arquivos", label: "Arquivos" },
   { id: "fotos", label: "Fotos" },
@@ -129,6 +131,9 @@ export default function CentralDoServico({
               {tab === "cliente" && <ClienteTab detail={detail} onChanged={reload} />}
               {tab === "itens" && (
                 <OrcamentoItensTab detail={detail} itensOrcamento={itensOrcamento} onChanged={reload} />
+              )}
+              {tab === "proposta" && (
+                <PropostaInterativaTab detail={detail} onChanged={reload} />
               )}
               {tab === "medidas" && <MedidasTab detail={detail} onChanged={reload} />}
               {tab === "arquivos" && <ArquivosTab detail={detail} onChanged={reload} />}

@@ -35,6 +35,8 @@ export interface Servico {
   forma_pagamento_texto: string | null;
   durabilidade_texto: string | null;
   share_token: string | null;
+  proposta_opcao_escolhida: LinhaOrcamento | null;
+  proposta_escolhida_em: string | null;
 }
 
 export type ClienteStatus = "pre_cadastro" | "regularizado" | "inativo";
@@ -95,6 +97,17 @@ export interface OrcamentoItemRow {
   custo_direto: number | null;
   preco_m2_manual: number | null;
   valor_final: number;
+}
+
+/** Uma das até-3 linhas (Promocional/Custo-Benefício/Premium) de uma proposta interativa. */
+export interface PropostaOpcao {
+  id: string;
+  servico_id: string;
+  linha: LinhaOrcamento;
+  titulo: string;
+  descricao: string | null;
+  valor: number;
+  ordem: number;
 }
 
 export interface Comprovante {
@@ -218,6 +231,7 @@ export interface ServicoDetail {
   timeline: LogEntry[];
   historico: LogEntry[];
   orcamentoItens: OrcamentoItemRow[];
+  propostaOpcoes: PropostaOpcao[];
 }
 
 /** Days between today and an ISO date string (positive = future, negative = past). Null if no date. */
