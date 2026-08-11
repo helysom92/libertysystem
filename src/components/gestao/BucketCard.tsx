@@ -1,4 +1,5 @@
 import type { Bucket } from "@/lib/domain/gestaoBuckets";
+import { servicoOpenHref } from "@/lib/domain/types";
 
 export default function BucketCard({ bucket }: { bucket: Bucket }) {
   // Comprovantes aren't serviços — route that one bucket to Financeiro instead of the
@@ -20,7 +21,7 @@ export default function BucketCard({ bucket }: { bucket: Bucket }) {
         {bucket.items.map((item) => (
           <a
             key={item.id}
-            href={isComprovanteBucket ? "/secretaria/financeiro" : `/producao/servicos?open=${item.id}`}
+            href={isComprovanteBucket ? "/secretaria/financeiro" : servicoOpenHref(item)}
             className="rounded-btn bg-card-secondary px-2.5 py-1.5 hover:bg-card"
           >
             <p className="text-[13px] font-semibold">{item.cliente}</p>

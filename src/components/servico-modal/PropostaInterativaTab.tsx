@@ -55,11 +55,15 @@ export default function PropostaInterativaTab({
     setSaving(true);
     setError(null);
     try {
-      const payload: PropostaOpcaoInput[] = LINHAS.map((linha, ordem) => ({
+      // Só persiste linhas realmente preenchidas — evita expor rascunho (ex: R$0,00) pra
+      // quem já tem o link (o token é o mesmo do documento estático) antes de terminar.
+      const payload: PropostaOpcaoInput[] = LINHAS.filter(
+        (linha) => opcoes[linha].titulo.trim() && Number(opcoes[linha].valor) > 0
+      ).map((linha, ordem) => ({
         linha,
-        titulo: opcoes[linha].titulo.trim() || LINHA_ORCAMENTO_INFO[linha].label,
+        titulo: opcoes[linha].titulo.trim(),
         descricao: opcoes[linha].descricao.trim() || null,
-        valor: Number(opcoes[linha].valor) || 0,
+        valor: Number(opcoes[linha].valor),
         ordem,
       }));
       await salvarPropostaOpcoes(servico.id, payload);

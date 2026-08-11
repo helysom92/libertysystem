@@ -1,4 +1,5 @@
 import type { IaAlert } from "@/lib/domain/types";
+import { servicoOpenHref } from "@/lib/domain/types";
 
 export default function AlertasIA({ alerts }: { alerts: IaAlert[] }) {
   return (
@@ -11,7 +12,11 @@ export default function AlertasIA({ alerts }: { alerts: IaAlert[] }) {
         {alerts.map((a, i) => (
           <a
             key={i}
-            href={a.servicoId ? `/producao/servicos?open=${a.servicoId}` : "/secretaria/financeiro"}
+            href={
+              a.servicoId
+                ? servicoOpenHref({ id: a.servicoId, numero: a.servicoNumero })
+                : "/secretaria/financeiro"
+            }
             className="rounded-btn px-2 py-1.5 text-[13px] hover:bg-card-secondary"
             style={{ color: a.color }}
           >

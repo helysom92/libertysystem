@@ -18,12 +18,13 @@ import NovoServicoModal from "./NovoServicoModal";
 import CentralDoServico from "@/components/servico-modal/CentralDoServico";
 import type { Role } from "@/lib/domain/flows";
 
-const BOARD_LABELS: Record<KanbanBoardKey, string> = {
-  orcamento: "Orçamentos",
-  os: "Ordens de Serviço",
+const BOARD_TITLE: Record<KanbanBoardKey, { titulo: string; subtitulo: string }> = {
+  orcamento: { titulo: "Orçamentos", subtitulo: "Onde o orçamento nasce e evolui até a aprovação do cliente" },
+  os: { titulo: "Ordens de Serviço", subtitulo: "OS já aprovadas — produção até a conclusão" },
 };
 
 export default function KanbanBoard({
+  board,
   servicos,
   colunas,
   role,
@@ -33,6 +34,7 @@ export default function KanbanBoard({
   itensOrcamento,
   clientes,
 }: {
+  board: KanbanBoardKey;
   servicos: Servico[];
   colunas: Coluna[];
   role: Role;
@@ -43,7 +45,6 @@ export default function KanbanBoard({
   clientes: Cliente[];
 }) {
   const router = useRouter();
-  const [board, setBoard] = useState<KanbanBoardKey>("orcamento");
   const [novoOpen, setNovoOpen] = useState(false);
   const [openId, setOpenId] = useState<string | null>(initialOpenId ?? null);
   const [dragError, setDragError] = useState<string | null>(null);
@@ -107,26 +108,10 @@ export default function KanbanBoard({
     <div className="flex h-full flex-col">
       <div className="mb-6 flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-xl font-bold">Serviços</h1>
-          <p className="text-[13px] text-text-secondary">Todo serviço nasce, evolui e termina aqui</p>
+          <h1 className="font-display text-xl font-bold">{BOARD_TITLE[board].titulo}</h1>
+          <p className="text-[13px] text-text-secondary">{BOARD_TITLE[board].subtitulo}</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex gap-1.5">
-            {(Object.keys(BOARD_LABELS) as KanbanBoardKey[]).map((b) => (
-              <button
-                key={b}
-                type="button"
-                onClick={() => setBoard(b)}
-                className={`rounded-btn border px-3.5 py-1.5 text-[13px] font-semibold ${
-                  board === b
-                    ? "border-transparent bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark text-bg"
-                    : "border-border-gold text-text-secondary"
-                }`}
-              >
-                {BOARD_LABELS[b]}
-              </button>
-            ))}
-          </div>
+        {board === "orcamento" && (
           <button
             type="button"
             onClick={() => setNovoOpen(true)}
@@ -134,7 +119,7 @@ export default function KanbanBoard({
           >
             + Novo Orçamento
           </button>
-        </div>
+        )}
       </div>
 
       {dragError && (

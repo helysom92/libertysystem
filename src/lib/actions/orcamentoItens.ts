@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateServicoPaths } from "./revalidateServicos";
 import type { CategoriaPrazo, ModoCalculoItem } from "@/lib/domain/orcamento";
 
 export interface OrcamentoItemInput {
@@ -88,6 +89,6 @@ export async function replaceOrcamentoItens(servicoId: string, itens: OrcamentoI
   const { error: updErr } = await supabase.from("servicos").update(fields).eq("id", servicoId);
   if (updErr) throw updErr;
 
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
   revalidatePath("/hoje");
 }

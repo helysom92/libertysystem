@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateServicoPaths } from "./revalidateServicos";
 
 export interface NovoItemOrcamentoInput {
   nome: string;
@@ -19,7 +20,7 @@ export async function createItemOrcamento(input: NovoItemOrcamentoInput) {
     .single();
   if (error) throw error;
   revalidatePath("/secretaria/produtos");
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
   return data;
 }
 

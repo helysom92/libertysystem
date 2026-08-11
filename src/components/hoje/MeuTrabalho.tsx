@@ -1,5 +1,5 @@
 import { TIPO_LABELS } from "@/lib/domain/flows";
-import type { Servico } from "@/lib/domain/types";
+import { servicoOpenHref, type Servico } from "@/lib/domain/types";
 
 function categoria(servico: Servico): string {
   return TIPO_LABELS[servico.tipo];
@@ -34,7 +34,7 @@ export default function MeuTrabalho({
               {items.map((s) => (
                 <a
                   key={s.id}
-                  href={`/producao/servicos?open=${s.id}`}
+                  href={servicoOpenHref(s)}
                   className="rounded-btn px-2 py-1.5 text-[13px] hover:bg-card-secondary"
                 >
                   {s.cliente} — {s.descricao}

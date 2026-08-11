@@ -124,6 +124,7 @@ export interface IaAlert {
   texto: string;
   color: string;
   servicoId: string | null;
+  servicoNumero: string | null;
 }
 
 export interface Medicao {
@@ -257,4 +258,12 @@ export function fmtBRL(valor: number): string {
 /** "OS-1001" once aprovado; "Orçamento" enquanto o serviço ainda não tem numeração. */
 export function displayNumero(servico: { numero: string | null }): string {
   return servico.numero ?? "Orçamento";
+}
+
+/** Pra onde apontar um link "abrir esse serviço": orçamentos (sem numeração) moram no
+ * Kanban de Comercial, OS numeradas moram no Kanban de Produção. */
+export function servicoOpenHref(servico: { id: string; numero: string | null }): string {
+  return servico.numero == null
+    ? `/comercial/orcamentos?open=${servico.id}`
+    : `/producao/servicos?open=${servico.id}`;
 }

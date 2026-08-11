@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateServicoPaths } from "./revalidateServicos";
 import type { ServicoTipo } from "@/lib/domain/flows";
 import type { LinhaOrcamento } from "@/lib/domain/orcamento";
 import { calcularPrazoFim, type PrazoTipo } from "@/lib/domain/kanban";
@@ -48,7 +49,7 @@ export async function createServico(input: NovoServicoInput) {
     .single();
   if (error) throw error;
 
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
   revalidatePath("/hoje");
   return data.id as string;
 }
@@ -67,7 +68,7 @@ export async function updatePrazoServico(servicoId: string, tipo: PrazoTipo) {
     .update({ prazo_tipo: tipo, prazo_inicio: inicio, prazo: fim })
     .eq("id", servicoId);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function updateInformacoesAdicionais(servicoId: string, texto: string) {
@@ -77,7 +78,7 @@ export async function updateInformacoesAdicionais(servicoId: string, texto: stri
     .update({ informacoes_adicionais: texto })
     .eq("id", servicoId);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function toggleEntregaConfirmada(servicoId: string, value: boolean) {
@@ -87,7 +88,7 @@ export async function toggleEntregaConfirmada(servicoId: string, value: boolean)
     .update({ entrega_confirmada: value })
     .eq("id", servicoId);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function toggleLiberadoAdmin(servicoId: string, value: boolean) {
@@ -97,7 +98,7 @@ export async function toggleLiberadoAdmin(servicoId: string, value: boolean) {
     .update({ liberado_admin: value })
     .eq("id", servicoId);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function updateProximaAcao(
@@ -107,21 +108,21 @@ export async function updateProximaAcao(
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update(fields).eq("id", servicoId);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function updateResponsavel(servicoId: string, responsavel: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update({ responsavel }).eq("id", servicoId);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function updatePrioridade(servicoId: string, prioridade: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update({ prioridade }).eq("id", servicoId);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function updateFinanceiro(
@@ -131,7 +132,7 @@ export async function updateFinanceiro(
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update(fields).eq("id", servicoId);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
   revalidatePath("/secretaria/financeiro");
 }
 
@@ -147,7 +148,7 @@ export async function updatePropostaOrcamento(
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update(fields).eq("id", servicoId);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function ensureShareToken(servicoId: string): Promise<string> {
@@ -161,7 +162,7 @@ export async function deleteServico(servicoId: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").delete().eq("id", servicoId);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function updateClienteInline(
@@ -179,5 +180,5 @@ export async function updateClienteInline(
   const supabase = await createClient();
   const { error } = await supabase.from("clientes").update(fields).eq("id", clienteId);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }

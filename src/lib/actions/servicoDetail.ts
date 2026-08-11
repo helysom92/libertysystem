@@ -1,7 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateServicoPaths } from "./revalidateServicos";
 
 export interface NovaMedidaInput {
   largura: number;
@@ -18,7 +18,7 @@ export async function addMedida(servicoId: string, input: NovaMedidaInput) {
   const supabase = await createClient();
   const { error } = await supabase.from("medicoes").insert({ servico_id: servicoId, ...input });
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function addArquivo(servicoId: string, nome: string, storagePath: string, sizeBytes: number, contentType: string) {
@@ -35,7 +35,7 @@ export async function addArquivo(servicoId: string, nome: string, storagePath: s
     uploaded_by: user?.id ?? null,
   });
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function removeArquivo(id: string, storagePath: string) {
@@ -43,7 +43,7 @@ export async function removeArquivo(id: string, storagePath: string) {
   await supabase.storage.from("arquivos").remove([storagePath]);
   const { error } = await supabase.from("arquivos").delete().eq("id", id);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function upsertFoto(servicoId: string, slot: number, storagePath: string) {
@@ -54,7 +54,7 @@ export async function upsertFoto(servicoId: string, slot: number, storagePath: s
     .select("id")
     .single();
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
   return data.id as string;
 }
 
@@ -62,7 +62,7 @@ export async function setCapaFoto(servicoId: string, fotoId: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update({ capa_foto_id: fotoId }).eq("id", servicoId);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 /** Cria um espaço de foto vazio (sem limite fixo) — próximo slot livre pra esse serviço. */
@@ -77,7 +77,7 @@ export async function addFotoSlot(servicoId: string): Promise<number> {
   const proximoSlot = (existentes?.[0]?.slot ?? 0) + 1;
   const { error } = await supabase.from("fotos").insert({ servico_id: servicoId, slot: proximoSlot });
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
   return proximoSlot;
 }
 
@@ -89,28 +89,28 @@ export async function removeFoto(fotoId: string, storagePath: string | null) {
   // capa_foto_id tem "on delete set null" — se essa era a capa, a referência já limpa sozinha.
   const { error } = await supabase.from("fotos").delete().eq("id", fotoId);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function addChecklistItem(servicoId: string, texto: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("checklist_items").insert({ servico_id: servicoId, texto });
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function toggleChecklistItem(id: string, done: boolean) {
   const supabase = await createClient();
   const { error } = await supabase.from("checklist_items").update({ done }).eq("id", id);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function removeChecklistItem(id: string) {
   const supabase = await createClient();
   const { error } = await supabase.from("checklist_items").delete().eq("id", id);
   if (error) throw error;
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }
 
 export async function getSignedUrl(bucket: "arquivos" | "fotos", path: string) {

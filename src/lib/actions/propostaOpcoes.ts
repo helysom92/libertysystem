@@ -1,7 +1,7 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { revalidateServicoPaths } from "./revalidateServicos";
 import type { LinhaOrcamento } from "@/lib/domain/orcamento";
 
 export interface PropostaOpcaoInput {
@@ -34,5 +34,5 @@ export async function salvarPropostaOpcoes(servicoId: string, opcoes: PropostaOp
     if (insErr) throw insErr;
   }
 
-  revalidatePath("/producao/servicos");
+  revalidateServicoPaths();
 }

@@ -4,7 +4,7 @@ import KanbanBoard from "@/components/kanban/KanbanBoard";
 import type { Cliente, ItemOrcamento, Servico } from "@/lib/domain/types";
 import type { Coluna } from "@/lib/domain/kanban";
 
-export default async function ServicosPage({
+export default async function ComercialOrcamentosPage({
   searchParams,
 }: {
   searchParams: Promise<{ open?: string }>;
@@ -59,7 +59,7 @@ export default async function ServicosPage({
 
   return (
     <KanbanBoard
-      board="os"
+      board="orcamento"
       servicos={svs}
       colunas={(colunas as Coluna[]) ?? []}
       role={profile?.role ?? "secretaria"}

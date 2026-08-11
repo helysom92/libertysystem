@@ -21,6 +21,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
         texto: `${displayNumero(s)} (${s.cliente}) parado há ${diasParado} dias`,
         color: COLOR_RED,
         servicoId: s.id,
+        servicoNumero: s.numero,
       });
     }
 
@@ -30,12 +31,14 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
         texto: `${displayNumero(s)} (${s.cliente}) — prazo ${dias === 0 ? "é hoje" : "venceu"}`,
         color: COLOR_RED,
         servicoId: s.id,
+        servicoNumero: s.numero,
       });
     } else if (dias !== null && dias <= 3) {
       alerts.push({
         texto: `${displayNumero(s)} (${s.cliente}) — prazo vencendo em ${dias}d`,
         color: COLOR_AMBER,
         servicoId: s.id,
+        servicoNumero: s.numero,
       });
     }
 
@@ -44,6 +47,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
         texto: `${displayNumero(s)} (${s.cliente}) sem responsável definido`,
         color: COLOR_NEUTRAL,
         servicoId: s.id,
+        servicoNumero: s.numero,
       });
     }
 
@@ -52,6 +56,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
         texto: `${displayNumero(s)} (${s.cliente}) sem próxima ação definida`,
         color: COLOR_NEUTRAL,
         servicoId: s.id,
+        servicoNumero: s.numero,
       });
     }
 
@@ -60,6 +65,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
         texto: `${displayNumero(s)} (${s.cliente}) com saldo pendente`,
         color: COLOR_GOLD,
         servicoId: s.id,
+        servicoNumero: s.numero,
       });
     }
 
@@ -68,6 +74,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
         texto: `${displayNumero(s)} (${s.cliente}) entregue e não encerrado`,
         color: COLOR_AMBER,
         servicoId: s.id,
+        servicoNumero: s.numero,
       });
     }
   }
@@ -81,6 +88,7 @@ export function computeIaAlerts(servicos: Servico[], comprovantes: Comprovante[]
         })} (${c.banco}) aguardando confirmação`,
         color: COLOR_GOLD,
         servicoId: null,
+        servicoNumero: null,
       });
     }
   }

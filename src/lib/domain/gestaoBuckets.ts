@@ -5,6 +5,7 @@ export interface BucketItem {
   id: string;
   cliente: string;
   descricao: string;
+  numero: string | null;
 }
 
 export interface Bucket {
@@ -25,7 +26,7 @@ function bucket(
   borderColor = DEFAULT_BORDER,
   titleColor = DEFAULT_TITLE
 ): Bucket {
-  const items = servicos.map((s) => ({ id: s.id, cliente: s.cliente, descricao: s.descricao }));
+  const items = servicos.map((s) => ({ id: s.id, cliente: s.cliente, descricao: s.descricao, numero: s.numero }));
   return { titulo, items, count: items.length, empty: items.length === 0, borderColor, titleColor };
 }
 
@@ -45,6 +46,7 @@ export function computeGestaoBuckets(servicos: Servico[], comprovantes: Comprova
       id: c.id,
       cliente: c.banco ?? "—",
       descricao: c.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+      numero: null,
     }));
 
   return [
