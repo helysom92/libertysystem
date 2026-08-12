@@ -16,9 +16,9 @@ export default function ClienteAutocomplete({
   const [foco, setFoco] = useState(false);
 
   const sugestoes = useMemo(() => {
-    if (!value) return clientes.slice(0, 8);
+    if (!value) return clientes.slice(0, 30);
     const termo = normalizarBusca(value);
-    return clientes.filter((c) => normalizarBusca(c.nome).includes(termo)).slice(0, 8);
+    return clientes.filter((c) => normalizarBusca(c.nome).includes(termo)).slice(0, 30);
   }, [clientes, value]);
 
   const existe = clientes.some((c) => normalizarBusca(c.nome) === normalizarBusca(value));
@@ -34,7 +34,7 @@ export default function ClienteAutocomplete({
         className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
       />
       {foco && sugestoes.length > 0 && (
-        <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-btn border border-border-gold-strong bg-card shadow-lg">
+        <div className="absolute z-10 mt-1 max-h-64 w-full overflow-y-auto rounded-btn border border-border-gold-strong bg-card shadow-lg">
           {sugestoes.map((c) => (
             <button
               key={c.id}

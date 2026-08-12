@@ -75,9 +75,13 @@ export default function NovoLancamentoModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
+      onClick={onClose}
+    >
       <form
         onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md rounded-card border border-border-gold bg-card p-6"
       >
         <h2 className="mb-4 font-display text-lg font-bold">

@@ -185,9 +185,13 @@ export default function NovoServicoModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8"
+      onClick={onClose}
+    >
       <form
         onSubmit={submit}
+        onClick={(e) => e.stopPropagation()}
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card border border-border-gold bg-card p-6"
       >
         <h2 className="mb-4 font-display text-lg font-bold">Novo Orçamento / Serviço</h2>
