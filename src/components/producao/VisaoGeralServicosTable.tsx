@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { PRAZO_STATUS_COLOR, PRAZO_STATUS_LABEL, prazoStatus, type Coluna, type PrazoStatus } from "@/lib/domain/kanban";
 import { displayNumero, fmtBRL, type ItemOrcamento, type Servico } from "@/lib/domain/types";
+import { normalizarBusca } from "@/lib/domain/texto";
 import type { Role } from "@/lib/domain/flows";
 import FinanceiroBadge from "@/components/ui/FinanceiroBadge";
 import CentralDoServico from "@/components/servico-modal/CentralDoServico";
@@ -43,12 +44,12 @@ export default function VisaoGeralServicosTable({
         return prazoFiltro === "todos" || status === prazoFiltro;
       })
       .filter((s) => {
-        const termo = busca.trim().toLowerCase();
+        const termo = normalizarBusca(busca.trim());
         if (!termo) return true;
         return (
-          s.cliente.toLowerCase().includes(termo) ||
-          s.descricao.toLowerCase().includes(termo) ||
-          (s.numero ?? "").toLowerCase().includes(termo)
+          normalizarBusca(s.cliente).includes(termo) ||
+          normalizarBusca(s.descricao).includes(termo) ||
+          normalizarBusca(s.numero ?? "").includes(termo)
         );
       })
       .sort((a, b) => {

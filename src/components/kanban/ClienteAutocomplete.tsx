@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Cliente } from "@/lib/domain/types";
+import { normalizarBusca } from "@/lib/domain/texto";
 
 export default function ClienteAutocomplete({
   clientes,
@@ -16,11 +17,11 @@ export default function ClienteAutocomplete({
 
   const sugestoes = useMemo(() => {
     if (!value) return clientes.slice(0, 8);
-    const termo = value.toLowerCase();
-    return clientes.filter((c) => c.nome.toLowerCase().includes(termo)).slice(0, 8);
+    const termo = normalizarBusca(value);
+    return clientes.filter((c) => normalizarBusca(c.nome).includes(termo)).slice(0, 8);
   }, [clientes, value]);
 
-  const existe = clientes.some((c) => c.nome.toLowerCase() === value.toLowerCase());
+  const existe = clientes.some((c) => normalizarBusca(c.nome) === normalizarBusca(value));
 
   return (
     <div className="relative">

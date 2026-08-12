@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import type { Cliente, ClienteStatus, Servico } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { computeClienteStats } from "@/lib/domain/clientes";
+import { normalizarBusca } from "@/lib/domain/texto";
 import NovoClienteModal from "./NovoClienteModal";
 import ClienteEditModal from "./ClienteEditModal";
 
@@ -31,7 +32,7 @@ export default function ClientesList({
   const filtered = useMemo(() => {
     return clientes.filter((c) => {
       if (tab !== "todos" && c.status !== tab) return false;
-      if (busca && !c.nome.toLowerCase().includes(busca.toLowerCase())) return false;
+      if (busca && !normalizarBusca(c.nome).includes(normalizarBusca(busca))) return false;
       return true;
     });
   }, [clientes, tab, busca]);
