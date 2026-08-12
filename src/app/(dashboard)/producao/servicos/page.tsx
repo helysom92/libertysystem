@@ -13,13 +13,24 @@ export default async function ServicosPage({
   const supabase = await createClient();
   const profile = await getCurrentProfile();
 
-  const [{ data: servicos }, { data: itensOrcamento }, { data: clientes }, { data: colunas }] =
-    await Promise.all([
-      supabase.from("servicos").select("*").order("criado_em", { ascending: false }),
-      supabase.from("itens_orcamento").select("*").eq("ativo", true).order("nome"),
-      supabase.from("clientes").select("*").order("nome"),
-      supabase.from("colunas").select("*").order("ordem"),
-    ]);
+  const [
+    { data: servicos },
+    { data: itensOrcamento },
+    { data: clientes },
+    { data: colunas },
+    { data: checklistRows },
+  ] = await Promise.all([
+    // Só os campos que o card/coluna do Kanban de fato renderizam — o modal (CentralDoServico)
+    // busca o registro completo por conta própria quando um card é aberto.
+    supabase
+      .from("servicos")
+      .select("id, numero, cliente, descricao, valor, financeiro_status, prazo, prazo_tipo, coluna_id, capa_foto_id")
+      .order("criado_em", { ascending: false }),
+    supabase.from("itens_orcamento").select("*").eq("ativo", true).order("nome"),
+    supabase.from("clientes").select("*").order("nome"),
+    supabase.from("colunas").select("*").order("ordem"),
+    supabase.from("checklist_items").select("servico_id, done"),
+  ]);
 
   const svs = (servicos as Servico[]) ?? [];
 
@@ -49,7 +60,6 @@ export default async function ServicosPage({
 
   // Checklist progress badge.
   const checklistProgress: Record<string, { done: number; total: number }> = {};
-  const { data: checklistRows } = await supabase.from("checklist_items").select("servico_id, done");
   for (const row of checklistRows ?? []) {
     const entry = checklistProgress[row.servico_id] ?? { done: 0, total: 0 };
     entry.total += 1;

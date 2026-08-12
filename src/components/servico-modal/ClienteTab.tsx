@@ -38,10 +38,18 @@ export default function ClienteTab({
     setSaveState("saving");
     setErrorMsg(null);
     try {
-      const { id, created_at, ...fields } = values;
-      void id;
-      void created_at;
-      await updateClienteInline(cliente.id, fields);
+      // Lista explícita, não "resto do objeto" — `values` vem de um `select("*")` que também
+      // traz `nome_lower` (coluna gerada pelo Postgres a partir de `nome`, só pra evitar nomes
+      // duplicados); mandar ela de volta no UPDATE quebra com "generated column" no Postgres.
+      await updateClienteInline(cliente.id, {
+        nome: values.nome,
+        empresa: values.empresa,
+        cpf_cnpj: values.cpf_cnpj,
+        cidade: values.cidade,
+        endereco: values.endereco,
+        whatsapp: values.whatsapp,
+        observacoes: values.observacoes,
+      });
       setSaveState("saved");
       onChanged();
     } catch (err) {
