@@ -5,6 +5,7 @@ import type { Cliente, ClienteStatus } from "@/lib/domain/types";
 import { updateClienteInline } from "@/lib/actions/servicos";
 import { deleteCliente, updateClienteStatus } from "@/lib/actions/clientes";
 import { formatarWhatsapp } from "@/lib/domain/telefone";
+import { whatsappAppUrl } from "@/lib/domain/whatsapp";
 
 const FIELDS: { key: keyof Cliente; label: string }[] = [
   { key: "nome", label: "Nome" },
@@ -143,6 +144,33 @@ export default function ClienteEditModal({
             </div>
           ))}
         </div>
+
+        {(values.whatsapp || values.whatsapp_2) && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {values.whatsapp && (
+              <a
+                href={whatsappAppUrl(values.whatsapp)}
+                target="_blank"
+                rel="noreferrer"
+                className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px]"
+                style={{ color: "#25D366" }}
+              >
+                📲 Abrir WhatsApp
+              </a>
+            )}
+            {values.whatsapp_2 && (
+              <a
+                href={whatsappAppUrl(values.whatsapp_2)}
+                target="_blank"
+                rel="noreferrer"
+                className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px]"
+                style={{ color: "#25D366" }}
+              >
+                📲 Abrir WhatsApp 2
+              </a>
+            )}
+          </div>
+        )}
 
         {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 

@@ -5,6 +5,7 @@ import type { Cliente, ClienteStatus, Servico } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { computeClienteStats } from "@/lib/domain/clientes";
 import { normalizarBusca } from "@/lib/domain/texto";
+import { whatsappAppUrl } from "@/lib/domain/whatsapp";
 import NovoClienteModal from "./NovoClienteModal";
 import ClienteEditModal from "./ClienteEditModal";
 
@@ -101,7 +102,35 @@ export default function ClientesList({
                   <td className="px-3 py-2 font-semibold">{c.nome}</td>
                   <td className="px-3 py-2 text-text-secondary">{c.empresa || "—"}</td>
                   <td className="px-3 py-2 text-text-secondary">{c.cpf_cnpj || "—"}</td>
-                  <td className="px-3 py-2 text-text-secondary">{c.whatsapp || "—"}</td>
+                  <td className="px-3 py-2 text-text-secondary">
+                    <div className="flex items-center gap-2">
+                      <span>{c.whatsapp || "—"}</span>
+                      {c.whatsapp && (
+                        <a
+                          href={whatsappAppUrl(c.whatsapp)}
+                          onClick={(e) => e.stopPropagation()}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={`Abrir WhatsApp: ${c.whatsapp}`}
+                          style={{ color: "#25D366" }}
+                        >
+                          📲
+                        </a>
+                      )}
+                      {c.whatsapp_2 && (
+                        <a
+                          href={whatsappAppUrl(c.whatsapp_2)}
+                          onClick={(e) => e.stopPropagation()}
+                          target="_blank"
+                          rel="noreferrer"
+                          title={`Abrir WhatsApp 2: ${c.whatsapp_2}`}
+                          style={{ color: "#25D366" }}
+                        >
+                          📲
+                        </a>
+                      )}
+                    </div>
+                  </td>
                   <td className="px-3 py-2 text-text-secondary">{c.email || "—"}</td>
                   <td className="px-3 py-2">{stats.servicosVinculados}</td>
                   <td className="px-3 py-2 font-semibold text-gradient-gold">

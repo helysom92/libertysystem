@@ -105,16 +105,31 @@ export default function ClienteTab({
         )}
       </div>
 
-      {values.whatsapp && (
-        <a
-          href={whatsappAppUrl(values.whatsapp)}
-          target="_blank"
-          rel="noreferrer"
-          className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px]"
-          style={{ color: "#25D366" }}
-        >
-          Abrir WhatsApp
-        </a>
+      {(values.whatsapp || values.whatsapp_2) && (
+        <div className="flex flex-wrap gap-2">
+          {values.whatsapp && (
+            <a
+              href={whatsappAppUrl(values.whatsapp)}
+              target="_blank"
+              rel="noreferrer"
+              className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px]"
+              style={{ color: "#25D366" }}
+            >
+              📲 Abrir WhatsApp
+            </a>
+          )}
+          {values.whatsapp_2 && (
+            <a
+              href={whatsappAppUrl(values.whatsapp_2)}
+              target="_blank"
+              rel="noreferrer"
+              className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px]"
+              style={{ color: "#25D366" }}
+            >
+              📲 Abrir WhatsApp 2
+            </a>
+          )}
+        </div>
       )}
     </div>
   );
