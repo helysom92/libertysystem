@@ -5,6 +5,7 @@ import type { ServicoDetail } from "@/lib/domain/types";
 import { updateClienteInline } from "@/lib/actions/servicos";
 import { whatsappAppUrl } from "@/lib/domain/whatsapp";
 import { formatarWhatsapp } from "@/lib/domain/telefone";
+import WhatsAppIcon from "@/components/ui/WhatsAppIcon";
 
 const FIELDS: { key: keyof ServicoDetail["cliente"]; label: string }[] = [
   { key: "nome", label: "Nome" },
@@ -112,10 +113,10 @@ export default function ClienteTab({
               href={whatsappAppUrl(values.whatsapp)}
               target="_blank"
               rel="noreferrer"
-              className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px]"
+              className="flex w-fit items-center gap-1.5 rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px]"
               style={{ color: "#25D366" }}
             >
-              📲 Abrir WhatsApp
+              <WhatsAppIcon size={14} /> Abrir WhatsApp
             </a>
           )}
           {values.whatsapp_2 && (
@@ -123,10 +124,10 @@ export default function ClienteTab({
               href={whatsappAppUrl(values.whatsapp_2)}
               target="_blank"
               rel="noreferrer"
-              className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px]"
+              className="flex w-fit items-center gap-1.5 rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px]"
               style={{ color: "#25D366" }}
             >
-              📲 Abrir WhatsApp 2
+              <WhatsAppIcon size={14} /> Abrir WhatsApp 2
             </a>
           )}
         </div>

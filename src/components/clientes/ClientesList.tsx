@@ -6,6 +6,7 @@ import { fmtBRL } from "@/lib/domain/types";
 import { computeClienteStats } from "@/lib/domain/clientes";
 import { normalizarBusca } from "@/lib/domain/texto";
 import { whatsappAppUrl } from "@/lib/domain/whatsapp";
+import WhatsAppIcon from "@/components/ui/WhatsAppIcon";
 import NovoClienteModal from "./NovoClienteModal";
 import ClienteEditModal from "./ClienteEditModal";
 
@@ -114,7 +115,7 @@ export default function ClientesList({
                           title={`Abrir WhatsApp: ${c.whatsapp}`}
                           style={{ color: "#25D366" }}
                         >
-                          📲
+                          <WhatsAppIcon size={16} />
                         </a>
                       )}
                       {c.whatsapp_2 && (
@@ -126,7 +127,7 @@ export default function ClientesList({
                           title={`Abrir WhatsApp 2: ${c.whatsapp_2}`}
                           style={{ color: "#25D366" }}
                         >
-                          📲
+                          <WhatsAppIcon size={16} />
                         </a>
                       )}
                     </div>
