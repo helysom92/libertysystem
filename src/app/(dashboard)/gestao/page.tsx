@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { createClient } from "@/lib/supabase/server";
+import { fetchAllClientes } from "@/lib/supabase/fetchAllClientes";
 import { allowedTabs, homeTabFor } from "@/lib/domain/flows";
 import { todayISO } from "@/lib/domain/dates";
 import type {
-  Cliente,
   Comprovante,
   DespesaFixa,
   DespesaFixaOcorrencia,
@@ -28,7 +28,7 @@ export default async function GestaoPage() {
   const supabase = await createClient();
   const [
     { data: servicos },
-    { data: clientes },
+    clientes,
     { data: lancamentos },
     { data: eventos },
     { data: despesasFixas },
@@ -40,7 +40,7 @@ export default async function GestaoPage() {
     { data: comprovantes },
   ] = await Promise.all([
     supabase.from("servicos").select("*"),
-    supabase.from("clientes").select("*").order("nome"),
+    fetchAllClientes(supabase),
     supabase.from("lancamentos").select("*"),
     supabase.from("eventos").select("*"),
     supabase.from("despesas_fixas").select("*"),
@@ -64,7 +64,7 @@ export default async function GestaoPage() {
       <DashboardShell
         hojeISO={todayISO()}
         servicos={(servicos as Servico[]) ?? []}
-        clientes={(clientes as Cliente[]) ?? []}
+        clientes={clientes}
         lancamentos={(lancamentos as Lancamento[]) ?? []}
         eventos={(eventos as Evento[]) ?? []}
         despesasFixas={(despesasFixas as DespesaFixa[]) ?? []}

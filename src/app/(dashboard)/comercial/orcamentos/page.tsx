@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/profile";
+import { fetchAllClientes } from "@/lib/supabase/fetchAllClientes";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
-import type { Cliente, ItemOrcamento, Servico } from "@/lib/domain/types";
+import type { ItemOrcamento, Servico } from "@/lib/domain/types";
 import type { Coluna } from "@/lib/domain/kanban";
 
 export default async function ComercialOrcamentosPage({
@@ -16,7 +17,7 @@ export default async function ComercialOrcamentosPage({
   const [
     { data: servicos },
     { data: itensOrcamento },
-    { data: clientes },
+    clientes,
     { data: colunas },
     { data: checklistRows },
   ] = await Promise.all([
@@ -27,7 +28,7 @@ export default async function ComercialOrcamentosPage({
       .select("id, numero, cliente, descricao, valor, financeiro_status, prazo, prazo_tipo, coluna_id, capa_foto_id")
       .order("criado_em", { ascending: false }),
     supabase.from("itens_orcamento").select("*").eq("ativo", true).order("nome"),
-    supabase.from("clientes").select("*").order("nome"),
+    fetchAllClientes(supabase),
     supabase.from("colunas").select("*").order("ordem"),
     supabase.from("checklist_items").select("servico_id, done"),
   ]);
@@ -77,7 +78,7 @@ export default async function ComercialOrcamentosPage({
       capaUrls={capaUrls}
       checklistProgress={checklistProgress}
       itensOrcamento={(itensOrcamento as ItemOrcamento[]) ?? []}
-      clientes={(clientes as Cliente[]) ?? []}
+      clientes={clientes}
     />
   );
 }
