@@ -18,9 +18,12 @@ export interface NovoClienteInput {
 
 export async function createCliente(input: NovoClienteInput) {
   const supabase = await createClient();
+  // Nome + WhatsApp já são obrigatórios pra criar um cliente — com os dois preenchidos, o
+  // cadastro nasce Regularizado direto, sem exigir um passo manual extra depois.
+  const defaultStatus: ClienteStatus = input.whatsapp ? "regularizado" : "pre_cadastro";
   const { data, error } = await supabase
     .from("clientes")
-    .insert({ status: "pre_cadastro", ...input })
+    .insert({ status: defaultStatus, ...input })
     .select("id")
     .single();
   if (error) throw error;
