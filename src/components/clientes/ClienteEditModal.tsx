@@ -9,6 +9,7 @@ const FIELDS: { key: keyof Cliente; label: string }[] = [
   { key: "nome", label: "Nome" },
   { key: "empresa", label: "Empresa" },
   { key: "whatsapp", label: "Telefone / WhatsApp" },
+  { key: "email", label: "E-mail" },
   { key: "cpf_cnpj", label: "CPF/CNPJ" },
   { key: "cidade", label: "Cidade" },
   { key: "endereco", label: "Endereço" },
@@ -53,6 +54,7 @@ export default function ClienteEditModal({
         cidade: values.cidade,
         endereco: values.endereco,
         whatsapp: values.whatsapp,
+        email: values.email,
         observacoes: values.observacoes,
       });
       if (values.status !== cliente.status) {

@@ -50,6 +50,7 @@ export interface Cliente {
   cidade: string | null;
   endereco: string | null;
   whatsapp: string | null;
+  email: string | null;
   observacoes: string | null;
   status: ClienteStatus;
   created_at: string;

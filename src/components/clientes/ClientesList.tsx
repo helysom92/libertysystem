@@ -84,6 +84,7 @@ export default function ClientesList({
               <th className="px-3 py-2">Empresa</th>
               <th className="px-3 py-2">CNPJ/CPF</th>
               <th className="px-3 py-2">Telefone</th>
+              <th className="px-3 py-2">E-mail</th>
               <th className="px-3 py-2">Serviços</th>
               <th className="px-3 py-2">Total Comprado</th>
             </tr>
@@ -101,6 +102,7 @@ export default function ClientesList({
                   <td className="px-3 py-2 text-text-secondary">{c.empresa || "—"}</td>
                   <td className="px-3 py-2 text-text-secondary">{c.cpf_cnpj || "—"}</td>
                   <td className="px-3 py-2 text-text-secondary">{c.whatsapp || "—"}</td>
+                  <td className="px-3 py-2 text-text-secondary">{c.email || "—"}</td>
                   <td className="px-3 py-2">{stats.servicosVinculados}</td>
                   <td className="px-3 py-2 font-semibold text-gradient-gold">
                     {fmtBRL(stats.totalComprado)}
@@ -110,7 +112,7 @@ export default function ClientesList({
             })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-text-muted">
+                <td colSpan={7} className="px-3 py-6 text-center text-text-muted">
                   Nenhum cliente encontrado.
                 </td>
               </tr>

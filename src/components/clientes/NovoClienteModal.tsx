@@ -9,6 +9,7 @@ export default function NovoClienteModal({ onClose }: { onClose: () => void }) {
   const [empresa, setEmpresa] = useState("");
   const [cpfCnpj, setCpfCnpj] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [email, setEmail] = useState("");
   const [cidade, setCidade] = useState("");
   const [endereco, setEndereco] = useState("");
   const [pending, startTransition] = useTransition();
@@ -48,6 +49,7 @@ export default function NovoClienteModal({ onClose }: { onClose: () => void }) {
           empresa: empresa || null,
           cpf_cnpj: cpfCnpj || null,
           whatsapp: whatsapp || null,
+          email: email || null,
           cidade: cidade || null,
           endereco: endereco || null,
         });
@@ -106,6 +108,13 @@ export default function NovoClienteModal({ onClose }: { onClose: () => void }) {
         <input
           value={whatsapp}
           onChange={(e) => setWhatsapp(e.target.value)}
+          className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+        />
+
+        <label className="mb-1 block text-xs text-text-secondary">E-mail</label>
+        <input
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
           className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
         />
 
