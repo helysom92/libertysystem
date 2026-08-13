@@ -52,6 +52,21 @@ export default function NovoServicoModal({
 
   const clienteRecord = clientes.find((c) => c.nome.toLowerCase() === cliente.toLowerCase()) ?? null;
 
+  // Ao selecionar (ou trocar) um cliente com WhatsApp já cadastrado, preenche o campo de
+  // verdade — antes ele só aparecia como texto fantasma (placeholder), sem valor real, então
+  // dava pra confundir "tá vazio" com "já tem, só não mostrou". Feito no próprio handler de
+  // mudança (não em efeito) pra não disparar um segundo render em cascata.
+  const [lastClienteId, setLastClienteId] = useState<string | null>(null);
+  function handleClienteChange(nome: string) {
+    setCliente(nome);
+    const record = clientes.find((c) => c.nome.toLowerCase() === nome.toLowerCase()) ?? null;
+    const id = record?.id ?? null;
+    if (id !== lastClienteId) {
+      setLastClienteId(id);
+      setClienteWhatsapp(record?.whatsapp ?? "");
+    }
+  }
+
   const total = useMemo(
     () => itens.reduce((sum, item) => sum + valorFinalDoItem(item, itensOrcamento), 0),
     [itens, itensOrcamento]
@@ -142,8 +157,8 @@ export default function NovoServicoModal({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!cliente) {
-      setError("Cliente é obrigatório.");
+    if (!cliente || !whatsappCliente) {
+      setError("Cliente e WhatsApp são obrigatórios.");
       return;
     }
     startTransition(async () => {
@@ -212,21 +227,26 @@ export default function NovoServicoModal({
         <div className="mb-3 flex gap-3">
           <div className="flex-1">
             <label className="mb-1 block text-xs text-text-secondary">Cliente</label>
-            <ClienteAutocomplete clientes={clientes} value={cliente} onChange={setCliente} />
+            <ClienteAutocomplete clientes={clientes} value={cliente} onChange={handleClienteChange} />
           </div>
           <div className="flex-1">
             <label className="mb-1 block text-xs text-text-secondary">WhatsApp do cliente</label>
             <input
               value={clienteWhatsapp}
               onChange={(e) => setClienteWhatsapp(e.target.value)}
-              placeholder={clienteRecord?.whatsapp ?? "(67) 9XXXX-XXXX"}
+              placeholder="(67) 9XXXX-XXXX"
               className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
             />
           </div>
         </div>
         {!clienteRecord && cliente && (
           <p className="-mt-2 mb-3 text-[11px] text-text-muted">
-            Cliente novo — vai entrar como pré-cadastro.
+            Cliente novo — vai entrar como pré-cadastro até ter WhatsApp.
+          </p>
+        )}
+        {clienteRecord && !clienteWhatsapp && (
+          <p className="-mt-2 mb-3 text-[11px] text-gold">
+            Esse cliente ainda não tem WhatsApp cadastrado — preencha acima pra continuar.
           </p>
         )}
 
