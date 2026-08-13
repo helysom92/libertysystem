@@ -4,11 +4,13 @@ import { useState } from "react";
 import type { ServicoDetail } from "@/lib/domain/types";
 import { updateClienteInline } from "@/lib/actions/servicos";
 import { whatsappAppUrl } from "@/lib/domain/whatsapp";
+import { formatarWhatsapp } from "@/lib/domain/telefone";
 
 const FIELDS: { key: keyof ServicoDetail["cliente"]; label: string }[] = [
   { key: "nome", label: "Nome" },
   { key: "empresa", label: "Empresa" },
   { key: "whatsapp", label: "Telefone / WhatsApp" },
+  { key: "whatsapp_2", label: "WhatsApp 2 (opcional)" },
   { key: "email", label: "E-mail" },
   { key: "cpf_cnpj", label: "CPF/CNPJ" },
   { key: "cidade", label: "Cidade" },
@@ -49,6 +51,7 @@ export default function ClienteTab({
         cidade: values.cidade,
         endereco: values.endereco,
         whatsapp: values.whatsapp,
+        whatsapp_2: values.whatsapp_2,
         email: values.email,
         observacoes: values.observacoes,
       });
@@ -71,6 +74,11 @@ export default function ClienteTab({
             <input
               value={values[key] ?? ""}
               onChange={(e) => handleChange(key, e.target.value)}
+              onBlur={
+                key === "whatsapp" || key === "whatsapp_2"
+                  ? (e) => handleChange(key, formatarWhatsapp(e.target.value))
+                  : undefined
+              }
               className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
             />
           </div>

@@ -187,6 +187,7 @@ export async function updateClienteInline(
     cidade: string | null;
     endereco: string | null;
     whatsapp: string | null;
+    whatsapp_2: string | null;
     email: string | null;
     observacoes: string | null;
   }>

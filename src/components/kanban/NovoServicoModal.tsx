@@ -15,6 +15,7 @@ import {
 } from "@/lib/domain/orcamento";
 import { buildOrcamentoText, type OrcamentoTextItem } from "@/lib/domain/orcamentoText";
 import { whatsappAppUrl } from "@/lib/domain/whatsapp";
+import { formatarWhatsapp } from "@/lib/domain/telefone";
 import ClienteAutocomplete from "./ClienteAutocomplete";
 import OrcamentoItemRow, { novoItemFormState, valorFinalDoItem, type ItemFormState } from "./OrcamentoItemRow";
 
@@ -234,6 +235,7 @@ export default function NovoServicoModal({
             <input
               value={clienteWhatsapp}
               onChange={(e) => setClienteWhatsapp(e.target.value)}
+              onBlur={(e) => setClienteWhatsapp(formatarWhatsapp(e.target.value))}
               placeholder="(67) 9XXXX-XXXX"
               className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
             />

@@ -3,12 +3,14 @@
 import { useState, useTransition } from "react";
 import { createCliente } from "@/lib/actions/clientes";
 import { lookupCnpj } from "@/lib/domain/cnpj";
+import { formatarWhatsapp } from "@/lib/domain/telefone";
 
 export default function NovoClienteModal({ onClose }: { onClose: () => void }) {
   const [nome, setNome] = useState("");
   const [empresa, setEmpresa] = useState("");
   const [cpfCnpj, setCpfCnpj] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [whatsapp2, setWhatsapp2] = useState("");
   const [email, setEmail] = useState("");
   const [cidade, setCidade] = useState("");
   const [endereco, setEndereco] = useState("");
@@ -49,6 +51,7 @@ export default function NovoClienteModal({ onClose }: { onClose: () => void }) {
           empresa: empresa || null,
           cpf_cnpj: cpfCnpj || null,
           whatsapp: whatsapp || null,
+          whatsapp_2: whatsapp2 || null,
           email: email || null,
           cidade: cidade || null,
           endereco: endereco || null,
@@ -108,6 +111,15 @@ export default function NovoClienteModal({ onClose }: { onClose: () => void }) {
         <input
           value={whatsapp}
           onChange={(e) => setWhatsapp(e.target.value)}
+          onBlur={(e) => setWhatsapp(formatarWhatsapp(e.target.value))}
+          className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+        />
+
+        <label className="mb-1 block text-xs text-text-secondary">WhatsApp 2 (opcional)</label>
+        <input
+          value={whatsapp2}
+          onChange={(e) => setWhatsapp2(e.target.value)}
+          onBlur={(e) => setWhatsapp2(formatarWhatsapp(e.target.value))}
           className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
         />
 

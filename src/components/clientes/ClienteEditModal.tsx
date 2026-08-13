@@ -4,11 +4,13 @@ import { useState } from "react";
 import type { Cliente, ClienteStatus } from "@/lib/domain/types";
 import { updateClienteInline } from "@/lib/actions/servicos";
 import { deleteCliente, updateClienteStatus } from "@/lib/actions/clientes";
+import { formatarWhatsapp } from "@/lib/domain/telefone";
 
 const FIELDS: { key: keyof Cliente; label: string }[] = [
   { key: "nome", label: "Nome" },
   { key: "empresa", label: "Empresa" },
   { key: "whatsapp", label: "Telefone / WhatsApp" },
+  { key: "whatsapp_2", label: "WhatsApp 2 (opcional)" },
   { key: "email", label: "E-mail" },
   { key: "cpf_cnpj", label: "CPF/CNPJ" },
   { key: "cidade", label: "Cidade" },
@@ -54,6 +56,7 @@ export default function ClienteEditModal({
         cidade: values.cidade,
         endereco: values.endereco,
         whatsapp: values.whatsapp,
+        whatsapp_2: values.whatsapp_2,
         email: values.email,
         observacoes: values.observacoes,
       });
@@ -130,6 +133,11 @@ export default function ClienteEditModal({
               <input
                 value={values[key] ?? ""}
                 onChange={(e) => setValues((v) => ({ ...v, [key]: e.target.value }))}
+                onBlur={
+                  key === "whatsapp" || key === "whatsapp_2"
+                    ? (e) => setValues((v) => ({ ...v, [key]: formatarWhatsapp(e.target.value) }))
+                    : undefined
+                }
                 className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
               />
             </div>
