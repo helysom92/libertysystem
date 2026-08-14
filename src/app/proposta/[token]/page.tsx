@@ -75,7 +75,10 @@ export default async function PropostaPublicaPage({
 
   return (
     <div style={{ minHeight: "100vh", background: "#fff", paddingTop: 24 }}>
-      <style>{`@page { margin: 0.4in; }`}</style>
+      <style>{`
+        @page { margin: 0.4in; }
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+      `}</style>
       <ImprimirButton />
       <OrcamentoDocumento
         numero={proposta.servico.numero}
