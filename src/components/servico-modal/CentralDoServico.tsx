@@ -14,7 +14,6 @@ import ArquivosTab from "./ArquivosTab";
 import FotosTab from "./FotosTab";
 import ChecklistTab from "./ChecklistTab";
 import TimelineTab from "./TimelineTab";
-import FinanceiroTab from "./FinanceiroTab";
 import HistoricoTab from "./HistoricoTab";
 import OrcamentoItensTab from "./OrcamentoItensTab";
 import PropostaInterativaTab from "./PropostaInterativaTab";
@@ -35,7 +34,6 @@ const TABS_COMERCIAL = [
   { id: "fotos", label: "Fotos" },
   { id: "checklist", label: "Checklist" },
   { id: "timeline", label: "Timeline" },
-  { id: "financeiro", label: "Financeiro" },
   { id: "historico", label: "Histórico" },
 ];
 
@@ -182,9 +180,6 @@ export default function CentralDoServico({
               {tab === "fotos" && <FotosTab detail={detail} onChanged={reload} />}
               {tab === "checklist" && <ChecklistTab detail={detail} onChanged={reload} />}
               {tab === "timeline" && <TimelineTab detail={detail} />}
-              {tab === "financeiro" && (
-                <FinanceiroTab detail={detail} role={role} onChanged={reload} />
-              )}
               {tab === "historico" && <HistoricoTab detail={detail} />}
             </div>
           </>

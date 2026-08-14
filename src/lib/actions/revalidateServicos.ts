@@ -9,4 +9,5 @@ export function revalidateServicoPaths() {
   revalidatePath("/producao/servicos");
   revalidatePath("/producao/visao-geral");
   revalidatePath("/financeiro/recebimentos");
+  revalidatePath("/hoje");
 }

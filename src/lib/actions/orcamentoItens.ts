@@ -39,6 +39,7 @@ export async function createOrcamentoItens(servicoId: string, itens: OrcamentoIt
     }))
   );
   if (error) throw error;
+  revalidateServicoPaths();
 }
 
 /**

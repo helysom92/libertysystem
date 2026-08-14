@@ -38,4 +38,5 @@ export async function updateItemOrcamento(
   const { error } = await supabase.from("itens_orcamento").update(fields).eq("id", id);
   if (error) throw error;
   revalidatePath("/secretaria/produtos");
+  revalidateServicoPaths();
 }

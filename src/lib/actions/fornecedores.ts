@@ -33,4 +33,5 @@ export async function updateFornecedor(
   const { error } = await supabase.from("fornecedores").update(fields).eq("id", id);
   if (error) throw error;
   revalidatePath("/secretaria/fornecedores");
+  revalidateFinanceiroPaths();
 }
