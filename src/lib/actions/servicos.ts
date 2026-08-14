@@ -16,7 +16,7 @@ export interface NovoServicoInput {
   valor: number;
   prazo: string | null;
   tipo: ServicoTipo;
-  linha_orcamento?: LinhaOrcamento;
+  linha_orcamento?: LinhaOrcamento | null;
   validade_proposta_dias?: number;
   forma_pagamento_texto?: string | null;
   durabilidade_texto?: string | null;
@@ -163,7 +163,7 @@ export async function updateFinanceiro(
 export async function updatePropostaOrcamento(
   servicoId: string,
   fields: Partial<{
-    linha_orcamento: LinhaOrcamento;
+    linha_orcamento: LinhaOrcamento | null;
     validade_proposta_dias: number;
     forma_pagamento_texto: string | null;
     durabilidade_texto: string | null;

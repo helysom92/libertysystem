@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { getSignedUrl } from "@/lib/actions/servicoDetail";
 import { calcularItemOrcamento, unitParaExibicao, type OrcamentoItemDraft } from "@/lib/domain/orcamento";
 import { formatItemDetalhe } from "@/lib/domain/orcamentoText";
 import type { ItemOrcamento, OrcamentoItemRow } from "@/lib/domain/types";
@@ -57,16 +56,6 @@ export default async function ImprimirServicoPage({
     };
   });
 
-  let fotoUrl: string | null = null;
-  if (servico.capa_foto_id) {
-    const { data: foto } = await supabase
-      .from("fotos")
-      .select("storage_path")
-      .eq("id", servico.capa_foto_id)
-      .single();
-    if (foto?.storage_path) fotoUrl = await getSignedUrl("fotos", foto.storage_path);
-  }
-
   return (
     <div style={{ background: "#fff", minHeight: "100vh", paddingTop: 24 }}>
       <style>{`@page { margin: 0.4in; }`}</style>
@@ -80,7 +69,6 @@ export default async function ImprimirServicoPage({
         formaPagamentoTexto={servico.forma_pagamento_texto}
         durabilidadeTexto={servico.durabilidade_texto}
         itens={itens}
-        fotoUrl={fotoUrl}
       />
       <PrintTrigger />
     </div>

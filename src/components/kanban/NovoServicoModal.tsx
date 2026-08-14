@@ -37,7 +37,7 @@ export default function NovoServicoModal({
   const [condDesconto, setCondDesconto] = useState(false);
   const [observacoes, setObservacoes] = useState("");
 
-  const [linha, setLinha] = useState<LinhaOrcamento>("custo_beneficio");
+  const [linha, setLinha] = useState<LinhaOrcamento | null>(null);
   const [formaPagamento, setFormaPagamento] = useState("");
   const [formaPagamentoDirty, setFormaPagamentoDirty] = useState(false);
   const [durabilidade, setDurabilidade] = useState("");
@@ -294,12 +294,15 @@ export default function NovoServicoModal({
         <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">
           Documento da proposta (opcional)
         </p>
+        <p className="mb-1.5 text-xs text-text-secondary">
+          Linha comercial (opcional — clique de novo pra remover)
+        </p>
         <div className="mb-3 flex gap-1">
           {(Object.keys(LINHA_ORCAMENTO_INFO) as LinhaOrcamento[]).map((l) => (
             <button
               key={l}
               type="button"
-              onClick={() => setLinha(l)}
+              onClick={() => setLinha((prev) => (prev === l ? null : l))}
               className={`flex-1 rounded-btn border px-2 py-1.5 text-[11.5px] ${
                 linha === l
                   ? "border-gold bg-gold/10 text-gold"

@@ -10,7 +10,7 @@ interface PropostaPublica {
     numero: string | null;
     descricao: string;
     valor: number;
-    linha_orcamento: LinhaOrcamento;
+    linha_orcamento: LinhaOrcamento | null;
     validade_proposta_dias: number;
     forma_pagamento_texto: string | null;
     durabilidade_texto: string | null;
@@ -73,12 +73,6 @@ export default async function PropostaPublicaPage({
     };
   });
 
-  let fotoUrl: string | null = null;
-  if (proposta.foto_storage_path) {
-    const { data: signed } = await supabase.storage.from("fotos").createSignedUrl(proposta.foto_storage_path, 60 * 60);
-    fotoUrl = signed?.signedUrl ?? null;
-  }
-
   return (
     <div style={{ minHeight: "100vh", background: "#fff", paddingTop: 24 }}>
       <style>{`@page { margin: 0.4in; }`}</style>
@@ -93,7 +87,6 @@ export default async function PropostaPublicaPage({
         formaPagamentoTexto={proposta.servico.forma_pagamento_texto}
         durabilidadeTexto={proposta.servico.durabilidade_texto}
         itens={itens}
-        fotoUrl={fotoUrl}
       />
     </div>
   );

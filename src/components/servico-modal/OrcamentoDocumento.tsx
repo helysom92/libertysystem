@@ -20,12 +20,11 @@ export interface OrcamentoDocumentoProps {
   descricaoServico: string;
   valorServico: number;
   clienteNome: string;
-  linha: LinhaOrcamento;
+  linha: LinhaOrcamento | null;
   validadeDias: number;
   formaPagamentoTexto: string | null;
   durabilidadeTexto: string | null;
   itens: OrcamentoDocumentoItem[];
-  fotoUrl: string | null;
 }
 
 const INK = "#1b1712";
@@ -34,6 +33,7 @@ const GOLD_SUB = "#c9bfa8";
 const CARD_BG = "#fbf8f2";
 const TEXT_MUTED = "#6b6357";
 const TOTAL_GOLD = "#8a6516";
+const DEFAULT_RING = "#c9bfa8";
 
 export default function OrcamentoDocumento({
   numero,
@@ -45,10 +45,9 @@ export default function OrcamentoDocumento({
   formaPagamentoTexto,
   durabilidadeTexto,
   itens,
-  fotoUrl,
 }: OrcamentoDocumentoProps) {
   const hoje = new Date().toLocaleDateString("pt-BR");
-  const tier = LINHA_ORCAMENTO_INFO[linha];
+  const tier = linha ? LINHA_ORCAMENTO_INFO[linha] : null;
   const isOS = numero != null;
 
   const linhas = itens.length > 0 ? itens : [
@@ -59,7 +58,7 @@ export default function OrcamentoDocumento({
 
   return (
     <div style={{ fontFamily: "'Manrope', system-ui, sans-serif", color: INK, maxWidth: 850, margin: "0 auto" }}>
-      <div style={{ background: INK, padding: "28px 0.55in 20px", borderBottom: `3px solid ${tier.ring}` }}>
+      <div style={{ background: INK, padding: "28px 0.55in 20px", borderBottom: `3px solid ${tier?.ring ?? DEFAULT_RING}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 24 }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/liberty-logo.png" alt="Liberty" style={{ height: 42, width: "auto", objectFit: "contain" }} />
@@ -106,54 +105,31 @@ export default function OrcamentoDocumento({
             </div>
             <div style={{ fontSize: 19, fontWeight: 700, color: INK }}>{clienteNome}</div>
           </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "9px 18px",
-              borderRadius: 999,
-              background: tier.ring,
-              color: INK,
-            }}
-          >
-            <span style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" }}>
-              {tier.label}
-            </span>
-          </div>
-        </div>
-        <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 4 }}>{tier.sub}</div>
-
-        <div style={{ display: "flex", gap: 22, marginTop: 24, alignItems: "stretch" }}>
-          <div
-            style={{
-              width: 220,
-              height: 220,
-              flex: "none",
-              borderRadius: 10,
-              border: "1px solid rgba(27,23,18,0.12)",
-              overflow: "hidden",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              background: "#f1ece0",
-            }}
-          >
-            {fotoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={fotoUrl} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-            ) : (
-              <span style={{ fontSize: 11.5, color: TEXT_MUTED, textAlign: "center", padding: 12 }}>
-                Foto de amostra do serviço/acabamento
+          {tier && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "9px 18px",
+                borderRadius: 999,
+                background: tier.ring,
+                color: INK,
+              }}
+            >
+              <span style={{ fontSize: 12.5, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase" }}>
+                {tier.label}
               </span>
-            )}
-          </div>
-          <div style={{ flex: 1, background: CARD_BG, border: "1px solid rgba(27,23,18,0.1)", borderRadius: 10, padding: "18px 20px" }}>
-            <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: TEXT_MUTED, marginBottom: 8 }}>
-              Sobre este orçamento
             </div>
-            <div style={{ fontSize: 13.5, color: INK, lineHeight: 1.65 }}>{descricaoServico}</div>
+          )}
+        </div>
+        {tier && <div style={{ fontSize: 12.5, color: TEXT_MUTED, marginTop: 4 }}>{tier.sub}</div>}
+
+        <div style={{ marginTop: 24, background: CARD_BG, border: "1px solid rgba(27,23,18,0.1)", borderRadius: 10, padding: "18px 20px" }}>
+          <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, color: TEXT_MUTED, marginBottom: 8 }}>
+            Sobre este orçamento
           </div>
+          <div style={{ fontSize: 13.5, color: INK, lineHeight: 1.65 }}>{descricaoServico}</div>
         </div>
 
         <table style={{ borderCollapse: "collapse", width: "100%", marginTop: 26 }}>

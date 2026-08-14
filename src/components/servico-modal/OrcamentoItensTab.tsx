@@ -13,7 +13,7 @@ import {
   type OrcamentoItemDraft,
 } from "@/lib/domain/orcamento";
 import { buildOrcamentoText, type OrcamentoTextItem } from "@/lib/domain/orcamentoText";
-import { ensureShareToken, updatePropostaOrcamento } from "@/lib/actions/servicos";
+import { updatePropostaOrcamento } from "@/lib/actions/servicos";
 import { replaceOrcamentoItens } from "@/lib/actions/orcamentoItens";
 import { whatsappAppUrl } from "@/lib/domain/whatsapp";
 import OrcamentoItemRowEditor, {
@@ -56,7 +56,6 @@ export default function OrcamentoItensTab({
 }) {
   const { servico } = detail;
   const [copiado, setCopiado] = useState(false);
-  const [enviando, setEnviando] = useState(false);
   const itens = detail.orcamentoItens;
 
   const [editingItens, setEditingItens] = useState(false);
@@ -64,14 +63,13 @@ export default function OrcamentoItensTab({
   const [itensSaving, setItensSaving] = useState(false);
   const [itensError, setItensError] = useState<string | null>(null);
 
-  const [linha, setLinha] = useState<LinhaOrcamento>(servico.linha_orcamento);
+  const [linha, setLinha] = useState<LinhaOrcamento | null>(servico.linha_orcamento);
   const [validadeDias, setValidadeDias] = useState(String(servico.validade_proposta_dias));
   const [formaPagamento, setFormaPagamento] = useState(servico.forma_pagamento_texto ?? "");
   const [durabilidade, setDurabilidade] = useState(servico.durabilidade_texto ?? "");
   const [propostaDirty, setPropostaDirty] = useState(false);
   const [propostaSaving, setPropostaSaving] = useState(false);
   const [propostaError, setPropostaError] = useState<string | null>(null);
-  const [enviarError, setEnviarError] = useState<string | null>(null);
 
   const total = itens.reduce((sum, item) => sum + item.valor_final, 0);
   const prazoLabel = prazoEstimadoLabel(itens.map((i) => i.categoria_prazo));
@@ -143,22 +141,6 @@ export default function OrcamentoItensTab({
     }
   }
 
-  async function enviarPorWhatsapp() {
-    setEnviando(true);
-    setEnviarError(null);
-    try {
-      const token = await ensureShareToken(servico.id);
-      const link = `${window.location.origin}/proposta/${token}`;
-      const texto = `Olá ${detail.cliente.nome.split(" ")[0]}! Segue sua proposta da Liberty Visual e Marketing: ${link}`;
-      window.open(whatsappAppUrl(detail.cliente.whatsapp, texto), "_blank");
-    } catch (err) {
-      console.error("Falha ao gerar link da proposta", err);
-      setEnviarError(err instanceof Error ? err.message : "Não foi possível gerar o link da proposta.");
-    } finally {
-      setEnviando(false);
-    }
-  }
-
   async function copiarOrcamento() {
     const textItens: OrcamentoTextItem[] = itens.map((row) => {
       const calc = calcularItemOrcamento(toDraft(row), itensOrcamento);
@@ -203,13 +185,16 @@ export default function OrcamentoItensTab({
         Proposta (documento visual)
       </p>
       <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
+        <p className="mb-1.5 text-[11px] text-text-secondary">
+          Linha comercial (opcional — clique de novo pra remover)
+        </p>
         <div className="mb-2 flex gap-1">
           {(Object.keys(LINHA_ORCAMENTO_INFO) as LinhaOrcamento[]).map((l) => (
             <button
               key={l}
               type="button"
               onClick={() => {
-                setLinha(l);
+                setLinha((prev) => (prev === l ? null : l));
                 setPropostaDirty(true);
               }}
               className={`flex-1 rounded-btn border px-2 py-1.5 text-[11.5px] ${
@@ -405,25 +390,16 @@ export default function OrcamentoItensTab({
         </a>
         <button
           type="button"
-          onClick={enviarPorWhatsapp}
-          disabled={enviando}
-          className="rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px] disabled:opacity-40"
-          style={{ color: "#25D366" }}
-        >
-          {enviando ? "Gerando link..." : "📲 Enviar por WhatsApp"}
-        </button>
-        <button
-          type="button"
           onClick={copiarOrcamento}
           disabled={itens.length === 0}
+          title="Manda o texto completo do orçamento, com todos os itens detalhados"
           className="rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px] disabled:opacity-40"
           style={{ color: "#25D366" }}
         >
-          📋 Copiar Orçamento
+          📋 Enviar texto completo (WhatsApp)
         </button>
         {copiado && <span className="text-[11.5px] text-success">Copiado!</span>}
       </div>
-      {enviarError && <p className="text-[12px] text-danger">{enviarError}</p>}
     </div>
   );
 }

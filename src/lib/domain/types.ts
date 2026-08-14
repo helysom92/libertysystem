@@ -31,7 +31,7 @@ export interface Servico {
   proxima_prazo: string | null;
   motivo_espera: string | null;
   capa_foto_id: string | null;
-  linha_orcamento: LinhaOrcamento;
+  linha_orcamento: LinhaOrcamento | null;
   validade_proposta_dias: number;
   forma_pagamento_texto: string | null;
   durabilidade_texto: string | null;
