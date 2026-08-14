@@ -31,6 +31,20 @@ const COLUNAS: FinanceiroStatus[] = [
   "Cancelado",
 ];
 
+// Essas 3 são "encerradas" — sem filtro, empilham pra sempre (todo OS que já foi pago desde o
+// início do sistema fica junto). Por padrão só mostram o mês atual; "ver tudo" desliga o filtro.
+const STATUS_ENCERRADO = new Set<FinanceiroStatus>(["Pago", "Cortesia", "Cancelado"]);
+
+function mesAtualChave(): number {
+  const hoje = new Date();
+  return hoje.getFullYear() * 12 + hoje.getMonth();
+}
+
+function mesChave(iso: string): number {
+  const d = new Date(iso);
+  return d.getFullYear() * 12 + d.getMonth();
+}
+
 export default function RecebimentosClient({
   servicos,
   role,
@@ -40,6 +54,7 @@ export default function RecebimentosClient({
 }) {
   const [busca, setBusca] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [verTudo, setVerTudo] = useState(false);
 
   const filtered = useMemo(() => {
     if (!busca) return servicos;
@@ -51,16 +66,22 @@ export default function RecebimentosClient({
     );
   }, [servicos, busca]);
 
-  const porStatus = useMemo(() => {
+  const { porStatus, ocultosCount } = useMemo(() => {
     const map = new Map<FinanceiroStatus, RecebimentoRow[]>();
     for (const status of FINANCEIRO_STATUSES) map.set(status, []);
+    const mesAtual = mesAtualChave();
+    let ocultos = 0;
     for (const s of filtered) {
+      if (!verTudo && STATUS_ENCERRADO.has(s.financeiro_status) && mesChave(s.criado_em) !== mesAtual) {
+        ocultos += 1;
+        continue;
+      }
       const lista = map.get(s.financeiro_status);
       if (lista) lista.push(s);
       else map.set(s.financeiro_status, [s]);
     }
-    return map;
-  }, [filtered]);
+    return { porStatus: map, ocultosCount: ocultos };
+  }, [filtered, verTudo]);
 
   return (
     <div className="flex h-full flex-col">
@@ -71,13 +92,34 @@ export default function RecebimentosClient({
             Sinal, restante e parcelas de cada OS — clique num card pra ver/confirmar os pagamentos
           </p>
         </div>
-        <input
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-          placeholder="Buscar por cliente ou nº..."
-          className="w-64 rounded-btn border border-border-neutral bg-card-secondary px-3 py-1.5 text-sm"
-        />
+        <div className="flex items-center gap-3">
+          <input
+            value={busca}
+            onChange={(e) => setBusca(e.target.value)}
+            placeholder="Buscar por cliente ou nº..."
+            className="w-64 rounded-btn border border-border-neutral bg-card-secondary px-3 py-1.5 text-sm"
+          />
+          <button
+            type="button"
+            onClick={() => setVerTudo((v) => !v)}
+            className={`shrink-0 rounded-btn border px-3 py-1.5 text-[12.5px] ${
+              verTudo
+                ? "border-gold bg-gold/10 text-gold"
+                : "border-border-neutral text-text-secondary"
+            }`}
+          >
+            {verTudo ? "✓ Vendo todos os meses" : "Ver todos os meses"}
+          </button>
+        </div>
       </div>
+
+      {!verTudo && ocultosCount > 0 && (
+        <p className="mb-3 text-[12px] text-text-muted">
+          {ocultosCount} OS já encerrada{ocultosCount > 1 ? "s" : ""} de meses anteriores{" "}
+          {ocultosCount > 1 ? "estão" : "está"} escondida{ocultosCount > 1 ? "s" : ""} — clique em
+          &quot;Ver todos os meses&quot; pra conferir.
+        </p>
+      )}
 
       <div className="flex flex-1 gap-4 overflow-x-auto pb-4">
         {COLUNAS.map((status) => {
