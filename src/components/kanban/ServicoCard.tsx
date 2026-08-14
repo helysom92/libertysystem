@@ -11,11 +11,13 @@ export default function ServicoCard({
   onOpen,
   capaUrl,
   checklistProgress,
+  hideValores,
 }: {
   servico: Servico;
   onOpen: (id: string) => void;
   capaUrl?: string | null;
   checklistProgress?: { done: number; total: number } | null;
+  hideValores?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: servico.id,
@@ -63,9 +65,11 @@ export default function ServicoCard({
           <p className="mb-2 line-clamp-2 text-[12px] text-text-secondary">{servico.descricao}</p>
         )}
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="rounded-pill bg-gold/10 px-2 py-0.5 text-[11px] text-gold">
-            {fmtBRL(servico.valor)}
-          </span>
+          {!hideValores && (
+            <span className="rounded-pill bg-gold/10 px-2 py-0.5 text-[11px] text-gold">
+              {fmtBRL(servico.valor)}
+            </span>
+          )}
           {checklistProgress && checklistProgress.total > 0 && (
             <span className="rounded-pill border border-border-neutral px-2 py-0.5 text-[10.5px] text-text-secondary">
               ☑ {checklistProgress.done}/{checklistProgress.total}
@@ -79,7 +83,7 @@ export default function ServicoCard({
               ● {PRAZO_STATUS_LABEL[status]}
             </span>
           )}
-          <FinanceiroBadge status={servico.financeiro_status} />
+          {!hideValores && <FinanceiroBadge status={servico.financeiro_status} />}
         </div>
       </div>
     </div>

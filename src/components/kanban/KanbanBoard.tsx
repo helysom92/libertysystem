@@ -139,6 +139,7 @@ export default function KanbanBoard({
               onOpen={setOpenId}
               capaUrls={capaUrls}
               checklistProgress={checklistProgress}
+              hideValores={board === "os"}
             />
           ))}
 

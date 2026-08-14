@@ -189,6 +189,15 @@ export default function PagamentosTab({
         {statusError && <p className="mt-1 text-[12px] text-danger">Não foi possível salvar: {statusError}</p>}
       </div>
 
+      <a
+        href={`/servicos/${servico.id}/imprimir`}
+        target="_blank"
+        rel="noreferrer"
+        className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px] text-text-secondary"
+      >
+        🖨️ Imprimir / Ver documento (preço, prazo e condições)
+      </a>
+
       {!canEdit && (
         <p className="text-[12.5px] text-text-muted">
           Apenas Administrador ou Secretaria podem alterar os pagamentos deste serviço.

@@ -14,12 +14,14 @@ export default function KanbanColumn({
   onOpen,
   capaUrls,
   checklistProgress,
+  hideValores,
 }: {
   coluna: Coluna;
   items: Servico[];
   onOpen: (id: string) => void;
   capaUrls: Record<string, string>;
   checklistProgress: Record<string, { done: number; total: number }>;
+  hideValores?: boolean;
 }) {
   const router = useRouter();
   const { setNodeRef, isOver } = useDroppable({ id: coluna.id });
@@ -145,6 +147,7 @@ export default function KanbanColumn({
             onOpen={onOpen}
             capaUrl={capaUrls[s.id] ?? null}
             checklistProgress={checklistProgress[s.id] ?? null}
+            hideValores={hideValores}
           />
         ))}
       </div>

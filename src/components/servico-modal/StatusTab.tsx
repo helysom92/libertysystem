@@ -2,7 +2,6 @@
 
 import { useState, useTransition } from "react";
 import type { ServicoDetail } from "@/lib/domain/types";
-import { fmtBRL } from "@/lib/domain/types";
 import { computeIaAlerts } from "@/lib/domain/alerts";
 import { PRIORIDADES, type Role } from "@/lib/domain/flows";
 import type { Coluna } from "@/lib/domain/kanban";
@@ -15,7 +14,6 @@ import {
 } from "@/lib/actions/servicos";
 import { moveCardParaColuna } from "@/lib/actions/kanban";
 import { whatsappAppUrl } from "@/lib/domain/whatsapp";
-import FinanceiroBadge from "@/components/ui/FinanceiroBadge";
 
 const RESPONSAVEIS = ["", "Secretaria", "Administrador", "Produção"];
 
@@ -52,8 +50,9 @@ export default function StatusTab({
   }
 
   const showLiberarAdmin = (role === "administrador" || role === "secretaria") && !servico.concluido;
-  const alerts = computeIaAlerts([servico], []);
-  const saldo = servico.valor - servico.valor_pago;
+  // Produção não vê nada de dinheiro — inclusive o alerta de "saldo pendente" que o mesmo
+  // computeIaAlerts gera pra Hoje/Gestão (esses continuam vendo, só aqui que é filtrado).
+  const alerts = computeIaAlerts([servico], []).filter((a) => !a.texto.includes("saldo pendente"));
 
   async function handleMover() {
     if (!moverPara) return;
@@ -109,21 +108,6 @@ export default function StatusTab({
             {cliente.whatsapp} · Abrir WhatsApp
           </a>
         )}
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
-          <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Valor Total</p>
-          <p className="font-display text-sm font-bold text-gradient-gold">{fmtBRL(servico.valor)}</p>
-        </div>
-        <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
-          <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Saldo</p>
-          <p className="text-sm font-semibold">{fmtBRL(saldo)}</p>
-        </div>
-        <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
-          <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Financeiro</p>
-          <FinanceiroBadge status={servico.financeiro_status} />
-        </div>
       </div>
 
       <div className="flex gap-3">

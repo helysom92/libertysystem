@@ -2,10 +2,9 @@
 
 import { useMemo, useState } from "react";
 import { PRAZO_STATUS_COLOR, PRAZO_STATUS_LABEL, prazoStatus, type Coluna, type PrazoStatus } from "@/lib/domain/kanban";
-import { displayNumero, fmtBRL, type ItemOrcamento, type Servico } from "@/lib/domain/types";
+import { displayNumero, type ItemOrcamento, type Servico } from "@/lib/domain/types";
 import { normalizarBusca } from "@/lib/domain/texto";
 import type { Role } from "@/lib/domain/flows";
-import FinanceiroBadge from "@/components/ui/FinanceiroBadge";
 import CentralDoServico from "@/components/servico-modal/CentralDoServico";
 
 const PRAZO_FILTROS: { value: "todos" | PrazoStatus; label: string }[] = [
@@ -99,7 +98,6 @@ export default function VisaoGeralServicosTable({
               <th className="px-3 py-2.5">Descrição</th>
               <th className="px-3 py-2.5">Etapa</th>
               <th className="px-3 py-2.5">Prazo</th>
-              <th className="px-3 py-2.5">Financeiro</th>
               <th className="px-3 py-2.5">Responsável</th>
             </tr>
           </thead>
@@ -130,16 +128,13 @@ export default function VisaoGeralServicosTable({
                       <span className="text-text-muted">—</span>
                     )}
                   </td>
-                  <td className="px-3 py-2.5">
-                    <FinanceiroBadge status={s.financeiro_status} />
-                  </td>
                   <td className="px-3 py-2.5 text-text-secondary">{s.responsavel || "—"}</td>
                 </tr>
               );
             })}
             {linhas.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-text-muted">
+                <td colSpan={6} className="px-3 py-6 text-center text-text-muted">
                   Nenhuma OS encontrada com esses filtros.
                 </td>
               </tr>
@@ -147,7 +142,7 @@ export default function VisaoGeralServicosTable({
           </tbody>
         </table>
         <p className="border-t border-border-neutral px-3 py-2 text-[12px] text-text-secondary">
-          {fmtBRL(linhas.reduce((acc, s) => acc + s.valor, 0))} em {linhas.length} OS
+          {linhas.length} OS
         </p>
       </div>
 
