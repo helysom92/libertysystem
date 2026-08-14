@@ -57,6 +57,17 @@ export async function createServico(input: NovoServicoInput) {
   return data.id as string;
 }
 
+export async function updateServicoOrcamento(
+  servicoId: string,
+  fields: Partial<{ tipo: ServicoTipo; descricao: string; prazo: string | null }>
+) {
+  const supabase = await createClient();
+  const { error } = await supabase.from("servicos").update(fields).eq("id", servicoId);
+  if (error) throw error;
+  revalidateServicoPaths();
+  revalidatePath("/hoje");
+}
+
 export async function updatePrazoServico(servicoId: string, tipo: PrazoTipo) {
   const supabase = await createClient();
   const { data: sv } = await supabase

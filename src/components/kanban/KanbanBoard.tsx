@@ -16,6 +16,7 @@ import type { Cliente, ItemOrcamento, Servico } from "@/lib/domain/types";
 import KanbanColumn from "./KanbanColumn";
 import NovoServicoModal from "./NovoServicoModal";
 import CentralDoServico from "@/components/servico-modal/CentralDoServico";
+import OrcamentoModal from "@/components/servico-modal/OrcamentoModal";
 import type { Role } from "@/lib/domain/flows";
 
 const BOARD_TITLE: Record<KanbanBoardKey, { titulo: string; subtitulo: string }> = {
@@ -195,11 +196,18 @@ export default function KanbanBoard({
           onClose={() => setNovoOpen(false)}
         />
       )}
-      {openId && (
+      {openId && board === "orcamento" && (
+        <OrcamentoModal
+          servicoId={openId}
+          itensOrcamento={itensOrcamento}
+          onClose={() => setOpenId(null)}
+        />
+      )}
+      {openId && board === "os" && (
         <CentralDoServico
           servicoId={openId}
           role={role}
-          context={board === "orcamento" ? "comercial" : "producao"}
+          context="producao"
           itensOrcamento={itensOrcamento}
           colunasOS={colunas.filter((c) => c.board === "os").sort((a, b) => a.ordem - b.ordem)}
           onClose={() => setOpenId(null)}
