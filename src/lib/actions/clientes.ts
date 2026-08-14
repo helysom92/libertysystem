@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { ClienteStatus } from "@/lib/domain/types";
+import { revalidateServicoPaths } from "./revalidateServicos";
 
 export interface NovoClienteInput {
   nome: string;
@@ -29,6 +30,7 @@ export async function createCliente(input: NovoClienteInput) {
     .single();
   if (error) throw error;
   revalidatePath("/secretaria/clientes");
+  revalidateServicoPaths();
   return data.id as string;
 }
 
@@ -37,6 +39,7 @@ export async function updateClienteStatus(clienteId: string, status: ClienteStat
   const { error } = await supabase.from("clientes").update({ status }).eq("id", clienteId);
   if (error) throw error;
   revalidatePath("/secretaria/clientes");
+  revalidateServicoPaths();
 }
 
 export interface DeleteResult {
@@ -59,5 +62,6 @@ export async function deleteCliente(clienteId: string): Promise<DeleteResult> {
   const { error } = await supabase.from("clientes").delete().eq("id", clienteId);
   if (error) throw error;
   revalidatePath("/secretaria/clientes");
+  revalidateServicoPaths();
   return { ok: true };
 }
