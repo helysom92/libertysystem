@@ -8,4 +8,5 @@ export function revalidateFinanceiroPaths() {
   revalidatePath("/financeiro/despesas-fixas");
   revalidatePath("/financeiro/despesas-variaveis");
   revalidatePath("/financeiro/comprovantes");
+  revalidatePath("/financeiro/recebimentos");
 }

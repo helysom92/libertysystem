@@ -22,7 +22,6 @@ import StatusTab from "./StatusTab";
 import AgendaTab from "./AgendaTab";
 import PrazoTab from "./PrazoTab";
 import ExecucaoTab from "./ExecucaoTab";
-import PagamentosTab from "./PagamentosTab";
 
 // Comercial (Kanban de Orçamentos, lista de Propostas) — as mesmas abas de sempre, sem
 // mudança: é onde se monta o orçamento e a proposta interativa mora.
@@ -49,7 +48,6 @@ const TABS_PRODUCAO = [
   { id: "checklist", label: "Checklist" },
   { id: "prazo", label: "Prazo" },
   { id: "execucao", label: "Execução" },
-  { id: "pagamentos", label: "Pagamentos" },
   { id: "medidas", label: "Medidas" },
   { id: "fotos", label: "Fotos" },
   { id: "arquivos", label: "Arquivos" },
@@ -172,9 +170,6 @@ export default function CentralDoServico({
               {tab === "agenda" && <AgendaTab detail={detail} onChanged={reload} />}
               {tab === "prazo" && <PrazoTab detail={detail} onChanged={reload} />}
               {tab === "execucao" && <ExecucaoTab detail={detail} onChanged={reload} />}
-              {tab === "pagamentos" && (
-                <PagamentosTab detail={detail} role={role} onChanged={reload} />
-              )}
               {tab === "cliente" && <ClienteTab detail={detail} onChanged={reload} />}
               {tab === "itens" && (
                 <OrcamentoItensTab detail={detail} itensOrcamento={itensOrcamento} onChanged={reload} />
