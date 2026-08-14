@@ -6,15 +6,7 @@ import { createOrcamentoItens } from "@/lib/actions/orcamentoItens";
 import { TIPO_LABELS, type ServicoTipo } from "@/lib/domain/flows";
 import type { Cliente, ItemOrcamento } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
-import {
-  LINHA_ORCAMENTO_INFO,
-  calcularItemOrcamento,
-  prazoEstimadoLabel,
-  unitParaExibicao,
-  type LinhaOrcamento,
-} from "@/lib/domain/orcamento";
-import { buildOrcamentoText, type OrcamentoTextItem } from "@/lib/domain/orcamentoText";
-import { whatsappAppUrl } from "@/lib/domain/whatsapp";
+import { LINHA_ORCAMENTO_INFO, prazoEstimadoLabel, type LinhaOrcamento } from "@/lib/domain/orcamento";
 import { formatarWhatsapp } from "@/lib/domain/telefone";
 import ClienteAutocomplete from "./ClienteAutocomplete";
 import OrcamentoItemRow, { novoItemFormState, valorFinalDoItem, type ItemFormState } from "./OrcamentoItemRow";
@@ -44,7 +36,6 @@ export default function NovoServicoModal({
   const [condCartao, setCondCartao] = useState(false);
   const [condDesconto, setCondDesconto] = useState(false);
   const [observacoes, setObservacoes] = useState("");
-  const [copiado, setCopiado] = useState(false);
 
   const [linha, setLinha] = useState<LinhaOrcamento>("custo_beneficio");
   const [formaPagamento, setFormaPagamento] = useState("");
@@ -111,50 +102,6 @@ export default function NovoServicoModal({
   }
 
   const whatsappCliente = clienteWhatsapp || clienteRecord?.whatsapp || "";
-
-  function montarTextoOrcamento(): string {
-    const textItens: OrcamentoTextItem[] = itens.map((item) => {
-      const calc = calcularItemOrcamento(item, itensOrcamento);
-      const itemCatalogo = itensOrcamento.find((i) => i.id === item.itemOrcamentoId);
-      const valorFinal = valorFinalDoItem(item, itensOrcamento);
-      return {
-        descricao: item.descricao,
-        categoriaPrazo: item.categoriaPrazo,
-        modoCalculo: item.modoCalculo,
-        itemNome: itemCatalogo?.nome,
-        larguraCm: item.larguraCm,
-        alturaCm: item.alturaCm,
-        quantidade: item.quantidade,
-        area: calc.area,
-        unit: unitParaExibicao(item.modoCalculo, calc, valorFinal, item.quantidade),
-        minimoAplicado: calc.minimoAplicado,
-        valorFinal,
-      };
-    });
-
-    return buildOrcamentoText(textItens, {
-      clienteNome: cliente,
-      clienteTelefone: whatsappCliente,
-      local: local || clienteRecord?.endereco,
-      validadeDias: Number(validadeDias) || 7,
-      condicoes: { entrada50: condEntrada, cartao: condCartao, desconto: condDesconto },
-      observacoes,
-    });
-  }
-
-  async function copiarOrcamento() {
-    try {
-      await navigator.clipboard.writeText(montarTextoOrcamento());
-    } catch {
-      // best-effort
-    }
-    setCopiado(true);
-    setTimeout(() => setCopiado(false), 2000);
-  }
-
-  function enviarWhatsapp() {
-    window.open(whatsappAppUrl(whatsappCliente, montarTextoOrcamento()), "_blank");
-  }
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -385,27 +332,6 @@ export default function NovoServicoModal({
           placeholder="Ex: 2 a 5 anos, pintura sem desbotar"
           className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
         />
-
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={copiarOrcamento}
-            disabled={!cliente || itens.length === 0}
-            className="rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px] disabled:opacity-40"
-          >
-            📋 Copiar Orçamento
-          </button>
-          <button
-            type="button"
-            onClick={enviarWhatsapp}
-            disabled={!cliente || itens.length === 0}
-            className="rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px] disabled:opacity-40"
-            style={{ color: "#25D366" }}
-          >
-            📲 Enviar no WhatsApp Web
-          </button>
-          {copiado && <span className="text-[11.5px] text-success">Copiado!</span>}
-        </div>
 
         <div className="mb-3 flex gap-3">
           <div className="flex-1">
