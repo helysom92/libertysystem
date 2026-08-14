@@ -246,6 +246,21 @@ export interface Evento {
   whatsapp: string | null;
 }
 
+/** Um pagamento previsto/recebido de um serviço (sinal, restante, ou qualquer parcela
+ * customizada). `valor_pago`/`pago_em` ficam nulos até a parcela ser confirmada. */
+export interface ServicoParcela {
+  id: string;
+  servico_id: string;
+  ordem: number;
+  descricao: string;
+  valor_previsto: number;
+  data_prevista: string | null;
+  valor_pago: number | null;
+  pago_em: string | null;
+  forma_pagamento: string | null;
+  lancamento_id: string | null;
+}
+
 export interface ServicoDetail {
   servico: Servico;
   cliente: Cliente;
@@ -258,6 +273,7 @@ export interface ServicoDetail {
   orcamentoItens: OrcamentoItemRow[];
   propostaOpcoes: PropostaOpcao[];
   eventos: Evento[];
+  parcelas: ServicoParcela[];
 }
 
 /** Days between today and an ISO date string (positive = future, negative = past). Null if no date. */

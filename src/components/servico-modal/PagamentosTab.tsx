@@ -1,0 +1,458 @@
+"use client";
+
+import { useState } from "react";
+import type { ServicoDetail, ServicoParcela } from "@/lib/domain/types";
+import { fmtBRL } from "@/lib/domain/types";
+import { fmtDatePtBR, todayISO } from "@/lib/domain/dates";
+import { FINANCEIRO_STATUSES, type Role } from "@/lib/domain/flows";
+import { updateFinanceiro } from "@/lib/actions/servicos";
+import {
+  addParcela,
+  criarParcelasPadrao,
+  deleteParcela,
+  marcarParcelaPaga,
+  updateParcela,
+  type ParcelaInput,
+} from "@/lib/actions/parcelas";
+
+function emptyForm(): ParcelaInput {
+  return { descricao: "", valor_previsto: 0, data_prevista: null };
+}
+
+export default function PagamentosTab({
+  detail,
+  role,
+  onChanged,
+}: {
+  detail: ServicoDetail;
+  role: Role;
+  onChanged: () => void;
+}) {
+  const { servico, parcelas } = detail;
+  const canEdit = role === "administrador" || role === "secretaria";
+  const saldo = servico.valor - servico.valor_pago;
+
+  const [seeding, setSeeding] = useState(false);
+  const [seedError, setSeedError] = useState<string | null>(null);
+
+  const [addingParcela, setAddingParcela] = useState(false);
+  const [novaParcela, setNovaParcela] = useState<ParcelaInput>(emptyForm());
+  const [addError, setAddError] = useState<string | null>(null);
+  const [savingAdd, setSavingAdd] = useState(false);
+
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<ParcelaInput>(emptyForm());
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [payValor, setPayValor] = useState("");
+  const [payData, setPayData] = useState(todayISO());
+  const [payForma, setPayForma] = useState("");
+  const [payingSaving, setPayingSaving] = useState(false);
+  const [payError, setPayError] = useState<string | null>(null);
+
+  const [statusError, setStatusError] = useState<string | null>(null);
+
+  async function handleSeed() {
+    setSeeding(true);
+    setSeedError(null);
+    try {
+      await criarParcelasPadrao(servico.id);
+      onChanged();
+    } catch (err) {
+      setSeedError(err instanceof Error ? err.message : "Não foi possível gerar as parcelas.");
+    } finally {
+      setSeeding(false);
+    }
+  }
+
+  function startAdd() {
+    setNovaParcela(emptyForm());
+    setAddError(null);
+    setAddingParcela(true);
+  }
+
+  async function saveNovaParcela() {
+    setSavingAdd(true);
+    setAddError(null);
+    try {
+      await addParcela(servico.id, novaParcela, parcelas.length);
+      setAddingParcela(false);
+      onChanged();
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : "Não foi possível adicionar a parcela.");
+    } finally {
+      setSavingAdd(false);
+    }
+  }
+
+  function startEdit(p: ServicoParcela) {
+    setEditingId(p.id);
+    setEditForm({ descricao: p.descricao, valor_previsto: p.valor_previsto, data_prevista: p.data_prevista });
+    setEditError(null);
+  }
+
+  async function saveEdit(parcelaId: string) {
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      await updateParcela(parcelaId, editForm);
+      setEditingId(null);
+      onChanged();
+    } catch (err) {
+      setEditError(err instanceof Error ? err.message : "Não foi possível salvar a parcela.");
+    } finally {
+      setSavingEdit(false);
+    }
+  }
+
+  async function handleDelete(parcelaId: string) {
+    if (!confirm("Excluir essa parcela?")) return;
+    try {
+      await deleteParcela(parcelaId, servico.id);
+      onChanged();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Não foi possível excluir a parcela.");
+    }
+  }
+
+  function startPay(p: ServicoParcela) {
+    setPayingId(p.id);
+    setPayValor(String(p.valor_previsto));
+    setPayData(todayISO());
+    setPayForma("");
+    setPayError(null);
+  }
+
+  async function confirmPay(parcelaId: string) {
+    setPayingSaving(true);
+    setPayError(null);
+    try {
+      await marcarParcelaPaga(parcelaId, servico.id, {
+        valorPago: Number(payValor) || 0,
+        dataPagamento: payData,
+        formaPagamento: payForma || null,
+      });
+      setPayingId(null);
+      onChanged();
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : "Não foi possível confirmar o pagamento.");
+    } finally {
+      setPayingSaving(false);
+    }
+  }
+
+  async function saveStatus(status: string) {
+    setStatusError(null);
+    try {
+      await updateFinanceiro(servico.id, { financeiro_status: status });
+      onChanged();
+    } catch (err) {
+      setStatusError(err instanceof Error ? err.message : "Erro desconhecido ao salvar.");
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
+          <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Valor Total</p>
+          <p className="font-display text-sm font-bold text-gradient-gold">{fmtBRL(servico.valor)}</p>
+        </div>
+        <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
+          <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Pago</p>
+          <p className="text-sm font-semibold">{fmtBRL(servico.valor_pago)}</p>
+        </div>
+        <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
+          <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Saldo</p>
+          <p className="text-sm font-semibold">{fmtBRL(saldo)}</p>
+        </div>
+      </div>
+
+      <div>
+        <label className="mb-1 block text-[10.5px] tracking-wide text-text-muted uppercase">
+          Status Financeiro
+        </label>
+        <select
+          defaultValue={servico.financeiro_status}
+          disabled={!canEdit}
+          onChange={(e) => saveStatus(e.target.value)}
+          className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm disabled:opacity-50"
+        >
+          {FINANCEIRO_STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+        {statusError && <p className="mt-1 text-[12px] text-danger">Não foi possível salvar: {statusError}</p>}
+      </div>
+
+      {!canEdit && (
+        <p className="text-[12.5px] text-text-muted">
+          Apenas Administrador ou Secretaria podem alterar os pagamentos deste serviço.
+        </p>
+      )}
+
+      <p className="text-[10.5px] tracking-wide text-text-muted uppercase">Parcelas</p>
+
+      {parcelas.length === 0 && (
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-text-muted">Nenhuma parcela cadastrada ainda.</p>
+          {canEdit && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={handleSeed}
+                disabled={seeding}
+                className="w-fit rounded-btn border border-border-gold-strong px-3 py-1.5 text-[12.5px] text-gold disabled:opacity-40"
+              >
+                {seeding ? "Gerando..." : "Gerar Sinal (50%) + Restante (50%)"}
+              </button>
+              <button
+                type="button"
+                onClick={startAdd}
+                className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px] text-text-secondary"
+              >
+                + Adicionar parcela
+              </button>
+            </div>
+          )}
+          {seedError && <p className="text-[12px] text-danger">{seedError}</p>}
+        </div>
+      )}
+
+      {parcelas.map((p) => {
+        const pago = p.valor_pago != null;
+        return (
+          <div key={p.id} className="rounded-card border border-border-neutral bg-card-secondary p-3 text-[12.5px]">
+            {editingId === p.id ? (
+              <div className="flex flex-col gap-2">
+                <input
+                  value={editForm.descricao}
+                  onChange={(e) => setEditForm((f) => ({ ...f, descricao: e.target.value }))}
+                  placeholder="Descrição (ex: Sinal, Parcela 2...)"
+                  className="w-full rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+                />
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editForm.valor_previsto}
+                    onChange={(e) => setEditForm((f) => ({ ...f, valor_previsto: Number(e.target.value) || 0 }))}
+                    placeholder="Valor previsto"
+                    className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={editForm.data_prevista ?? ""}
+                    onChange={(e) => setEditForm((f) => ({ ...f, data_prevista: e.target.value || null }))}
+                    className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => saveEdit(p.id)}
+                    disabled={savingEdit}
+                    className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg disabled:opacity-40"
+                  >
+                    {savingEdit ? "Salvando..." : "Salvar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(null)}
+                    className="rounded-btn px-3 py-1.5 text-[12.5px] text-text-secondary"
+                  >
+                    Cancelar
+                  </button>
+                  {editError && <p className="text-[12px] text-danger">{editError}</p>}
+                </div>
+              </div>
+            ) : payingId === p.id ? (
+              <div className="flex flex-col gap-2">
+                <p className="font-semibold">Confirmar pagamento — {p.descricao}</p>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <label className="mb-1 block text-[11px] text-text-secondary">Valor recebido</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={payValor}
+                      onChange={(e) => setPayValor(e.target.value)}
+                      className="w-full rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <label className="mb-1 block text-[11px] text-text-secondary">Data</label>
+                    <input
+                      type="date"
+                      value={payData}
+                      onChange={(e) => setPayData(e.target.value)}
+                      className="w-full rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] text-text-secondary">Forma de pagamento (opcional)</label>
+                  <input
+                    value={payForma}
+                    onChange={(e) => setPayForma(e.target.value)}
+                    placeholder="Pix, dinheiro, cartão..."
+                    className="w-full rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => confirmPay(p.id)}
+                    disabled={payingSaving}
+                    className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg disabled:opacity-40"
+                  >
+                    {payingSaving ? "Confirmando..." : "Confirmar recebimento"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPayingId(null)}
+                    className="rounded-btn px-3 py-1.5 text-[12.5px] text-text-secondary"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+                {payError && <p className="text-[12px] text-danger">{payError}</p>}
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <strong>{p.descricao}</strong>
+                    {pago ? (
+                      <span className="rounded-pill bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">
+                        ✓ Pago
+                      </span>
+                    ) : (
+                      <span className="rounded-pill border border-border-gold-strong px-2 py-0.5 text-[11px] text-gold">
+                        Pendente
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-text-muted">
+                    {pago ? (
+                      <>
+                        {fmtBRL(p.valor_pago as number)} · {p.pago_em ? fmtDatePtBR(p.pago_em.slice(0, 10)) : ""}
+                        {p.forma_pagamento && ` · ${p.forma_pagamento}`}
+                      </>
+                    ) : (
+                      <>
+                        Previsto: {fmtBRL(p.valor_previsto)}
+                        {p.data_prevista && ` · ${fmtDatePtBR(p.data_prevista)}`}
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  {pago ? (
+                    <a
+                      href={`/servicos/${servico.id}/parcelas/${p.id}/recibo`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="rounded-btn border border-border-neutral px-2.5 py-1.5 text-[11.5px] text-text-secondary"
+                    >
+                      🧾 Emitir recibo
+                    </a>
+                  ) : (
+                    canEdit && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => startPay(p)}
+                          className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-2.5 py-1.5 text-[11.5px] font-semibold text-bg"
+                        >
+                          Marcar como pago
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => startEdit(p)}
+                          className="text-[11.5px] text-text-secondary hover:text-text"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDelete(p.id)}
+                          className="text-[11.5px] text-danger"
+                        >
+                          Excluir
+                        </button>
+                      </>
+                    )
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {parcelas.length > 0 && canEdit && (
+        <>
+          {addingParcela ? (
+            <div className="rounded-card border border-dashed border-border-gold-strong p-3">
+              <div className="flex flex-col gap-2">
+                <input
+                  value={novaParcela.descricao}
+                  onChange={(e) => setNovaParcela((f) => ({ ...f, descricao: e.target.value }))}
+                  placeholder="Descrição (ex: Parcela 3, Entrada extra...)"
+                  className="w-full rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+                />
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={novaParcela.valor_previsto || ""}
+                    onChange={(e) => setNovaParcela((f) => ({ ...f, valor_previsto: Number(e.target.value) || 0 }))}
+                    placeholder="Valor previsto"
+                    className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={novaParcela.data_prevista ?? ""}
+                    onChange={(e) => setNovaParcela((f) => ({ ...f, data_prevista: e.target.value || null }))}
+                    className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={saveNovaParcela}
+                    disabled={savingAdd}
+                    className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg disabled:opacity-40"
+                  >
+                    {savingAdd ? "Salvando..." : "Adicionar"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAddingParcela(false)}
+                    className="rounded-btn px-3 py-1.5 text-[12.5px] text-text-secondary"
+                  >
+                    Cancelar
+                  </button>
+                  {addError && <p className="text-[12px] text-danger">{addError}</p>}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={startAdd}
+              className="w-fit rounded-btn border border-border-gold-strong px-3 py-1.5 text-[12.5px] text-gold"
+            >
+              + Adicionar parcela
+            </button>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
