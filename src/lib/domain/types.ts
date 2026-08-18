@@ -211,6 +211,7 @@ export interface DespesaFixaOcorrencia {
   mes: number;
   pago: boolean;
   pago_em: string | null;
+  lancamento_id: string | null;
 }
 
 /** Água, energia, comissão etc. — sem valor fixo nem dia certo; valor_provisionado é só a
@@ -232,6 +233,7 @@ export interface DespesaVariavelOcorrencia {
   valor_real: number | null;
   pago: boolean;
   pago_em: string | null;
+  lancamento_id: string | null;
 }
 
 export interface Evento {

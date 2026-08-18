@@ -78,6 +78,18 @@ export async function deleteDespesaFixa(id: string) {
   revalidateFinanceiroPaths();
 }
 
+function diaVencimentoParaData(ano: number, mes: number, diaVencimento: number) {
+  const diasNoMes = new Date(ano, mes, 0).getDate();
+  const dia = Math.min(diaVencimento, diasNoMes);
+  return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}
+
+/**
+ * Marca/desmarca a ocorrência do mês como paga — e mantém um lançamento em `lancamentos` em
+ * sincronia (cria ao marcar, apaga ao desmarcar), pra esse pagamento aparecer no Fluxo
+ * Financeiro (Lançamentos) e contar nos totais "Realizado", igual já acontece com parcelas de
+ * OS. Antes disso, marcar como pago só gravava aqui e nunca entrava no fluxo de lançamentos.
+ */
 export async function toggleDespesaOcorrencia(
   despesaFixaId: string,
   ano: number,
@@ -85,6 +97,54 @@ export async function toggleDespesaOcorrencia(
   pago: boolean
 ) {
   const supabase = await createClient();
+
+  const { data: existente } = await supabase
+    .from("despesas_fixas_ocorrencias")
+    .select("lancamento_id")
+    .eq("despesa_fixa_id", despesaFixaId)
+    .eq("ano", ano)
+    .eq("mes", mes)
+    .maybeSingle();
+
+  let lancamentoId: string | null = existente?.lancamento_id ?? null;
+
+  if (pago) {
+    const { data: despesa, error: dErr } = await supabase
+      .from("despesas_fixas")
+      .select("descricao, valor, categoria, fornecedor_id, dia_vencimento")
+      .eq("id", despesaFixaId)
+      .single();
+    if (dErr || !despesa) throw dErr ?? new Error("Despesa fixa não encontrada.");
+
+    if (lancamentoId) {
+      const { error: updErr } = await supabase
+        .from("lancamentos")
+        .update({ status: "realizado" })
+        .eq("id", lancamentoId);
+      if (updErr) throw updErr;
+    } else {
+      const { data: lanc, error: lancErr } = await supabase
+        .from("lancamentos")
+        .insert({
+          tipo: "Despesa",
+          descricao: despesa.descricao,
+          categoria: despesa.categoria,
+          valor: despesa.valor,
+          data: diaVencimentoParaData(ano, mes, despesa.dia_vencimento),
+          fornecedor_id: despesa.fornecedor_id,
+          status: "realizado",
+        })
+        .select("id")
+        .single();
+      if (lancErr) throw lancErr;
+      lancamentoId = lanc.id;
+    }
+  } else if (lancamentoId) {
+    const { error: delErr } = await supabase.from("lancamentos").delete().eq("id", lancamentoId);
+    if (delErr) throw delErr;
+    lancamentoId = null;
+  }
+
   const { error } = await supabase.from("despesas_fixas_ocorrencias").upsert(
     {
       despesa_fixa_id: despesaFixaId,
@@ -92,11 +152,13 @@ export async function toggleDespesaOcorrencia(
       mes,
       pago,
       pago_em: pago ? new Date().toISOString() : null,
+      lancamento_id: lancamentoId,
     },
     { onConflict: "despesa_fixa_id,ano,mes" }
   );
   if (error) throw error;
   revalidateFinanceiroPaths();
+  revalidatePath("/hoje");
 }
 
 export interface NovaDespesaVariavelInput {
@@ -134,14 +196,30 @@ export async function updateDespesaVariavelValor(
   valorReal: number
 ) {
   const supabase = await createClient();
+  const { data: existente } = await supabase
+    .from("despesas_variaveis_ocorrencias")
+    .select("lancamento_id")
+    .eq("despesa_variavel_id", despesaVariavelId)
+    .eq("ano", ano)
+    .eq("mes", mes)
+    .maybeSingle();
+
   const { error } = await supabase.from("despesas_variaveis_ocorrencias").upsert(
     { despesa_variavel_id: despesaVariavelId, ano, mes, valor_real: valorReal },
     { onConflict: "despesa_variavel_id,ano,mes" }
   );
   if (error) throw error;
+
+  // Se essa ocorrência já estava paga (com lançamento vinculado), mantém o valor do
+  // lançamento em sincronia com o valor real editado — evita duas fontes de verdade divergindo.
+  if (existente?.lancamento_id) {
+    await supabase.from("lancamentos").update({ valor: valorReal }).eq("id", existente.lancamento_id);
+  }
+
   revalidateFinanceiroPaths();
 }
 
+/** Mesma sincronia de `toggleDespesaOcorrencia`, pro lado das despesas variáveis. */
 export async function toggleDespesaVariavelPago(
   despesaVariavelId: string,
   ano: number,
@@ -149,6 +227,57 @@ export async function toggleDespesaVariavelPago(
   pago: boolean
 ) {
   const supabase = await createClient();
+
+  const { data: existente } = await supabase
+    .from("despesas_variaveis_ocorrencias")
+    .select("lancamento_id, valor_real")
+    .eq("despesa_variavel_id", despesaVariavelId)
+    .eq("ano", ano)
+    .eq("mes", mes)
+    .maybeSingle();
+
+  let lancamentoId: string | null = existente?.lancamento_id ?? null;
+
+  if (pago) {
+    const { data: despesa, error: dErr } = await supabase
+      .from("despesas_variaveis")
+      .select("descricao, valor_provisionado, categoria, fornecedor_id")
+      .eq("id", despesaVariavelId)
+      .single();
+    if (dErr || !despesa) throw dErr ?? new Error("Despesa variável não encontrada.");
+
+    const valor = existente?.valor_real ?? despesa.valor_provisionado;
+    const data = `${ano}-${String(mes).padStart(2, "0")}-01`;
+
+    if (lancamentoId) {
+      const { error: updErr } = await supabase
+        .from("lancamentos")
+        .update({ status: "realizado", valor })
+        .eq("id", lancamentoId);
+      if (updErr) throw updErr;
+    } else {
+      const { data: lanc, error: lancErr } = await supabase
+        .from("lancamentos")
+        .insert({
+          tipo: "Despesa",
+          descricao: despesa.descricao,
+          categoria: despesa.categoria,
+          valor,
+          data,
+          fornecedor_id: despesa.fornecedor_id,
+          status: "realizado",
+        })
+        .select("id")
+        .single();
+      if (lancErr) throw lancErr;
+      lancamentoId = lanc.id;
+    }
+  } else if (lancamentoId) {
+    const { error: delErr } = await supabase.from("lancamentos").delete().eq("id", lancamentoId);
+    if (delErr) throw delErr;
+    lancamentoId = null;
+  }
+
   const { error } = await supabase.from("despesas_variaveis_ocorrencias").upsert(
     {
       despesa_variavel_id: despesaVariavelId,
@@ -156,11 +285,13 @@ export async function toggleDespesaVariavelPago(
       mes,
       pago,
       pago_em: pago ? new Date().toISOString() : null,
+      lancamento_id: lancamentoId,
     },
     { onConflict: "despesa_variavel_id,ano,mes" }
   );
   if (error) throw error;
   revalidateFinanceiroPaths();
+  revalidatePath("/hoje");
 }
 
 /** Manual-entry equivalent of the prototype's "Simular Envio" (see plan §9 comprovante note). */
