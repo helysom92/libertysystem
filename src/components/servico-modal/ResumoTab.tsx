@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import type { ServicoDetail } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { computeIaAlerts } from "@/lib/domain/alerts";
-import { PRIORIDADES, type Role } from "@/lib/domain/flows";
+import { PRIORIDADES, ROLE_LABELS, type Role } from "@/lib/domain/flows";
 import { PRAZO_STATUS_COLOR, PRAZO_STATUS_LABEL, PRAZO_TIPO_INFO, prazoStatus, type Coluna, type PrazoTipo } from "@/lib/domain/kanban";
 import { fmtDatePtBR } from "@/lib/domain/dates";
 import {
@@ -20,8 +20,12 @@ import {
 import { aprovarOrcamento, moveCardParaColuna } from "@/lib/actions/kanban";
 import { exportarWhatsapp } from "@/lib/domain/whatsapp";
 import FinanceiroBadge from "@/components/ui/FinanceiroBadge";
+import ResponsavelSelect from "@/components/ui/ResponsavelSelect";
 
-const RESPONSAVEIS = ["", "Secretaria", "Administrador", "Produção"];
+// "Meu Trabalho" (painel Hoje) filtra por `proxima_responsavel === ROLE_LABELS[role]` — esse
+// select precisa continuar usando os nomes de papel (Secretaria/Administrador/Produção), ao
+// contrário do "Responsável Atual" (pessoa), que não tem esse acoplamento.
+const PROXIMA_ACAO_RESPONSAVEIS = ["", ...Object.values(ROLE_LABELS)];
 const PRAZO_TIPOS: PrazoTipo[] = ["balcao", "fachada", "complexo"];
 
 export default function ResumoTab({
@@ -206,7 +210,7 @@ export default function ResumoTab({
             }}
             className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
           >
-            {RESPONSAVEIS.map((r) => (
+            {PROXIMA_ACAO_RESPONSAVEIS.map((r) => (
               <option key={r} value={r}>
                 {r || "Sem responsável"}
               </option>
@@ -285,22 +289,16 @@ export default function ResumoTab({
           <label className="mb-1 block text-[10.5px] tracking-wide text-text-muted uppercase">
             Responsável Atual
           </label>
-          <select
+          <ResponsavelSelect
             defaultValue={servico.responsavel}
-            onChange={(e) =>
+            onSave={(value) =>
               runAction(
-                () => updateResponsavel(servico.id, e.target.value),
+                () => updateResponsavel(servico.id, value),
                 "Não foi possível atualizar o responsável."
               )
             }
             className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
-          >
-            {RESPONSAVEIS.map((r) => (
-              <option key={r} value={r}>
-                {r || "Sem responsável"}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
 

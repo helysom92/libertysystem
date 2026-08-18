@@ -14,8 +14,7 @@ import {
 } from "@/lib/actions/servicos";
 import { moveCardParaColuna } from "@/lib/actions/kanban";
 import { whatsappAppUrl } from "@/lib/domain/whatsapp";
-
-const RESPONSAVEIS = ["", "Secretaria", "Administrador", "Produção"];
+import ResponsavelSelect from "@/components/ui/ResponsavelSelect";
 
 export default function StatusTab({
   detail,
@@ -136,22 +135,16 @@ export default function StatusTab({
           <label className="mb-1 block text-[10.5px] tracking-wide text-text-muted uppercase">
             Responsável
           </label>
-          <select
+          <ResponsavelSelect
             defaultValue={servico.responsavel}
-            onChange={(e) =>
+            onSave={(value) =>
               runAction(
-                () => updateResponsavel(servico.id, e.target.value),
+                () => updateResponsavel(servico.id, value),
                 "Não foi possível atualizar o responsável."
               )
             }
             className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
-          >
-            {RESPONSAVEIS.map((r) => (
-              <option key={r} value={r}>
-                {r || "Sem responsável"}
-              </option>
-            ))}
-          </select>
+          />
         </div>
       </div>
 
