@@ -11,17 +11,35 @@ export interface MoveResult {
   numero?: string;
 }
 
+/**
+ * A coluna de conclusão (is_conclusao) tem que continuar sendo sempre a última — então uma
+ * coluna nova entra no lugar que era o fim da lista, e a de conclusão é empurrada pra depois
+ * dela, em vez de simplesmente colar tudo no fim.
+ */
 export async function createColuna(board: KanbanBoardKey, label: string) {
   const supabase = await createClient();
   const { data: existentes } = await supabase
     .from("colunas")
-    .select("ordem")
+    .select("id, ordem, is_conclusao")
     .eq("board", board)
-    .order("ordem", { ascending: false })
-    .limit(1);
-  const proximaOrdem = (existentes?.[0]?.ordem ?? -1) + 1;
-  const { error } = await supabase.from("colunas").insert({ board, label, ordem: proximaOrdem });
-  if (error) throw error;
+    .order("ordem", { ascending: true });
+
+  const lista = existentes ?? [];
+  const maxOrdem = lista.length > 0 ? Math.max(...lista.map((c) => c.ordem)) : -1;
+  const conclusao = lista.find((c) => c.is_conclusao);
+
+  if (conclusao) {
+    const { error: insErr } = await supabase.from("colunas").insert({ board, label, ordem: conclusao.ordem });
+    if (insErr) throw insErr;
+    const { error: updErr } = await supabase
+      .from("colunas")
+      .update({ ordem: maxOrdem + 1 })
+      .eq("id", conclusao.id);
+    if (updErr) throw updErr;
+  } else {
+    const { error } = await supabase.from("colunas").insert({ board, label, ordem: maxOrdem + 1 });
+    if (error) throw error;
+  }
   revalidateServicoPaths();
 }
 

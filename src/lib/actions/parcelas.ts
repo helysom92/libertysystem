@@ -13,10 +13,31 @@ export interface ParcelaInput {
 
 type SupabaseClientType = Awaited<ReturnType<typeof createClient>>;
 
+/**
+ * Além de recalcular o total pago, sobe o Status Financeiro pra "Pago" quando as parcelas
+ * cobrem o valor total — sem isso o status ficava manual e desatualizado, travando o gate de
+ * conclusão do Kanban ("Confirme a entrega e o financeiro") mesmo com tudo já recebido.
+ */
 async function recomputeValorPago(supabase: SupabaseClientType, servicoId: string) {
   const { data } = await supabase.from("servico_parcelas").select("valor_pago").eq("servico_id", servicoId);
   const total = (data ?? []).reduce((sum, p) => sum + (p.valor_pago ?? 0), 0);
-  await supabase.from("servicos").update({ valor_pago: total }).eq("id", servicoId);
+
+  const { data: sv } = await supabase
+    .from("servicos")
+    .select("valor, financeiro_status")
+    .eq("id", servicoId)
+    .single();
+
+  const fields: { valor_pago: number; financeiro_status?: string } = { valor_pago: total };
+  if (
+    sv &&
+    sv.valor > 0 &&
+    total >= sv.valor &&
+    !["Pago", "Cortesia", "Cancelado"].includes(sv.financeiro_status)
+  ) {
+    fields.financeiro_status = "Pago";
+  }
+  await supabase.from("servicos").update(fields).eq("id", servicoId);
 }
 
 /**
