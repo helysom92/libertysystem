@@ -13,6 +13,7 @@ import {
   criarParcelasPersonalizadas,
   deleteParcela,
   marcarParcelaPaga,
+  reconfigurarParcelasPendentes,
   updateParcela,
   type ParcelaInput,
 } from "@/lib/actions/parcelas";
@@ -40,7 +41,9 @@ export default function PagamentosTab({
   const [seedError, setSeedError] = useState<string | null>(null);
 
   const [customizando, setCustomizando] = useState(false);
+  const [reconfigurando, setReconfigurando] = useState(false);
   const [numParcelas, setNumParcelas] = useState(2);
+  const [entradaValor, setEntradaValor] = useState("");
   const [customRows, setCustomRows] = useState<ParcelaInput[]>([]);
   const [customSaving, setCustomSaving] = useState(false);
   const [customError, setCustomError] = useState<string | null>(null);
@@ -82,8 +85,25 @@ export default function PagamentosTab({
     }
   }
 
-  function gerarLinhas(n: number) {
+  /** Se tiver entrada, ela vira a 1ª linha com o valor exato e o restante do valor do serviço
+   * se divide igual entre as demais — sem entrada, cai no comportamento antigo (tudo dividido
+   * igual em N). Só monta um ponto de partida: cada linha continua editável depois. */
+  function gerarLinhas(n: number, entrada: number) {
     const qtd = Math.max(1, n);
+    if (entrada > 0) {
+      const restoQtd = Math.max(1, qtd - 1);
+      const restoValor = Math.max(0, servico.valor - entrada);
+      const valorParcela = Math.round((restoValor / restoQtd) * 100) / 100;
+      setCustomRows([
+        { descricao: "Entrada", valor_previsto: entrada, data_prevista: null },
+        ...Array.from({ length: restoQtd }, (_, i) => ({
+          descricao: `Parcela ${i + 2}`,
+          valor_previsto: valorParcela,
+          data_prevista: null,
+        })),
+      ]);
+      return;
+    }
     const valorParcela = Math.round((servico.valor / qtd) * 100) / 100;
     setCustomRows(
       Array.from({ length: qtd }, (_, i) => ({
@@ -96,7 +116,27 @@ export default function PagamentosTab({
 
   function startCustom() {
     setCustomError(null);
-    gerarLinhas(numParcelas);
+    setReconfigurando(false);
+    setEntradaValor("");
+    gerarLinhas(numParcelas, 0);
+    setCustomizando(true);
+  }
+
+  /** Reabre o plano de parcelas já criado pra editar em bloco (trocar quantidade, entrada,
+   * valores...) — só mexe nas que ainda não foram pagas, as pagas ficam intocadas. */
+  function startReconfigurar() {
+    setCustomError(null);
+    setReconfigurando(true);
+    setEntradaValor("");
+    const pendentes = parcelas.filter((p) => p.valor_pago == null);
+    setCustomRows(
+      pendentes.map((p) => ({
+        descricao: p.descricao,
+        valor_previsto: p.valor_previsto,
+        data_prevista: p.data_prevista,
+      }))
+    );
+    setNumParcelas(Math.max(1, pendentes.length));
     setCustomizando(true);
   }
 
@@ -116,8 +156,13 @@ export default function PagamentosTab({
     setCustomSaving(true);
     setCustomError(null);
     try {
-      await criarParcelasPersonalizadas(servico.id, customRows);
+      if (reconfigurando) {
+        await reconfigurarParcelasPendentes(servico.id, customRows);
+      } else {
+        await criarParcelasPersonalizadas(servico.id, customRows);
+      }
       setCustomizando(false);
+      setReconfigurando(false);
       onChanged();
     } catch (err) {
       setCustomError(err instanceof Error ? err.message : "Não foi possível salvar as parcelas.");
@@ -346,9 +391,29 @@ export default function PagamentosTab({
 
       {customizando && (
         <div className="flex flex-col gap-3 rounded-card border border-border-gold-strong bg-card-secondary p-4">
-          <div className="flex items-end gap-2">
+          {reconfigurando && (
+            <p className="text-[12.5px] text-text-muted">
+              Editando as parcelas ainda não pagas deste plano — as já pagas não são afetadas.
+            </p>
+          )}
+          <div className="flex flex-wrap items-end gap-2">
             <div>
-              <label className="mb-1 block text-[11px] text-text-secondary">Quantas parcelas?</label>
+              <label className="mb-1 block text-[11px] text-text-secondary">Valor de entrada (opcional)</label>
+              <input
+                type="number"
+                step="0.01"
+                min={0}
+                value={entradaValor}
+                onChange={(e) => {
+                  setEntradaValor(e.target.value);
+                  gerarLinhas(numParcelas, Number(e.target.value) || 0);
+                }}
+                placeholder="0,00"
+                className="w-32 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] text-text-secondary">Quantas parcelas ao todo?</label>
               <input
                 type="number"
                 min={1}
@@ -356,17 +421,17 @@ export default function PagamentosTab({
                 onChange={(e) => {
                   const n = Math.max(1, Number(e.target.value) || 1);
                   setNumParcelas(n);
-                  gerarLinhas(n);
+                  gerarLinhas(n, Number(entradaValor) || 0);
                 }}
                 className="w-24 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
               />
             </div>
             <button
               type="button"
-              onClick={() => gerarLinhas(numParcelas)}
+              onClick={() => gerarLinhas(numParcelas, Number(entradaValor) || 0)}
               className="rounded-btn border border-border-gold-strong px-3 py-1.5 text-[12.5px] text-gold"
             >
-              Gerar {numParcelas} parcela{numParcelas > 1 ? "s" : ""} (valor dividido igual)
+              Gerar {numParcelas} parcela{numParcelas > 1 ? "s" : ""} (resto dividido igual)
             </button>
           </div>
 
@@ -418,8 +483,9 @@ export default function PagamentosTab({
               + Adicionar mais uma parcela
             </button>
             <p className="text-[12.5px] text-text-secondary">
-              Total das parcelas: {fmtBRL(customRows.reduce((s, r) => s + r.valor_previsto, 0))} · Serviço:{" "}
-              {fmtBRL(servico.valor)}
+              Total das parcelas: {fmtBRL(customRows.reduce((s, r) => s + r.valor_previsto, 0))} ·{" "}
+              {reconfigurando ? "Saldo a combinar" : "Serviço"}:{" "}
+              {fmtBRL(reconfigurando ? saldo : servico.valor)}
             </p>
           </div>
 
@@ -434,7 +500,10 @@ export default function PagamentosTab({
             </button>
             <button
               type="button"
-              onClick={() => setCustomizando(false)}
+              onClick={() => {
+                setCustomizando(false);
+                setReconfigurando(false);
+              }}
               disabled={customSaving}
               className="rounded-btn px-4 py-2 text-sm text-text-secondary"
             >
@@ -728,13 +797,26 @@ export default function PagamentosTab({
               </div>
             </div>
           ) : (
-            <button
-              type="button"
-              onClick={startAdd}
-              className="w-fit rounded-btn border border-border-gold-strong px-3 py-1.5 text-[12.5px] text-gold"
-            >
-              + Adicionar parcela
-            </button>
+            !customizando && (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={startAdd}
+                  className="w-fit rounded-btn border border-border-gold-strong px-3 py-1.5 text-[12.5px] text-gold"
+                >
+                  + Adicionar parcela
+                </button>
+                {parcelas.some((p) => p.valor_pago == null) && (
+                  <button
+                    type="button"
+                    onClick={startReconfigurar}
+                    className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px] text-text-secondary"
+                  >
+                    ✏️ Reconfigurar parcelas
+                  </button>
+                )}
+              </div>
+            )
           )}
         </>
       )}

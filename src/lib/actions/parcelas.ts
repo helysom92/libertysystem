@@ -149,10 +149,67 @@ export async function updateParcela(parcelaId: string, input: ParcelaInput) {
 
 export async function deleteParcela(parcelaId: string, servicoId: string) {
   const supabase = await createClient();
+  const { data: parcela } = await supabase
+    .from("servico_parcelas")
+    .select("lancamento_id")
+    .eq("id", parcelaId)
+    .single();
+
   const { error } = await supabase.from("servico_parcelas").delete().eq("id", parcelaId);
   if (error) throw error;
+
+  // Sem isso, o "previsto" que essa parcela gerou no Financeiro ficava órfão — visível em
+  // Lançamentos como se ainda fosse receber, mesmo depois de a parcela ter sido apagada aqui.
+  if (parcela?.lancamento_id) {
+    await supabase.from("lancamentos").delete().eq("id", parcela.lancamento_id);
+  }
+
   await recomputeValorPago(supabase, servicoId);
   revalidateServicoPaths();
+  revalidateFinanceiroPaths();
+}
+
+/**
+ * Reabre o plano de parcelas pra edição em bloco: apaga as parcelas ainda não pagas (e os
+ * "previsto" que elas geraram no Financeiro) e recria com a configuração nova — sem mexer nas
+ * que já foram pagas, pra não perder histórico de recebimento.
+ */
+export async function reconfigurarParcelasPendentes(servicoId: string, itens: ParcelaInput[]) {
+  const supabase = await createClient();
+
+  const { data: pendentes } = await supabase
+    .from("servico_parcelas")
+    .select("id, ordem, lancamento_id")
+    .eq("servico_id", servicoId)
+    .is("valor_pago", null);
+
+  const lista = pendentes ?? [];
+  if (lista.length > 0) {
+    const { error: delErr } = await supabase
+      .from("servico_parcelas")
+      .delete()
+      .in(
+        "id",
+        lista.map((p) => p.id)
+      );
+    if (delErr) throw delErr;
+
+    const lancamentoIds = lista.map((p) => p.lancamento_id).filter((id): id is string => !!id);
+    if (lancamentoIds.length > 0) {
+      await supabase.from("lancamentos").delete().in("id", lancamentoIds);
+    }
+  }
+
+  const { data: restantes } = await supabase
+    .from("servico_parcelas")
+    .select("ordem")
+    .eq("servico_id", servicoId)
+    .order("ordem", { ascending: false })
+    .limit(1);
+  const ordemInicial = (restantes?.[0]?.ordem ?? -1) + 1;
+
+  await criarParcelasComLancamento(servicoId, itens, ordemInicial);
+  await recomputeValorPago(supabase, servicoId);
 }
 
 /**
