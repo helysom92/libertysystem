@@ -29,6 +29,11 @@ export default function KanbanColumn({
   const [label, setLabel] = useState(coluna.label);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+
+  const LIMITE = 10;
+  const visiveis = expanded ? items : items.slice(0, LIMITE);
+  const restantes = items.length - visiveis.length;
 
   function showError(err: unknown, fallback: string) {
     console.error(fallback, err);
@@ -140,7 +145,7 @@ export default function KanbanColumn({
       {error && <p className="mb-2 text-[11px] text-danger">{error}</p>}
 
       <div className="flex flex-col gap-3">
-        {items.map((s) => (
+        {visiveis.map((s) => (
           <ServicoCard
             key={s.id}
             servico={s}
@@ -151,6 +156,25 @@ export default function KanbanColumn({
           />
         ))}
       </div>
+
+      {restantes > 0 && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="mt-3 w-full rounded-btn border border-border-neutral py-2 text-[12px] text-text-secondary hover:text-text"
+        >
+          Ver mais {restantes}
+        </button>
+      )}
+      {expanded && items.length > LIMITE && (
+        <button
+          type="button"
+          onClick={() => setExpanded(false)}
+          className="mt-2 w-full rounded-btn border border-border-neutral py-2 text-[12px] text-text-secondary hover:text-text"
+        >
+          Ver menos
+        </button>
+      )}
     </div>
   );
 }
