@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-export const RESPONSAVEIS = ["", "Administrador", "Champs"];
+export const RESPONSAVEIS = ["", "Champs"];
 
 /** Select de responsável com opção "Outro" que vira campo de texto livre — pra nomes que não
  * estão na lista fixa (substitutos, freelancers etc.), sem precisar cadastrar ninguém. */
