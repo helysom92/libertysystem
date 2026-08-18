@@ -11,13 +11,66 @@ export interface ParcelaInput {
   data_prevista: string | null;
 }
 
-async function recomputeValorPago(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  servicoId: string
-) {
+type SupabaseClientType = Awaited<ReturnType<typeof createClient>>;
+
+async function recomputeValorPago(supabase: SupabaseClientType, servicoId: string) {
   const { data } = await supabase.from("servico_parcelas").select("valor_pago").eq("servico_id", servicoId);
   const total = (data ?? []).reduce((sum, p) => sum + (p.valor_pago ?? 0), 0);
   await supabase.from("servicos").update({ valor_pago: total }).eq("id", servicoId);
+}
+
+/**
+ * Cria uma ou mais parcelas e já lança cada uma como "previsto" no Financeiro (recebíveis),
+ * com a data prevista de cada uma (ou o prazo de entrega do serviço, se a parcela não tiver
+ * data própria) — dá visibilidade do plano de pagamento inteiro assim que ele é combinado,
+ * não só da próxima parcela.
+ */
+async function criarParcelasComLancamento(servicoId: string, itens: ParcelaInput[], ordemInicial = 0) {
+  if (itens.length === 0) return;
+  const supabase = await createClient();
+
+  const { data: sv, error: svErr } = await supabase
+    .from("servicos")
+    .select("cliente, prazo")
+    .eq("id", servicoId)
+    .single();
+  if (svErr || !sv) throw svErr ?? new Error("Serviço não encontrado.");
+
+  const { data: inseridas, error: insErr } = await supabase
+    .from("servico_parcelas")
+    .insert(
+      itens.map((item, i) => ({
+        servico_id: servicoId,
+        ordem: ordemInicial + i,
+        descricao: item.descricao,
+        valor_previsto: item.valor_previsto,
+        data_prevista: item.data_prevista,
+      }))
+    )
+    .select("id, descricao, valor_previsto, data_prevista");
+  if (insErr) throw insErr;
+
+  const hoje = new Date().toISOString().slice(0, 10);
+  for (const p of inseridas ?? []) {
+    const { data: lanc, error: lancErr } = await supabase
+      .from("lancamentos")
+      .insert({
+        tipo: "Receita",
+        descricao: `${sv.cliente} — ${p.descricao}`,
+        categoria: "Recebimento de serviço",
+        valor: p.valor_previsto,
+        data: p.data_prevista ?? sv.prazo ?? hoje,
+        servico_id: servicoId,
+        status: "previsto",
+      })
+      .select("id")
+      .single();
+    if (lancErr) throw lancErr;
+    await supabase.from("servico_parcelas").update({ lancamento_id: lanc.id }).eq("id", p.id);
+  }
+
+  revalidateServicoPaths();
+  revalidateFinanceiroPaths();
 }
 
 /** Semeia o par padrão Sinal (50%) + Restante (50%, na data do prazo) — ponto de partida rápido
@@ -34,12 +87,10 @@ export async function criarParcelasPadrao(servicoId: string) {
   const metade = Math.round((sv.valor / 2) * 100) / 100;
   const restante = Math.round((sv.valor - metade) * 100) / 100;
 
-  const { error } = await supabase.from("servico_parcelas").insert([
-    { servico_id: servicoId, ordem: 0, descricao: "Sinal (50%)", valor_previsto: metade, data_prevista: null },
-    { servico_id: servicoId, ordem: 1, descricao: "Restante (50%)", valor_previsto: restante, data_prevista: sv.prazo },
+  await criarParcelasComLancamento(servicoId, [
+    { descricao: "Sinal (50%)", valor_previsto: metade, data_prevista: null },
+    { descricao: "Restante (50%)", valor_previsto: restante, data_prevista: sv.prazo },
   ]);
-  if (error) throw error;
-  revalidateServicoPaths();
 }
 
 /** Cliente pagou (ou vai pagar) tudo de uma vez — uma parcela só, no valor cheio do serviço. */
@@ -52,24 +103,20 @@ export async function criarParcelaAvista(servicoId: string) {
     .single();
   if (svErr || !sv) throw svErr ?? new Error("Serviço não encontrado.");
 
-  const { error } = await supabase.from("servico_parcelas").insert([
-    { servico_id: servicoId, ordem: 0, descricao: "Pagamento integral (à vista)", valor_previsto: sv.valor, data_prevista: sv.prazo },
+  await criarParcelasComLancamento(servicoId, [
+    { descricao: "Pagamento integral (à vista)", valor_previsto: sv.valor, data_prevista: sv.prazo },
   ]);
-  if (error) throw error;
-  revalidateServicoPaths();
 }
 
+/** Cria várias parcelas de uma vez (fluxo "Personalizar") — usado quando o combinado não é o
+ * padrão 50/50 nem um pagamento único: número de parcelas, valor e data de cada uma à mão. */
+export async function criarParcelasPersonalizadas(servicoId: string, itens: ParcelaInput[]) {
+  await criarParcelasComLancamento(servicoId, itens);
+}
+
+/** Adiciona uma parcela extra a um plano de pagamento que já existe. */
 export async function addParcela(servicoId: string, input: ParcelaInput, ordem: number) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("servico_parcelas").insert({
-    servico_id: servicoId,
-    ordem,
-    descricao: input.descricao,
-    valor_previsto: input.valor_previsto,
-    data_prevista: input.data_prevista,
-  });
-  if (error) throw error;
-  revalidateServicoPaths();
+  await criarParcelasComLancamento(servicoId, [input], ordem);
 }
 
 export async function updateParcela(parcelaId: string, input: ParcelaInput) {
@@ -89,10 +136,9 @@ export async function deleteParcela(parcelaId: string, servicoId: string) {
 
 /**
  * Confirma o pagamento de uma parcela: grava valor/data reais (podem ser diferentes do
- * previsto — cliente manda um pouco mais ou menos), lança no Financeiro (ou confirma o
- * lançamento "previsto" que já existia pra essa parcela, em vez de duplicar), e — se houver uma
- * próxima parcela ainda sem lançamento — já cria o lançamento "previsto" dela, na data prevista
- * ou no prazo de entrega do serviço.
+ * previsto — cliente manda um pouco mais ou menos) e confirma o lançamento "previsto" que já
+ * existia pra essa parcela (criado no momento em que a parcela foi lançada), virando
+ * "realizado" com o valor/data reais em vez de duplicar o lançamento.
  */
 export async function marcarParcelaPaga(
   parcelaId: string,
@@ -108,13 +154,6 @@ export async function marcarParcelaPaga(
     .single();
   if (pErr || !parcela) throw pErr ?? new Error("Parcela não encontrada.");
 
-  const { data: servico, error: sErr } = await supabase
-    .from("servicos")
-    .select("cliente, prazo")
-    .eq("id", servicoId)
-    .single();
-  if (sErr || !servico) throw sErr ?? new Error("Serviço não encontrado.");
-
   let lancamentoId: string | null = parcela.lancamento_id;
   if (lancamentoId) {
     const { error: updLancErr } = await supabase
@@ -128,6 +167,14 @@ export async function marcarParcelaPaga(
       .eq("id", lancamentoId);
     if (updLancErr) throw updLancErr;
   } else {
+    // Parcela antiga, de antes desse lançamento automático existir — cria agora, na hora de pagar.
+    const { data: servico, error: sErr } = await supabase
+      .from("servicos")
+      .select("cliente")
+      .eq("id", servicoId)
+      .single();
+    if (sErr || !servico) throw sErr ?? new Error("Serviço não encontrado.");
+
     const { data: lanc, error: lancErr } = await supabase
       .from("lancamentos")
       .insert({
@@ -158,36 +205,6 @@ export async function marcarParcelaPaga(
   if (updErr) throw updErr;
 
   await recomputeValorPago(supabase, servicoId);
-
-  const { data: proxima } = await supabase
-    .from("servico_parcelas")
-    .select("*")
-    .eq("servico_id", servicoId)
-    .is("valor_pago", null)
-    .is("lancamento_id", null)
-    .gt("ordem", parcela.ordem)
-    .order("ordem")
-    .limit(1)
-    .maybeSingle();
-
-  if (proxima) {
-    const { data: previstoLanc, error: prevErr } = await supabase
-      .from("lancamentos")
-      .insert({
-        tipo: "Receita",
-        descricao: `${servico.cliente} — ${proxima.descricao}`,
-        categoria: "Recebimento de serviço",
-        valor: proxima.valor_previsto,
-        data: proxima.data_prevista ?? servico.prazo ?? fields.dataPagamento,
-        servico_id: servicoId,
-        status: "previsto",
-      })
-      .select("id")
-      .single();
-    if (!prevErr && previstoLanc) {
-      await supabase.from("servico_parcelas").update({ lancamento_id: previstoLanc.id }).eq("id", proxima.id);
-    }
-  }
 
   revalidateServicoPaths();
   revalidateFinanceiroPaths();

@@ -10,6 +10,7 @@ import {
   addParcela,
   criarParcelaAvista,
   criarParcelasPadrao,
+  criarParcelasPersonalizadas,
   deleteParcela,
   marcarParcelaPaga,
   updateParcela,
@@ -36,6 +37,12 @@ export default function PagamentosTab({
   const [seeding, setSeeding] = useState(false);
   const [seedError, setSeedError] = useState<string | null>(null);
 
+  const [customizando, setCustomizando] = useState(false);
+  const [numParcelas, setNumParcelas] = useState(2);
+  const [customRows, setCustomRows] = useState<ParcelaInput[]>([]);
+  const [customSaving, setCustomSaving] = useState(false);
+  const [customError, setCustomError] = useState<string | null>(null);
+
   const [addingParcela, setAddingParcela] = useState(false);
   const [novaParcela, setNovaParcela] = useState<ParcelaInput>(emptyForm());
   const [addError, setAddError] = useState<string | null>(null);
@@ -53,6 +60,9 @@ export default function PagamentosTab({
   const [payingSaving, setPayingSaving] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
 
+  const [quickPayingId, setQuickPayingId] = useState<string | null>(null);
+  const [quickError, setQuickError] = useState<string | null>(null);
+
   const [statusError, setStatusError] = useState<string | null>(null);
 
   async function handleSeed(tipo: "sinal" | "avista") {
@@ -66,6 +76,50 @@ export default function PagamentosTab({
       setSeedError(err instanceof Error ? err.message : "Não foi possível gerar as parcelas.");
     } finally {
       setSeeding(false);
+    }
+  }
+
+  function gerarLinhas(n: number) {
+    const qtd = Math.max(1, n);
+    const valorParcela = Math.round((servico.valor / qtd) * 100) / 100;
+    setCustomRows(
+      Array.from({ length: qtd }, (_, i) => ({
+        descricao: qtd === 1 ? "Pagamento integral" : `Parcela ${i + 1}`,
+        valor_previsto: valorParcela,
+        data_prevista: null,
+      }))
+    );
+  }
+
+  function startCustom() {
+    setCustomError(null);
+    gerarLinhas(numParcelas);
+    setCustomizando(true);
+  }
+
+  function updateCustomRow(index: number, patch: Partial<ParcelaInput>) {
+    setCustomRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  }
+
+  function removeCustomRow(index: number) {
+    setCustomRows((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  function addCustomRow() {
+    setCustomRows((prev) => [...prev, { descricao: `Parcela ${prev.length + 1}`, valor_previsto: 0, data_prevista: null }]);
+  }
+
+  async function saveCustomRows() {
+    setCustomSaving(true);
+    setCustomError(null);
+    try {
+      await criarParcelasPersonalizadas(servico.id, customRows);
+      setCustomizando(false);
+      onChanged();
+    } catch (err) {
+      setCustomError(err instanceof Error ? err.message : "Não foi possível salvar as parcelas.");
+    } finally {
+      setCustomSaving(false);
     }
   }
 
@@ -145,6 +199,25 @@ export default function PagamentosTab({
     }
   }
 
+  /** Confirmação rápida — clicou na caixinha, marca como pago com o valor/data já previstos,
+   * sem abrir formulário. Pra quando o valor recebido é diferente do combinado, use "Ajustar". */
+  async function quickConfirm(p: ServicoParcela) {
+    setQuickPayingId(p.id);
+    setQuickError(null);
+    try {
+      await marcarParcelaPaga(p.id, servico.id, {
+        valorPago: p.valor_previsto,
+        dataPagamento: todayISO(),
+        formaPagamento: null,
+      });
+      onChanged();
+    } catch (err) {
+      setQuickError(err instanceof Error ? err.message : "Não foi possível confirmar o pagamento.");
+    } finally {
+      setQuickPayingId(null);
+    }
+  }
+
   async function saveStatus(status: string) {
     setStatusError(null);
     try {
@@ -206,13 +279,13 @@ export default function PagamentosTab({
         </p>
       )}
 
-      {parcelas.length === 0 ? (
+      {parcelas.length === 0 && !customizando && (
         <div className="flex flex-col gap-3 rounded-card border border-border-gold-strong bg-card-secondary p-4">
           <div>
             <p className="font-semibold">Como foi combinado o pagamento com o cliente?</p>
             <p className="text-[12.5px] text-text-muted">
-              Valor total do serviço: <strong className="text-text">{fmtBRL(servico.valor)}</strong>. Escolha
-              como começar — depois dá pra ajustar valor, data e forma de pagamento de cada parcela.
+              Valor total do serviço: <strong className="text-text">{fmtBRL(servico.valor)}</strong>. Assim que
+              as parcelas forem criadas, elas já entram como previsto no Financeiro, com as datas combinadas.
             </p>
           </div>
           {canEdit && (
@@ -235,7 +308,7 @@ export default function PagamentosTab({
               </button>
               <button
                 type="button"
-                onClick={startAdd}
+                onClick={startCustom}
                 className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px] text-text-secondary"
               >
                 ✏️ Personalizar (mais parcelas, datas diferentes)
@@ -244,7 +317,106 @@ export default function PagamentosTab({
           )}
           {seedError && <p className="text-[12px] text-danger">{seedError}</p>}
         </div>
-      ) : (
+      )}
+
+      {customizando && (
+        <div className="flex flex-col gap-3 rounded-card border border-border-gold-strong bg-card-secondary p-4">
+          <div className="flex items-end gap-2">
+            <div>
+              <label className="mb-1 block text-[11px] text-text-secondary">Quantas parcelas?</label>
+              <input
+                type="number"
+                min={1}
+                value={numParcelas}
+                onChange={(e) => setNumParcelas(Math.max(1, Number(e.target.value) || 1))}
+                className="w-24 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => gerarLinhas(numParcelas)}
+              className="rounded-btn border border-border-gold-strong px-3 py-1.5 text-[12.5px] text-gold"
+            >
+              Gerar {numParcelas} parcela{numParcelas > 1 ? "s" : ""} (valor dividido igual)
+            </button>
+          </div>
+
+          {customRows.map((row, index) => (
+            <div key={index} className="flex items-end gap-2 rounded-btn border border-border-neutral bg-card p-2.5">
+              <div className="flex-1">
+                <label className="mb-1 block text-[11px] text-text-secondary">Descrição</label>
+                <input
+                  value={row.descricao}
+                  onChange={(e) => updateCustomRow(index, { descricao: e.target.value })}
+                  className="w-full rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div className="w-32">
+                <label className="mb-1 block text-[11px] text-text-secondary">Valor</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={row.valor_previsto}
+                  onChange={(e) => updateCustomRow(index, { valor_previsto: Number(e.target.value) || 0 })}
+                  className="w-full rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-sm"
+                />
+              </div>
+              <div className="w-40">
+                <label className="mb-1 block text-[11px] text-text-secondary">Data prevista</label>
+                <input
+                  type="date"
+                  value={row.data_prevista ?? ""}
+                  onChange={(e) => updateCustomRow(index, { data_prevista: e.target.value || null })}
+                  className="w-full rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-sm"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => removeCustomRow(index)}
+                className="mb-1.5 text-[12.5px] text-danger"
+              >
+                Excluir
+              </button>
+            </div>
+          ))}
+
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={addCustomRow}
+              className="w-fit text-[12.5px] text-gold hover:underline"
+            >
+              + Adicionar mais uma parcela
+            </button>
+            <p className="text-[12.5px] text-text-secondary">
+              Total das parcelas: {fmtBRL(customRows.reduce((s, r) => s + r.valor_previsto, 0))} · Serviço:{" "}
+              {fmtBRL(servico.valor)}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={saveCustomRows}
+              disabled={customSaving || customRows.length === 0}
+              className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg disabled:opacity-40"
+            >
+              {customSaving ? "Salvando..." : "Salvar parcelas"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCustomizando(false)}
+              disabled={customSaving}
+              className="rounded-btn px-4 py-2 text-sm text-text-secondary"
+            >
+              Cancelar
+            </button>
+            {customError && <p className="text-[12px] text-danger">{customError}</p>}
+          </div>
+        </div>
+      )}
+
+      {parcelas.length > 0 && (
         <p className="text-[10.5px] tracking-wide text-text-muted uppercase">Parcelas</p>
       )}
 
@@ -376,7 +548,7 @@ export default function PagamentosTab({
                     )}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-2">
+                <div className="flex shrink-0 items-center gap-3">
                   {pago ? (
                     <a
                       href={`/servicos/${servico.id}/parcelas/${p.id}/recibo`}
@@ -389,12 +561,21 @@ export default function PagamentosTab({
                   ) : (
                     canEdit && (
                       <>
+                        <label className="flex items-center gap-1.5 text-[12.5px]">
+                          <input
+                            type="checkbox"
+                            checked={false}
+                            disabled={quickPayingId === p.id}
+                            onChange={() => quickConfirm(p)}
+                          />
+                          {quickPayingId === p.id ? "Confirmando..." : "Pago"}
+                        </label>
                         <button
                           type="button"
                           onClick={() => startPay(p)}
-                          className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-2.5 py-1.5 text-[11.5px] font-semibold text-bg"
+                          className="text-[11.5px] text-text-secondary hover:text-text"
                         >
-                          Marcar como pago
+                          Ajustar valor
                         </button>
                         <button
                           type="button"
@@ -419,6 +600,7 @@ export default function PagamentosTab({
           </div>
         );
       })}
+      {quickError && <p className="text-[12px] text-danger">{quickError}</p>}
 
       {parcelas.length > 0 && canEdit && (
         <>
