@@ -59,7 +59,7 @@ export default function RecebimentosClient({
     <div>
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h1 className="font-display text-xl font-bold">Recebimentos</h1>
+          <h1 className="font-display text-xl font-bold">Ordens de Serviço</h1>
           <p className="text-[13px] text-text-secondary">
             Sinal, restante e parcelas de cada OS — clique numa linha pra ver/lançar os pagamentos
           </p>

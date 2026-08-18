@@ -17,6 +17,8 @@ import {
   type ParcelaInput,
 } from "@/lib/actions/parcelas";
 
+const FORMAS_PAGAMENTO = ["Pix", "Cartão", "Dinheiro", "Cheque"];
+
 function emptyForm(): ParcelaInput {
   return { descricao: "", valor_previsto: 0, data_prevista: null };
 }
@@ -61,6 +63,7 @@ export default function PagamentosTab({
   const [payError, setPayError] = useState<string | null>(null);
 
   const [quickPayingId, setQuickPayingId] = useState<string | null>(null);
+  const [quickFormaFor, setQuickFormaFor] = useState<string | null>(null);
   const [quickError, setQuickError] = useState<string | null>(null);
 
   const [statusError, setStatusError] = useState<string | null>(null);
@@ -199,17 +202,19 @@ export default function PagamentosTab({
     }
   }
 
-  /** Confirmação rápida — clicou na caixinha, marca como pago com o valor/data já previstos,
-   * sem abrir formulário. Pra quando o valor recebido é diferente do combinado, use "Ajustar". */
-  async function quickConfirm(p: ServicoParcela) {
+  /** Confirmação rápida — clicou na caixinha, escolhe a forma de pagamento e marca como pago
+   * com o valor/data já previstos, sem abrir o formulário completo. Pra quando o valor
+   * recebido é diferente do combinado, use "Ajustar". */
+  async function quickConfirm(p: ServicoParcela, forma: string | null) {
     setQuickPayingId(p.id);
     setQuickError(null);
     try {
       await marcarParcelaPaga(p.id, servico.id, {
         valorPago: p.valor_previsto,
         dataPagamento: todayISO(),
-        formaPagamento: null,
+        formaPagamento: forma,
       });
+      setQuickFormaFor(null);
       onChanged();
     } catch (err) {
       setQuickError(err instanceof Error ? err.message : "Não foi possível confirmar o pagamento.");
@@ -496,13 +501,23 @@ export default function PagamentosTab({
                   </div>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[11px] text-text-secondary">Forma de pagamento (opcional)</label>
-                  <input
-                    value={payForma}
-                    onChange={(e) => setPayForma(e.target.value)}
-                    placeholder="Pix, dinheiro, cartão..."
-                    className="w-full rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
-                  />
+                  <label className="mb-1 block text-[11px] text-text-secondary">Forma de pagamento</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {FORMAS_PAGAMENTO.map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setPayForma((prev) => (prev === f ? "" : f))}
+                        className={`rounded-btn border px-3 py-1.5 text-[12.5px] ${
+                          payForma === f
+                            ? "border-border-gold-strong bg-gold/15 font-semibold text-gold"
+                            : "border-border-neutral text-text-secondary"
+                        }`}
+                      >
+                        {f}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -562,6 +577,29 @@ export default function PagamentosTab({
                     >
                       🧾 Emitir recibo
                     </a>
+                  ) : quickFormaFor === p.id ? (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[11.5px] text-text-secondary">Como pagou?</span>
+                      {FORMAS_PAGAMENTO.map((f) => (
+                        <button
+                          key={f}
+                          type="button"
+                          disabled={quickPayingId === p.id}
+                          onClick={() => quickConfirm(p, f)}
+                          className="rounded-btn border border-border-gold-strong px-2 py-1 text-[11.5px] text-gold disabled:opacity-40"
+                        >
+                          {f}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        disabled={quickPayingId === p.id}
+                        onClick={() => setQuickFormaFor(null)}
+                        className="text-[11.5px] text-text-secondary"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
                   ) : (
                     canEdit && (
                       <>
@@ -569,10 +607,9 @@ export default function PagamentosTab({
                           <input
                             type="checkbox"
                             checked={false}
-                            disabled={quickPayingId === p.id}
-                            onChange={() => quickConfirm(p)}
+                            onChange={() => setQuickFormaFor(p.id)}
                           />
-                          {quickPayingId === p.id ? "Confirmando..." : "Pago"}
+                          Pago
                         </label>
                         <button
                           type="button"
