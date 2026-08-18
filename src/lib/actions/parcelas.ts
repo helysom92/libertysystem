@@ -42,6 +42,23 @@ export async function criarParcelasPadrao(servicoId: string) {
   revalidateServicoPaths();
 }
 
+/** Cliente pagou (ou vai pagar) tudo de uma vez — uma parcela só, no valor cheio do serviço. */
+export async function criarParcelaAvista(servicoId: string) {
+  const supabase = await createClient();
+  const { data: sv, error: svErr } = await supabase
+    .from("servicos")
+    .select("valor, prazo")
+    .eq("id", servicoId)
+    .single();
+  if (svErr || !sv) throw svErr ?? new Error("Serviço não encontrado.");
+
+  const { error } = await supabase.from("servico_parcelas").insert([
+    { servico_id: servicoId, ordem: 0, descricao: "Pagamento integral (à vista)", valor_previsto: sv.valor, data_prevista: sv.prazo },
+  ]);
+  if (error) throw error;
+  revalidateServicoPaths();
+}
+
 export async function addParcela(servicoId: string, input: ParcelaInput, ordem: number) {
   const supabase = await createClient();
   const { error } = await supabase.from("servico_parcelas").insert({

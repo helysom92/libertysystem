@@ -8,6 +8,7 @@ import { FINANCEIRO_STATUSES, type Role } from "@/lib/domain/flows";
 import { updateFinanceiro } from "@/lib/actions/servicos";
 import {
   addParcela,
+  criarParcelaAvista,
   criarParcelasPadrao,
   deleteParcela,
   marcarParcelaPaga,
@@ -54,11 +55,12 @@ export default function PagamentosTab({
 
   const [statusError, setStatusError] = useState<string | null>(null);
 
-  async function handleSeed() {
+  async function handleSeed(tipo: "sinal" | "avista") {
     setSeeding(true);
     setSeedError(null);
     try {
-      await criarParcelasPadrao(servico.id);
+      if (tipo === "sinal") await criarParcelasPadrao(servico.id);
+      else await criarParcelaAvista(servico.id);
       onChanged();
     } catch (err) {
       setSeedError(err instanceof Error ? err.message : "Não foi possível gerar as parcelas.");
@@ -204,32 +206,46 @@ export default function PagamentosTab({
         </p>
       )}
 
-      <p className="text-[10.5px] tracking-wide text-text-muted uppercase">Parcelas</p>
-
-      {parcelas.length === 0 && (
-        <div className="flex flex-col gap-2">
-          <p className="text-sm text-text-muted">Nenhuma parcela cadastrada ainda.</p>
+      {parcelas.length === 0 ? (
+        <div className="flex flex-col gap-3 rounded-card border border-border-gold-strong bg-card-secondary p-4">
+          <div>
+            <p className="font-semibold">Como foi combinado o pagamento com o cliente?</p>
+            <p className="text-[12.5px] text-text-muted">
+              Valor total do serviço: <strong className="text-text">{fmtBRL(servico.valor)}</strong>. Escolha
+              como começar — depois dá pra ajustar valor, data e forma de pagamento de cada parcela.
+            </p>
+          </div>
           {canEdit && (
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                onClick={handleSeed}
+                onClick={() => handleSeed("sinal")}
+                disabled={seeding}
+                className="w-fit rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg disabled:opacity-40"
+              >
+                {seeding ? "Gerando..." : "🤝 Sinal 50% + Restante na entrega"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSeed("avista")}
                 disabled={seeding}
                 className="w-fit rounded-btn border border-border-gold-strong px-3 py-1.5 text-[12.5px] text-gold disabled:opacity-40"
               >
-                {seeding ? "Gerando..." : "Gerar Sinal (50%) + Restante (50%)"}
+                {seeding ? "Gerando..." : "💰 À vista (pagamento único)"}
               </button>
               <button
                 type="button"
                 onClick={startAdd}
                 className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px] text-text-secondary"
               >
-                + Adicionar parcela
+                ✏️ Personalizar (mais parcelas, datas diferentes)
               </button>
             </div>
           )}
           {seedError && <p className="text-[12px] text-danger">{seedError}</p>}
         </div>
+      ) : (
+        <p className="text-[10.5px] tracking-wide text-text-muted uppercase">Parcelas</p>
       )}
 
       {parcelas.map((p) => {
