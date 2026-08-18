@@ -31,7 +31,7 @@ export default function KanbanColumn({
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
 
-  const LIMITE = 10;
+  const LIMITE = 6;
   const visiveis = expanded ? items : items.slice(0, LIMITE);
   const restantes = items.length - visiveis.length;
 
