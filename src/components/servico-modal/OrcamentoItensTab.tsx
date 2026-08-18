@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ServicoDetail } from "@/lib/domain/types";
 import { fmtBRL, type ItemOrcamento, type OrcamentoItemRow } from "@/lib/domain/types";
 import {
@@ -49,10 +49,12 @@ export default function OrcamentoItensTab({
   detail,
   itensOrcamento,
   onChanged,
+  onDirtyChange,
 }: {
   detail: ServicoDetail;
   itensOrcamento: ItemOrcamento[];
   onChanged: () => void;
+  onDirtyChange?: (dirty: boolean) => void;
 }) {
   const { servico } = detail;
   const [copiado, setCopiado] = useState(false);
@@ -73,6 +75,12 @@ export default function OrcamentoItensTab({
 
   const total = itens.reduce((sum, item) => sum + item.valor_final, 0);
   const prazoLabel = prazoEstimadoLabel(itens.map((i) => i.categoria_prazo));
+
+  // Avisa o modal por cima (se ele tiver essa proteção) que tem edição não salva aqui dentro —
+  // pra não deixar fechar sem querer e perder o que já foi digitado.
+  useEffect(() => {
+    onDirtyChange?.(editingItens || propostaDirty);
+  }, [editingItens, propostaDirty, onDirtyChange]);
 
   async function salvarProposta() {
     setPropostaSaving(true);

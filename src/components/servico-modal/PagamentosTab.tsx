@@ -328,7 +328,11 @@ export default function PagamentosTab({
                 type="number"
                 min={1}
                 value={numParcelas}
-                onChange={(e) => setNumParcelas(Math.max(1, Number(e.target.value) || 1))}
+                onChange={(e) => {
+                  const n = Math.max(1, Number(e.target.value) || 1);
+                  setNumParcelas(n);
+                  gerarLinhas(n);
+                }}
                 className="w-24 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
               />
             </div>

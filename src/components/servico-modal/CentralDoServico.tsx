@@ -71,6 +71,12 @@ export default function CentralDoServico({
   const [detail, setDetail] = useState<ServicoDetail | null>(null);
   const [tab, setTab] = useState(context === "producao" ? "status" : "resumo");
   const [loading, setLoading] = useState(true);
+  const [itensDirty, setItensDirty] = useState(false);
+
+  function handleClose() {
+    if (itensDirty && !confirm("Você tem alterações não salvas. Fechar mesmo assim?")) return;
+    onClose();
+  }
 
   const reload = useCallback(async () => {
     const d = await fetchServicoDetail(servicoId);
@@ -101,7 +107,7 @@ export default function CentralDoServico({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8"
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div
         className="flex h-full w-full max-w-3xl flex-col rounded-card border border-border-gold bg-card"
@@ -116,7 +122,7 @@ export default function CentralDoServico({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="rounded-btn px-3 py-1 text-text-secondary hover:text-text"
           >
             ✕
@@ -170,7 +176,12 @@ export default function CentralDoServico({
               {tab === "execucao" && <ExecucaoTab detail={detail} onChanged={reload} />}
               {tab === "cliente" && <ClienteTab detail={detail} onChanged={reload} />}
               {tab === "itens" && (
-                <OrcamentoItensTab detail={detail} itensOrcamento={itensOrcamento} onChanged={reload} />
+                <OrcamentoItensTab
+                  detail={detail}
+                  itensOrcamento={itensOrcamento}
+                  onChanged={reload}
+                  onDirtyChange={setItensDirty}
+                />
               )}
               {tab === "proposta" && (
                 <PropostaInterativaTab detail={detail} onChanged={reload} />

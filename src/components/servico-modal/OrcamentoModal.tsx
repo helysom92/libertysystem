@@ -42,6 +42,14 @@ export default function OrcamentoModal({
   const [aprovando, setAprovando] = useState(false);
   const [aprovarError, setAprovarError] = useState<string | null>(null);
 
+  const [itensDirty, setItensDirty] = useState(false);
+  const hasUnsaved = basicoDirty || itensDirty;
+
+  function handleClose() {
+    if (hasUnsaved && !confirm("Você tem alterações não salvas. Fechar mesmo assim?")) return;
+    onClose();
+  }
+
   const reload = useCallback(async () => {
     const d = await fetchServicoDetail(servicoId);
     setDetail(d);
@@ -114,7 +122,7 @@ export default function OrcamentoModal({
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8"
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div
         className="flex h-full w-full max-w-2xl flex-col rounded-card border border-border-gold bg-card"
@@ -127,7 +135,7 @@ export default function OrcamentoModal({
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="rounded-btn px-3 py-1 text-text-secondary hover:text-text"
           >
             ✕
@@ -209,7 +217,12 @@ export default function OrcamentoModal({
               Itens, proposta e envio
             </p>
             <div className="mb-5">
-              <OrcamentoItensTab detail={detail} itensOrcamento={itensOrcamento} onChanged={reload} />
+              <OrcamentoItensTab
+                detail={detail}
+                itensOrcamento={itensOrcamento}
+                onChanged={reload}
+                onDirtyChange={setItensDirty}
+              />
             </div>
 
             <div className="mb-5">
