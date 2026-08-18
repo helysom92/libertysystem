@@ -202,6 +202,26 @@ export default function PagamentosTab({
     }
   }
 
+  /** Salva o valor/data ajustados sem marcar como pago ainda — pra quando o combinado mudou
+   * (cliente vai pagar mais/menos, ou em outra data) mas o dinheiro ainda não caiu. */
+  async function saveAjuste(p: ServicoParcela) {
+    setPayingSaving(true);
+    setPayError(null);
+    try {
+      await updateParcela(p.id, {
+        descricao: p.descricao,
+        valor_previsto: Number(payValor) || 0,
+        data_prevista: payData || null,
+      });
+      setPayingId(null);
+      onChanged();
+    } catch (err) {
+      setPayError(err instanceof Error ? err.message : "Não foi possível salvar a parcela.");
+    } finally {
+      setPayingSaving(false);
+    }
+  }
+
   /** Confirmação rápida — clicou na caixinha, escolhe a forma de pagamento e marca como pago
    * com o valor/data já previstos, sem abrir o formulário completo. Pra quando o valor
    * recebido é diferente do combinado, use "Ajustar". */
@@ -527,6 +547,15 @@ export default function PagamentosTab({
                     className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg disabled:opacity-40"
                   >
                     {payingSaving ? "Confirmando..." : "Confirmar recebimento"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => saveAjuste(p)}
+                    disabled={payingSaving}
+                    className="rounded-btn border border-border-gold-strong px-3 py-1.5 text-[12.5px] text-gold disabled:opacity-40"
+                    title="Salva o valor/data combinados sem marcar como pago ainda"
+                  >
+                    Salvar (ainda não pago)
                   </button>
                   <button
                     type="button"
