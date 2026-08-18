@@ -623,6 +623,14 @@ export default function PagamentosTab({
                       <button
                         type="button"
                         disabled={quickPayingId === p.id}
+                        onClick={() => quickConfirm(p, null)}
+                        className="text-[11.5px] text-text-secondary underline decoration-dotted hover:text-text"
+                      >
+                        {quickPayingId === p.id ? "Salvando..." : "Salvar sem informar"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={quickPayingId === p.id}
                         onClick={() => setQuickFormaFor(null)}
                         className="text-[11.5px] text-text-secondary"
                       >

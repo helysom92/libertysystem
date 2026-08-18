@@ -3,11 +3,10 @@
 import { useState, useTransition } from "react";
 import type { ServicoDetail } from "@/lib/domain/types";
 import { computeIaAlerts } from "@/lib/domain/alerts";
-import { PRIORIDADES, type Role } from "@/lib/domain/flows";
+import { PRIORIDADES } from "@/lib/domain/flows";
 import type { Coluna } from "@/lib/domain/kanban";
 import {
   toggleEntregaConfirmada,
-  toggleLiberadoAdmin,
   updatePrioridade,
   updateResponsavel,
   deleteServico,
@@ -18,13 +17,11 @@ import ResponsavelSelect from "@/components/ui/ResponsavelSelect";
 
 export default function StatusTab({
   detail,
-  role,
   colunasOS,
   onChanged,
   onClose,
 }: {
   detail: ServicoDetail;
-  role: Role;
   colunasOS: Coluna[];
   onChanged: () => void;
   onClose: () => void;
@@ -48,7 +45,6 @@ export default function StatusTab({
     });
   }
 
-  const showLiberarAdmin = (role === "administrador" || role === "secretaria") && !servico.concluido;
   // Produção não vê nada de dinheiro — inclusive o alerta de "saldo pendente" que o mesmo
   // computeIaAlerts gera pra Hoje/Gestão (esses continuam vendo, só aqui que é filtrado).
   const alerts = computeIaAlerts([servico], []).filter((a) => !a.texto.includes("saldo pendente"));
@@ -162,23 +158,6 @@ export default function StatusTab({
             }}
           />
           Entrega confirmada
-        </label>
-      )}
-
-      {showLiberarAdmin && (
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={servico.liberado_admin}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              runAction(
-                () => toggleLiberadoAdmin(servico.id, checked),
-                "Não foi possível atualizar a liberação."
-              );
-            }}
-          />
-          Liberar conclusão mesmo com financeiro pendente
         </label>
       )}
 

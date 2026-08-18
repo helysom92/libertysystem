@@ -156,7 +156,6 @@ export default function CentralDoServico({
               {tab === "resumo" && (
                 <ResumoTab
                   detail={detail}
-                  role={role}
                   colunasOS={colunasOS}
                   onChanged={reload}
                   onClose={onClose}
@@ -165,7 +164,6 @@ export default function CentralDoServico({
               {tab === "status" && (
                 <StatusTab
                   detail={detail}
-                  role={role}
                   colunasOS={colunasOS}
                   onChanged={reload}
                   onClose={onClose}

@@ -4,12 +4,11 @@ import { useState, useTransition } from "react";
 import type { ServicoDetail } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { computeIaAlerts } from "@/lib/domain/alerts";
-import { PRIORIDADES, ROLE_LABELS, type Role } from "@/lib/domain/flows";
+import { PRIORIDADES, ROLE_LABELS } from "@/lib/domain/flows";
 import { PRAZO_STATUS_COLOR, PRAZO_STATUS_LABEL, PRAZO_TIPO_INFO, prazoStatus, type Coluna, type PrazoTipo } from "@/lib/domain/kanban";
 import { fmtDatePtBR } from "@/lib/domain/dates";
 import {
   toggleEntregaConfirmada,
-  toggleLiberadoAdmin,
   updateInformacoesAdicionais,
   updatePrazoServico,
   updatePrioridade,
@@ -30,13 +29,11 @@ const PRAZO_TIPOS: PrazoTipo[] = ["balcao", "fachada", "complexo"];
 
 export default function ResumoTab({
   detail,
-  role,
   colunasOS,
   onChanged,
   onClose,
 }: {
   detail: ServicoDetail;
-  role: Role;
   colunasOS: Coluna[];
   onChanged: () => void;
   onClose: () => void;
@@ -73,9 +70,6 @@ export default function ResumoTab({
       }
     });
   }
-
-  const showLiberarAdmin =
-    (role === "administrador" || role === "secretaria") && !!servico.numero && !servico.concluido;
 
   const status = servico.prazo_tipo ? prazoStatus(servico.prazo_tipo, servico.prazo) : null;
 
@@ -381,23 +375,6 @@ export default function ResumoTab({
             }}
           />
           Entrega confirmada
-        </label>
-      )}
-
-      {showLiberarAdmin && (
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
-            checked={servico.liberado_admin}
-            onChange={(e) => {
-              const checked = e.target.checked;
-              runAction(
-                () => toggleLiberadoAdmin(servico.id, checked),
-                "Não foi possível atualizar a liberação."
-              );
-            }}
-          />
-          Liberar conclusão mesmo com financeiro pendente
         </label>
       )}
 
