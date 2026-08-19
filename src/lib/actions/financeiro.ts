@@ -362,3 +362,56 @@ export async function confirmarComprovante(id: string) {
   revalidatePath("/hoje");
   revalidatePath("/gestao");
 }
+
+export interface NovaDespesaRapidaInput {
+  tipo: "fixa" | "variavel";
+  descricao: string;
+  categoria: string;
+  fornecedor_id: string | null;
+  valor: number;
+  data: string; // "YYYY-MM-DD"
+}
+
+/**
+ * "+ Nova Despesa" — cria a despesa (fixa ou variável) e já lança a ocorrência do
+ * mês/dia escolhido como paga, reaproveitando o mesmo caminho de toggleDespesaOcorrencia /
+ * toggleDespesaVariavelPago (que já cuida de gerar o lançamento em Financeiro). O
+ * gerenciamento recorrente dos meses seguintes continua em "Gerenciar despesas recorrentes".
+ */
+export async function lancarNovaDespesa(input: NovaDespesaRapidaInput) {
+  const supabase = await createClient();
+  const [anoStr, mesStr, diaStr] = input.data.split("-");
+  const ano = Number(anoStr);
+  const mes = Number(mesStr);
+  const dia = Number(diaStr);
+
+  if (input.tipo === "fixa") {
+    const { data: df, error } = await supabase
+      .from("despesas_fixas")
+      .insert({
+        descricao: input.descricao,
+        valor: input.valor,
+        dia_vencimento: dia,
+        categoria: input.categoria,
+        fornecedor_id: input.fornecedor_id,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    await toggleDespesaOcorrencia(df.id, ano, mes, true);
+  } else {
+    const { data: dv, error } = await supabase
+      .from("despesas_variaveis")
+      .insert({
+        descricao: input.descricao,
+        valor_provisionado: input.valor,
+        categoria: input.categoria,
+        fornecedor_id: input.fornecedor_id,
+        data: input.data,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    await toggleDespesaVariavelPago(dv.id, ano, mes, true);
+  }
+}
