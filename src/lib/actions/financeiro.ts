@@ -242,13 +242,15 @@ export async function toggleDespesaVariavelPago(
   if (pago) {
     const { data: despesa, error: dErr } = await supabase
       .from("despesas_variaveis")
-      .select("descricao, valor_provisionado, categoria, fornecedor_id")
+      .select("descricao, valor_provisionado, categoria, fornecedor_id, data")
       .eq("id", despesaVariavelId)
       .single();
     if (dErr || !despesa) throw dErr ?? new Error("Despesa variável não encontrada.");
 
     const valor = existente?.valor_real ?? despesa.valor_provisionado;
-    const data = `${ano}-${String(mes).padStart(2, "0")}-01`;
+    // Usa a data que o usuário escolheu na despesa (quando pagou/lançou); sem ela, cai no
+    // dia 1 do mês da ocorrência como aproximação.
+    const data = despesa.data ?? `${ano}-${String(mes).padStart(2, "0")}-01`;
 
     if (lancamentoId) {
       const { error: updErr } = await supabase
