@@ -31,14 +31,25 @@ export default function NovaDespesaModal({
   const opcoesExistentes = tipo === "fixa" ? despesasFixas : despesasVariaveis;
   const existente = opcoesExistentes.find((d) => d.id === existenteId);
 
+  function limparCampos() {
+    setDescricao("");
+    setCategoria("Geral");
+    setFornecedorId("");
+    setValor("");
+  }
+
   function selecionarTipo(t: "fixa" | "variavel") {
     setTipo(t);
     setExistenteId("");
+    limparCampos();
   }
 
   function selecionarExistente(id: string) {
     setExistenteId(id);
-    if (!id) return;
+    if (!id) {
+      limparCampos();
+      return;
+    }
     const d = (tipo === "fixa" ? despesasFixas : despesasVariaveis).find((x) => x.id === id);
     if (!d) return;
     setDescricao(d.descricao);
