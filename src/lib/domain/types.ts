@@ -233,6 +233,7 @@ export interface DespesaVariavel {
   valor_provisionado: number;
   categoria: string | null;
   fornecedor_id: string | null;
+  dia_vencimento: number | null;
   ativo: boolean;
 }
 

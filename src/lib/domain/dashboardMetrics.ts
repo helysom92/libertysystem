@@ -545,14 +545,22 @@ export function contasAPagar(
       (o) => o.despesa_variavel_id === dv.id && o.ano === hy && o.mes === hm
     );
     if (ocorrencia?.pago) continue;
+    // Com dia de vencimento cadastrado, usa a data real (igual despesa fixa); sem ele, cai
+    // em hoje mesmo — é o único jeito de mostrar algo pras que realmente não têm dia certo.
+    let vencimento = hojeISO;
+    if (dv.dia_vencimento) {
+      const diasNoMes = new Date(hy, hm, 0).getDate();
+      const dia = Math.min(dv.dia_vencimento, diasNoMes);
+      vencimento = `${hy}-${String(hm).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+    }
     items.push({
       id: dv.id,
       descricao: dv.descricao,
       valor: ocorrencia?.valor_real ?? dv.valor_provisionado,
-      vencimento: hojeISO,
+      vencimento,
       tipo: "variavel",
-      venceHoje: false,
-      atrasado: false,
+      venceHoje: vencimento === hojeISO,
+      atrasado: vencimento < hojeISO,
     });
   }
 

@@ -166,6 +166,7 @@ export interface NovaDespesaVariavelInput {
   valor_provisionado: number;
   categoria: string;
   fornecedor_id?: string | null;
+  dia_vencimento?: number | null;
 }
 
 export async function createDespesaVariavel(input: NovaDespesaVariavelInput) {
