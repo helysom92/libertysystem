@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { createDespesaVariavel, deleteDespesaVariavel, updateDespesaVariavel } from "@/lib/actions/financeiro";
+import { todayISO } from "@/lib/domain/dates";
 import type { DespesaVariavel, Fornecedor } from "@/lib/domain/types";
 
 export default function NovaDespesaVariavelModal({
@@ -17,7 +18,7 @@ export default function NovaDespesaVariavelModal({
   const [valorProvisionado, setValorProvisionado] = useState(editing ? String(editing.valor_provisionado) : "");
   const [categoria, setCategoria] = useState(editing?.categoria ?? "Geral");
   const [fornecedorId, setFornecedorId] = useState(editing?.fornecedor_id ?? "");
-  const [diaVencimento, setDiaVencimento] = useState(editing?.dia_vencimento ? String(editing.dia_vencimento) : "");
+  const [data, setData] = useState(editing?.data ?? todayISO());
   const [pending, startTransition] = useTransition();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +33,7 @@ export default function NovaDespesaVariavelModal({
           valor_provisionado: Number(valorProvisionado) || 0,
           categoria,
           fornecedor_id: fornecedorId || null,
-          dia_vencimento: diaVencimento ? Number(diaVencimento) : null,
+          data: data || null,
         };
         if (editing) {
           await updateDespesaVariavel(editing.id, payload);
@@ -104,14 +105,11 @@ export default function NovaDespesaVariavelModal({
           </div>
         </div>
 
-        <label className="mb-1 block text-xs text-text-secondary">Dia de vencimento (opcional)</label>
+        <label className="mb-1 block text-xs text-text-secondary">Data</label>
         <input
-          type="number"
-          min={1}
-          max={31}
-          value={diaVencimento}
-          onChange={(e) => setDiaVencimento(e.target.value)}
-          placeholder="Ex: 10 — deixe em branco se variar"
+          type="date"
+          value={data}
+          onChange={(e) => setData(e.target.value)}
           className="mb-4 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
         />
 

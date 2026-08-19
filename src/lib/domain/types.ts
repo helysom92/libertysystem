@@ -233,7 +233,7 @@ export interface DespesaVariavel {
   valor_provisionado: number;
   categoria: string | null;
   fornecedor_id: string | null;
-  dia_vencimento: number | null;
+  data: string | null; // ISO date — quando foi paga/lançada (essas despesas não têm vencimento fixo)
   ativo: boolean;
 }
 
