@@ -13,6 +13,11 @@ import type {
   Lancamento,
 } from "@/lib/domain/types";
 
+function noMes(dataISO: string, ano: number, mes: number) {
+  const [y, m] = dataISO.split("-").map(Number);
+  return y === ano && m === mes;
+}
+
 export default async function FinanceiroVisaoGeralPage() {
   const supabase = await createClient();
   const now = new Date();
@@ -37,24 +42,49 @@ export default async function FinanceiroVisaoGeralPage() {
   ]);
 
   const lancs = (lancamentos as Lancamento[]) ?? [];
-  const realizados = lancs.filter((l) => l.status === "realizado");
-  const receitas = realizados.filter((l) => l.tipo === "Receita").reduce((a, l) => a + l.valor, 0);
-  const despesasTotal = realizados.filter((l) => l.tipo === "Despesa").reduce((a, l) => a + l.valor, 0);
-  const fluxoCaixa = receitas - despesasTotal;
+  const lancsDoMes = lancs.filter((l) => noMes(l.data, ano, mes));
 
-  const comprovantesPendentes = ((comprovantes as Pick<Comprovante, "status">[]) ?? []).filter(
-    (c) => c.status === "pendente"
-  ).length;
+  // Realizado (mês) — dinheiro que já entrou/saiu de fato este mês.
+  const realizadosMes = lancsDoMes.filter((l) => l.status === "realizado");
+  const receitaRealizada = realizadosMes.filter((l) => l.tipo === "Receita").reduce((a, l) => a + l.valor, 0);
+  const despesaRealizada = realizadosMes.filter((l) => l.tipo === "Despesa").reduce((a, l) => a + l.valor, 0);
+  const fluxoCaixa = receitaRealizada - despesaRealizada;
+
+  // Previsto (mês) — parcelas a receber e despesas a pagar que ainda vão vencer este mês.
+  const previstosMes = lancsDoMes.filter((l) => l.status === "previsto");
+  const receitaPrevista = previstosMes.filter((l) => l.tipo === "Receita").reduce((a, l) => a + l.valor, 0);
+  const despesaPrevistaLancamentos = previstosMes.filter((l) => l.tipo === "Despesa").reduce((a, l) => a + l.valor, 0);
 
   const despesasFixas = (despesas as DespesaFixa[]) ?? [];
   const ocorrenciasList = (ocorrencias as DespesaFixaOcorrencia[]) ?? [];
   const pagas = new Set(ocorrenciasList.filter((o) => o.pago).map((o) => o.despesa_fixa_id));
+  const despesasFixasPagas = despesasFixas.filter((d) => pagas.has(d.id)).length;
   const despesasFixasEmAberto = despesasFixas.filter((d) => !pagas.has(d.id)).length;
+  const despesasFixasEmAbertoValor = despesasFixas
+    .filter((d) => !pagas.has(d.id))
+    .reduce((a, d) => a + d.valor, 0);
 
   const despesasVariaveis = (despesasVar as DespesaVariavel[]) ?? [];
   const ocorrenciasVarList = (ocorrenciasVar as DespesaVariavelOcorrencia[]) ?? [];
   const pagasVar = new Set(ocorrenciasVarList.filter((o) => o.pago).map((o) => o.despesa_variavel_id));
+  const despesasVariaveisPagas = despesasVariaveis.filter((d) => pagasVar.has(d.id)).length;
   const despesasVariaveisEmAberto = despesasVariaveis.filter((d) => !pagasVar.has(d.id)).length;
+  const despesasVariaveisEmAbertoValor = despesasVariaveis
+    .filter((d) => !pagasVar.has(d.id))
+    .reduce((a, d) => {
+      const ocorrencia = ocorrenciasVarList.find((o) => o.despesa_variavel_id === d.id);
+      return a + (ocorrencia?.valor_real ?? d.valor_provisionado);
+    }, 0);
+
+  // Despesa prevista (mês) = lançamentos previstos + despesas fixas/variáveis ainda não pagas —
+  // mesmas fontes da lista "Contas a Pagar" abaixo, somadas pra virar um número só.
+  const despesaPrevista = despesaPrevistaLancamentos + despesasFixasEmAbertoValor + despesasVariaveisEmAbertoValor;
+
+  const lucroPrevisto = receitaRealizada + receitaPrevista - (despesaRealizada + despesaPrevista);
+
+  const comprovantesPendentes = ((comprovantes as Pick<Comprovante, "status">[]) ?? []).filter(
+    (c) => c.status === "pendente"
+  ).length;
 
   const contas = contasAPagar(
     despesasFixas,
@@ -72,15 +102,56 @@ export default async function FinanceiroVisaoGeralPage() {
         <h1 className="font-display text-xl font-bold">Visão Geral</h1>
         <p className="text-[13px] text-text-secondary">Receitas, despesas e pendências do mês</p>
       </div>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard label="Receitas" value={fmtBRL(receitas)} />
-        <KpiCard label="Despesas" value={fmtBRL(despesasTotal)} />
-        <KpiCard label="Fluxo de Caixa" value={fmtBRL(fluxoCaixa)} gold />
-        <KpiCard label="Vencimentos Hoje" value={vencemHoje} />
-        <KpiCard label="Comprovantes Pendentes" value={comprovantesPendentes} />
-        <KpiCard label="Despesas Fixas em Aberto" value={despesasFixasEmAberto} />
-        <KpiCard label="Despesas Variáveis em Aberto" value={despesasVariaveisEmAberto} />
+
+      <div>
+        <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">Realizado no mês</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <KpiCard label="Receita Realizada" value={fmtBRL(receitaRealizada)} />
+          <KpiCard label="Despesa Realizada" value={fmtBRL(despesaRealizada)} />
+          <KpiCard label="Fluxo de Caixa" value={fmtBRL(fluxoCaixa)} gold />
+        </div>
       </div>
+
+      <div>
+        <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">Previsto pro mês</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <KpiCard
+            label="Receita Prevista"
+            value={fmtBRL(receitaPrevista)}
+            hint="Parcelas a receber este mês"
+          />
+          <KpiCard
+            label="Despesa Prevista"
+            value={fmtBRL(despesaPrevista)}
+            hint="Contas a pagar este mês"
+          />
+          <KpiCard
+            label="Lucro Previsto"
+            value={fmtBRL(lucroPrevisto)}
+            hint="Se tudo entrar/sair como combinado"
+            gold
+          />
+        </div>
+      </div>
+
+      <div>
+        <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">Pendências</p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard label="Vencimentos Hoje" value={vencemHoje} />
+          <KpiCard label="Comprovantes Pendentes" value={comprovantesPendentes} />
+          <KpiCard
+            label="Despesas Fixas"
+            value={`${despesasFixasPagas} pagas`}
+            hint={`${despesasFixasEmAberto} em aberto`}
+          />
+          <KpiCard
+            label="Despesas Variáveis"
+            value={`${despesasVariaveisPagas} pagas`}
+            hint={`${despesasVariaveisEmAberto} em aberto`}
+          />
+        </div>
+      </div>
+
       <ContasAPagarList itens={contas} />
     </div>
   );
