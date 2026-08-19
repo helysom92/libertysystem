@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/supabase/profile";
 import VisaoGeralServicosTable from "@/components/producao/VisaoGeralServicosTable";
 import type { ItemOrcamento, Servico } from "@/lib/domain/types";
 import type { Coluna } from "@/lib/domain/kanban";
@@ -11,7 +10,6 @@ export default async function VisaoGeralPage({
 }) {
   const { open } = await searchParams;
   const supabase = await createClient();
-  const profile = await getCurrentProfile();
 
   const [{ data: servicos }, { data: itensOrcamento }, { data: colunas }] = await Promise.all([
     supabase.from("servicos").select("*").not("numero", "is", null).order("prazo"),
@@ -23,7 +21,6 @@ export default async function VisaoGeralPage({
     <VisaoGeralServicosTable
       servicos={(servicos as Servico[]) ?? []}
       colunas={(colunas as Coluna[]) ?? []}
-      role={profile?.role ?? "secretaria"}
       itensOrcamento={(itensOrcamento as ItemOrcamento[]) ?? []}
       initialOpenId={open ?? null}
     />

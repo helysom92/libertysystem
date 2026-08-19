@@ -32,6 +32,7 @@ export default async function FinanceiroVisaoGeralPage() {
     { data: ocorrencias },
     { data: despesasVar },
     { data: ocorrenciasVar },
+    { data: osAprovadas },
   ] = await Promise.all([
     supabase.from("lancamentos").select("id, tipo, valor, status, data, descricao"),
     supabase.from("comprovantes").select("status"),
@@ -39,7 +40,14 @@ export default async function FinanceiroVisaoGeralPage() {
     supabase.from("despesas_fixas_ocorrencias").select("*").eq("ano", ano).eq("mes", mes),
     supabase.from("despesas_variaveis").select("*").eq("ativo", true),
     supabase.from("despesas_variaveis_ocorrencias").select("*").eq("ano", ano).eq("mes", mes),
+    supabase.from("servicos").select("valor, aprovado_em").not("numero", "is", null),
   ]);
+
+  // Faturamento do mês = valor total das OS aprovadas (orçamento virou OS) dentro do mês
+  // atual — independente de já ter sido pago ou não, é "o que foi vendido/fechado" no mês.
+  const faturamentoMes = ((osAprovadas as { valor: number; aprovado_em: string | null }[]) ?? [])
+    .filter((s) => s.aprovado_em && noMes(s.aprovado_em.slice(0, 10), ano, mes))
+    .reduce((a, s) => a + s.valor, 0);
 
   const lancs = (lancamentos as Lancamento[]) ?? [];
   const lancsDoMes = lancs.filter((l) => noMes(l.data, ano, mes));
@@ -105,7 +113,12 @@ export default async function FinanceiroVisaoGeralPage() {
 
       <div>
         <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">Realizado no mês</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <KpiCard
+            label="Faturamento do Mês"
+            value={fmtBRL(faturamentoMes)}
+            hint="Valor das OS aprovadas este mês"
+          />
           <KpiCard label="Receita Realizada" value={fmtBRL(receitaRealizada)} />
           <KpiCard label="Despesa Realizada" value={fmtBRL(despesaRealizada)} />
           <KpiCard label="Fluxo de Caixa" value={fmtBRL(fluxoCaixa)} gold />

@@ -4,7 +4,6 @@ import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { fetchServicoDetail } from "@/lib/supabase/fetchServicoDetail";
 import { displayNumero, type ItemOrcamento, type ServicoDetail } from "@/lib/domain/types";
-import type { Role } from "@/lib/domain/flows";
 import { exigeMedida } from "@/lib/domain/flows";
 import type { Coluna } from "@/lib/domain/kanban";
 import ResumoTab from "./ResumoTab";
@@ -54,14 +53,12 @@ const TABS_PRODUCAO = [
 
 export default function CentralDoServico({
   servicoId,
-  role,
   context,
   itensOrcamento,
   colunasOS,
   onClose,
 }: {
   servicoId: string;
-  role: Role;
   context: "comercial" | "producao";
   itensOrcamento: ItemOrcamento[];
   colunasOS: Coluna[];

@@ -5,6 +5,7 @@ import type { PrazoTipo } from "./kanban";
 export interface Servico {
   id: string;
   numero: string | null; // null até aprovação — antes disso é um Orçamento sem numeração formal
+  aprovado_em: string | null; // ISO timestamp — quando o orçamento virou OS (numero atribuído)
   cliente_id: string;
   cliente: string;
   descricao: string;

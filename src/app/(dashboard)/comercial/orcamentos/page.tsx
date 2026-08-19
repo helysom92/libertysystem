@@ -1,5 +1,4 @@
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/supabase/profile";
 import { fetchAllClientes } from "@/lib/supabase/fetchAllClientes";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
 import type { ItemOrcamento, Servico } from "@/lib/domain/types";
@@ -12,7 +11,6 @@ export default async function ComercialOrcamentosPage({
 }) {
   const { open } = await searchParams;
   const supabase = await createClient();
-  const profile = await getCurrentProfile();
 
   const [
     { data: servicos },
@@ -73,7 +71,6 @@ export default async function ComercialOrcamentosPage({
       board="orcamento"
       servicos={svs}
       colunas={(colunas as Coluna[]) ?? []}
-      role={profile?.role ?? "secretaria"}
       initialOpenId={open ?? null}
       capaUrls={capaUrls}
       checklistProgress={checklistProgress}

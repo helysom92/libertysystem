@@ -17,7 +17,6 @@ import KanbanColumn from "./KanbanColumn";
 import NovoServicoModal from "./NovoServicoModal";
 import CentralDoServico from "@/components/servico-modal/CentralDoServico";
 import OrcamentoModal from "@/components/servico-modal/OrcamentoModal";
-import type { Role } from "@/lib/domain/flows";
 
 const BOARD_TITLE: Record<KanbanBoardKey, { titulo: string; subtitulo: string }> = {
   orcamento: { titulo: "Orçamentos", subtitulo: "Onde o orçamento nasce e evolui até a aprovação do cliente" },
@@ -28,7 +27,6 @@ export default function KanbanBoard({
   board,
   servicos,
   colunas,
-  role,
   initialOpenId,
   capaUrls,
   checklistProgress,
@@ -38,7 +36,6 @@ export default function KanbanBoard({
   board: KanbanBoardKey;
   servicos: Servico[];
   colunas: Coluna[];
-  role: Role;
   initialOpenId?: string | null;
   capaUrls: Record<string, string>;
   checklistProgress: Record<string, { done: number; total: number }>;
@@ -207,7 +204,6 @@ export default function KanbanBoard({
       {openId && board === "os" && (
         <CentralDoServico
           servicoId={openId}
-          role={role}
           context="producao"
           itensOrcamento={itensOrcamento}
           colunasOS={colunas.filter((c) => c.board === "os").sort((a, b) => a.ordem - b.ordem)}

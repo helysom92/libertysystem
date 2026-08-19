@@ -1,12 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/supabase/profile";
 import PropostasClient from "@/components/comercial/PropostasClient";
 import type { ItemOrcamento, Servico } from "@/lib/domain/types";
 import type { Coluna } from "@/lib/domain/kanban";
 
 export default async function ComercialPropostasPage() {
   const supabase = await createClient();
-  const profile = await getCurrentProfile();
 
   const [{ data: servicos }, { data: opcoes }, { data: itensOrcamento }, { data: colunas }] =
     await Promise.all([
@@ -31,7 +29,6 @@ export default async function ComercialPropostasPage() {
       servicos={(servicos as Servico[]) ?? []}
       opcoesCountBySvId={opcoesCountBySvId}
       colunas={(colunas as Coluna[]) ?? []}
-      role={profile?.role ?? "secretaria"}
       itensOrcamento={(itensOrcamento as ItemOrcamento[]) ?? []}
     />
   );

@@ -4,7 +4,6 @@ import { useMemo, useState } from "react";
 import { PRAZO_STATUS_COLOR, PRAZO_STATUS_LABEL, prazoStatus, type Coluna, type PrazoStatus } from "@/lib/domain/kanban";
 import { displayNumero, type ItemOrcamento, type Servico } from "@/lib/domain/types";
 import { normalizarBusca } from "@/lib/domain/texto";
-import type { Role } from "@/lib/domain/flows";
 import CentralDoServico from "@/components/servico-modal/CentralDoServico";
 
 const PRAZO_FILTROS: { value: "todos" | PrazoStatus; label: string }[] = [
@@ -17,13 +16,11 @@ const PRAZO_FILTROS: { value: "todos" | PrazoStatus; label: string }[] = [
 export default function VisaoGeralServicosTable({
   servicos,
   colunas,
-  role,
   itensOrcamento,
   initialOpenId,
 }: {
   servicos: Servico[];
   colunas: Coluna[];
-  role: Role;
   itensOrcamento: ItemOrcamento[];
   initialOpenId?: string | null;
 }) {
@@ -149,7 +146,6 @@ export default function VisaoGeralServicosTable({
       {openId && (
         <CentralDoServico
           servicoId={openId}
-          role={role}
           context="producao"
           itensOrcamento={itensOrcamento}
           colunasOS={colunas.filter((c) => c.board === "os").sort((a, b) => a.ordem - b.ordem)}

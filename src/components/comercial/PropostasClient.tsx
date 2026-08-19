@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { LINHA_ORCAMENTO_INFO } from "@/lib/domain/orcamento";
 import { displayNumero, fmtBRL, type ItemOrcamento, type Servico } from "@/lib/domain/types";
-import type { Role } from "@/lib/domain/flows";
 import type { Coluna } from "@/lib/domain/kanban";
 import CentralDoServico from "@/components/servico-modal/CentralDoServico";
 
@@ -11,13 +10,11 @@ export default function PropostasClient({
   servicos,
   opcoesCountBySvId,
   colunas,
-  role,
   itensOrcamento,
 }: {
   servicos: Servico[];
   opcoesCountBySvId: Record<string, number>;
   colunas: Coluna[];
-  role: Role;
   itensOrcamento: ItemOrcamento[];
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
@@ -95,7 +92,6 @@ export default function PropostasClient({
       {openId && (
         <CentralDoServico
           servicoId={openId}
-          role={role}
           context="comercial"
           itensOrcamento={itensOrcamento}
           colunasOS={colunas.filter((c) => c.board === "os").sort((a, b) => a.ordem - b.ordem)}
