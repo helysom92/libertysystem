@@ -9,8 +9,8 @@ const TIPO_LABEL: Record<ContaAPagarItem["tipo"], string> = {
 };
 
 const TIPO_HREF: Record<ContaAPagarItem["tipo"], string> = {
-  fixa: "/financeiro/despesas-fixas",
-  variavel: "/financeiro/despesas-variaveis",
+  fixa: "/financeiro/despesas",
+  variavel: "/financeiro/despesas",
   previsto: "/financeiro/lancamentos",
 };
 

@@ -2,11 +2,10 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { Fornecedor, Lancamento, LancamentoAtalho } from "@/lib/domain/types";
+import type { Fornecedor, Lancamento } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { marcarLancamentoRealizado } from "@/lib/actions/financeiro";
 import NovoLancamentoModal from "./NovoLancamentoModal";
-import AtalhosLancamento from "./AtalhosLancamento";
 
 function fmtDiaLabel(iso: string): string {
   const d = new Date(iso + "T00:00:00");
@@ -22,14 +21,11 @@ function subtotal(lancs: Lancamento[], status: "previsto" | "realizado", tipo: "
 export default function FluxoDiario({
   lancamentos,
   fornecedores,
-  atalhos,
 }: {
   lancamentos: Lancamento[];
   fornecedores: Fornecedor[];
-  atalhos: LancamentoAtalho[];
 }) {
   const router = useRouter();
-  const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<Lancamento | null>(null);
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -51,18 +47,12 @@ export default function FluxoDiario({
           {error}
         </p>
       )}
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3">
         <h3 className="font-display text-sm font-bold">Fluxo Financeiro</h3>
-        <button
-          type="button"
-          onClick={() => setOpen(true)}
-          className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg"
-        >
-          + Novo Lançamento
-        </button>
+        <p className="text-[11.5px] text-text-muted">
+          Receitas vêm das OS, despesas vêm da aba Despesas — aqui é só acompanhar e editar
+        </p>
       </div>
-
-      <AtalhosLancamento atalhos={atalhos} fornecedores={fornecedores} />
 
       <div className="flex flex-col gap-4">
         {grupos.map(([data, lancs]) => {
@@ -153,15 +143,6 @@ export default function FluxoDiario({
         )}
       </div>
 
-      {open && (
-        <NovoLancamentoModal
-          fornecedores={fornecedores}
-          onClose={() => {
-            setOpen(false);
-            router.refresh();
-          }}
-        />
-      )}
       {editing && (
         <NovoLancamentoModal
           fornecedores={fornecedores}
