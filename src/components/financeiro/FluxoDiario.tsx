@@ -2,10 +2,11 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { Fornecedor, Lancamento } from "@/lib/domain/types";
+import type { Fornecedor, Lancamento, LancamentoAtalho } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { marcarLancamentoRealizado } from "@/lib/actions/financeiro";
 import NovoLancamentoModal from "./NovoLancamentoModal";
+import AtalhosLancamento from "./AtalhosLancamento";
 
 function fmtDiaLabel(iso: string): string {
   const d = new Date(iso + "T00:00:00");
@@ -21,9 +22,11 @@ function subtotal(lancs: Lancamento[], status: "previsto" | "realizado", tipo: "
 export default function FluxoDiario({
   lancamentos,
   fornecedores,
+  atalhos,
 }: {
   lancamentos: Lancamento[];
   fornecedores: Fornecedor[];
+  atalhos: LancamentoAtalho[];
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -58,6 +61,8 @@ export default function FluxoDiario({
           + Novo Lançamento
         </button>
       </div>
+
+      <AtalhosLancamento atalhos={atalhos} fornecedores={fornecedores} />
 
       <div className="flex flex-col gap-4">
         {grupos.map(([data, lancs]) => {

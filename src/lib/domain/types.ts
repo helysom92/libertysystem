@@ -41,6 +41,16 @@ export interface Servico {
   proposta_escolhida_em: string | null;
 }
 
+export interface LancamentoAtalho {
+  id: string;
+  descricao: string;
+  categoria: string;
+  fornecedor_id: string | null;
+  forma_pagamento: string | null;
+  ordem: number;
+  ativo: boolean;
+}
+
 export type ClienteStatus = "pre_cadastro" | "regularizado" | "inativo";
 
 export interface Cliente {
