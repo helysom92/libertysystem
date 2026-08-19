@@ -140,8 +140,21 @@ export default function PagamentosTab({
     setCustomizando(true);
   }
 
+  /** Editar o valor de uma parcela na mão redistribui o resto igual entre as demais, pra
+   * soma continuar batendo com o total (ou o saldo, se estiver reconfigurando um plano que
+   * já tem parcelas pagas) sem o usuário precisar ajustar cada linha manualmente. */
   function updateCustomRow(index: number, patch: Partial<ParcelaInput>) {
-    setCustomRows((prev) => prev.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+    setCustomRows((prev) => {
+      const next = prev.map((r, i) => (i === index ? { ...r, ...patch } : r));
+      if (patch.valor_previsto == null || next.length <= 1) return next;
+
+      const totalAlvo = reconfigurando ? saldo : servico.valor;
+      const restante = Math.max(0, totalAlvo - next[index].valor_previsto);
+      const outrasQtd = next.length - 1;
+      const valorCada = Math.round((restante / outrasQtd) * 100) / 100;
+
+      return next.map((r, i) => (i === index ? r : { ...r, valor_previsto: valorCada }));
+    });
   }
 
   function removeCustomRow(index: number) {
