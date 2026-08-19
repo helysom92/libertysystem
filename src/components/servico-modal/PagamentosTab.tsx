@@ -210,11 +210,31 @@ export default function PagamentosTab({
     setEditError(null);
   }
 
+  /** Editar o valor de uma parcela já salva também redistribui o resto entre as demais
+   * pendentes (as pagas não entram na conta) — mesma lógica do editor em bloco, só que
+   * pra quando o ajuste é feito parcela por parcela, uma de cada vez. */
   async function saveEdit(parcelaId: string) {
     setSavingEdit(true);
     setEditError(null);
     try {
       await updateParcela(parcelaId, editForm);
+
+      const outrasPendentes = parcelas.filter((p) => p.id !== parcelaId && p.valor_pago == null);
+      if (outrasPendentes.length > 0) {
+        const totalPago = parcelas
+          .filter((p) => p.valor_pago != null)
+          .reduce((sum, p) => sum + (p.valor_pago ?? 0), 0);
+        const restante = Math.max(0, servico.valor - totalPago - editForm.valor_previsto);
+        const valorCada = Math.round((restante / outrasPendentes.length) * 100) / 100;
+        for (const p of outrasPendentes) {
+          await updateParcela(p.id, {
+            descricao: p.descricao,
+            valor_previsto: valorCada,
+            data_prevista: p.data_prevista,
+          });
+        }
+      }
+
       setEditingId(null);
       onChanged();
     } catch (err) {
