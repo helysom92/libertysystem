@@ -415,3 +415,27 @@ export async function lancarNovaDespesa(input: NovaDespesaRapidaInput) {
     await toggleDespesaVariavelPago(dv.id, ano, mes, true);
   }
 }
+
+/**
+ * "+ Nova Despesa" quando o usuário puxa uma despesa recorrente já cadastrada (em vez de
+ * criar uma nova) — só lança a ocorrência do mês/data escolhido. Pra fixa, o valor é o da
+ * despesa (não existe override por mês nesse schema); pra variável, atualiza o valor_real
+ * desse mês antes de marcar como paga.
+ */
+export async function lancarDespesaExistente(input: {
+  tipo: "fixa" | "variavel";
+  despesaId: string;
+  valor: number;
+  data: string;
+}) {
+  const [anoStr, mesStr] = input.data.split("-");
+  const ano = Number(anoStr);
+  const mes = Number(mesStr);
+
+  if (input.tipo === "fixa") {
+    await toggleDespesaOcorrencia(input.despesaId, ano, mes, true);
+  } else {
+    await updateDespesaVariavelValor(input.despesaId, ano, mes, input.valor);
+    await toggleDespesaVariavelPago(input.despesaId, ano, mes, true);
+  }
+}

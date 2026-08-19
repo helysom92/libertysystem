@@ -81,6 +81,8 @@ export default function DespesasClient({
       {novaOpen && (
         <NovaDespesaModal
           fornecedores={fornecedores}
+          despesasFixas={despesasFixas}
+          despesasVariaveis={despesasVariaveis}
           onClose={() => {
             setNovaOpen(false);
             router.refresh();
