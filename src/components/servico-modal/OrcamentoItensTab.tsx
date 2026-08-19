@@ -14,6 +14,7 @@ import {
 } from "@/lib/domain/orcamento";
 import { buildOrcamentoText, type OrcamentoTextItem } from "@/lib/domain/orcamentoText";
 import { updatePropostaOrcamento } from "@/lib/actions/servicos";
+import { sugerirValorComIa } from "@/lib/actions/orcamento";
 import { replaceOrcamentoItens } from "@/lib/actions/orcamentoItens";
 import { whatsappAppUrl } from "@/lib/domain/whatsapp";
 import OrcamentoItemRowEditor, {
@@ -75,6 +76,27 @@ export default function OrcamentoItensTab({
 
   const total = itens.reduce((sum, item) => sum + item.valor_final, 0);
   const prazoLabel = prazoEstimadoLabel(itens.map((i) => i.categoria_prazo));
+
+  const [iaSugestao, setIaSugestao] = useState<string | null>(null);
+  const [iaLoading, setIaLoading] = useState(false);
+  const [iaError, setIaError] = useState<string | null>(null);
+
+  async function compararComIa() {
+    setIaLoading(true);
+    setIaError(null);
+    try {
+      const texto = await sugerirValorComIa(servico.id, {
+        tipo: servico.tipo,
+        descricao: servico.descricao ?? "",
+        valorCalculado: total,
+      });
+      setIaSugestao(texto);
+    } catch (err) {
+      setIaError(err instanceof Error ? err.message : "Não foi possível gerar a sugestão agora.");
+    } finally {
+      setIaLoading(false);
+    }
+  }
 
   // Avisa o modal por cima (se ele tiver essa proteção) que tem edição não salva aqui dentro —
   // pra não deixar fechar sem querer e perder o que já foi digitado.
@@ -384,6 +406,22 @@ export default function OrcamentoItensTab({
           {prazoLabel && (
             <p className="text-[11.5px] text-text-muted">Prazo estimado de entrega: {prazoLabel}</p>
           )}
+
+          <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
+            <button
+              type="button"
+              onClick={compararComIa}
+              disabled={iaLoading}
+              className="w-fit rounded-btn border border-border-gold-strong px-3 py-1.5 text-[12.5px] text-gold disabled:opacity-40"
+            >
+              {iaLoading ? "Comparando..." : "🤖 Comparar com histórico (IA)"}
+            </button>
+            <p className="mt-1 text-[11px] text-text-muted">
+              Compara com serviços parecidos já concluídos — apoio informativo, não decide o valor.
+            </p>
+            {iaSugestao && <p className="mt-2 text-[12.5px] text-text-secondary">{iaSugestao}</p>}
+            {iaError && <p className="mt-2 text-[12px] text-danger">{iaError}</p>}
+          </div>
         </>
       )}
 
