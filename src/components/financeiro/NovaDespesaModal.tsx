@@ -6,6 +6,10 @@ import type { DespesaFixa, DespesaVariavel, Fornecedor } from "@/lib/domain/type
 import { todayISO } from "@/lib/domain/dates";
 import { lancarDespesaExistente, lancarNovaDespesa } from "@/lib/actions/financeiro";
 
+function normalizar(s: string) {
+  return s.trim().toLowerCase();
+}
+
 export default function NovaDespesaModal({
   fornecedores,
   despesasFixas,
@@ -19,7 +23,6 @@ export default function NovaDespesaModal({
 }) {
   const router = useRouter();
   const [tipo, setTipo] = useState<"fixa" | "variavel">("fixa");
-  const [existenteId, setExistenteId] = useState("");
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState("Geral");
   const [fornecedorId, setFornecedorId] = useState("");
@@ -29,7 +32,9 @@ export default function NovaDespesaModal({
   const [error, setError] = useState<string | null>(null);
 
   const opcoesExistentes = tipo === "fixa" ? despesasFixas : despesasVariaveis;
-  const existente = opcoesExistentes.find((d) => d.id === existenteId);
+  // Basta o nome digitado bater com uma despesa já cadastrada (desse mesmo tipo) — sem
+  // precisar de um seletor separado, é só digitar ou escolher da sugestão do campo.
+  const existente = opcoesExistentes.find((d) => normalizar(d.descricao) === normalizar(descricao));
 
   function limparCampos() {
     setDescricao("");
@@ -40,28 +45,23 @@ export default function NovaDespesaModal({
 
   function selecionarTipo(t: "fixa" | "variavel") {
     setTipo(t);
-    setExistenteId("");
     limparCampos();
   }
 
-  function selecionarExistente(id: string) {
-    setExistenteId(id);
-    if (!id) {
-      limparCampos();
-      return;
+  function handleDescricaoChange(value: string) {
+    setDescricao(value);
+    const match = opcoesExistentes.find((d) => normalizar(d.descricao) === normalizar(value));
+    if (match) {
+      setCategoria(match.categoria ?? "Geral");
+      setFornecedorId(match.fornecedor_id ?? "");
+      setValor(String("valor" in match ? match.valor : match.valor_provisionado));
     }
-    const d = (tipo === "fixa" ? despesasFixas : despesasVariaveis).find((x) => x.id === id);
-    if (!d) return;
-    setDescricao(d.descricao);
-    setCategoria(d.categoria ?? "Geral");
-    setFornecedorId(d.fornecedor_id ?? "");
-    setValor(String("valor" in d ? d.valor : d.valor_provisionado));
   }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (!existente && !descricao.trim()) {
-      setError("Dê um nome pra despesa, ou selecione uma já cadastrada.");
+    if (!descricao.trim()) {
+      setError("Dê um nome pra despesa.");
       return;
     }
     setSaving(true);
@@ -112,34 +112,27 @@ export default function NovaDespesaModal({
           ))}
         </div>
 
-        {opcoesExistentes.length > 0 && (
-          <>
-            <label className="mb-1 block text-xs text-text-secondary">
-              Despesa recorrente já cadastrada (opcional)
-            </label>
-            <select
-              value={existenteId}
-              onChange={(e) => selecionarExistente(e.target.value)}
-              className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
-            >
-              <option value="">— Criar nova —</option>
-              {opcoesExistentes.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.descricao}
-                </option>
-              ))}
-            </select>
-          </>
-        )}
-
-        <label className="mb-1 block text-xs text-text-secondary">Descrição</label>
+        <label className="mb-1 block text-xs text-text-secondary">
+          Descrição — digite um nome novo ou escolha uma já cadastrada
+        </label>
         <input
           value={descricao}
-          onChange={(e) => setDescricao(e.target.value)}
-          disabled={!!existente}
+          onChange={(e) => handleDescricaoChange(e.target.value)}
+          list="despesas-existentes"
           placeholder="Ex: Aluguel, Água, Combustível..."
-          className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm disabled:opacity-60"
+          className="mb-1 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
         />
+        <datalist id="despesas-existentes">
+          {opcoesExistentes.map((d) => (
+            <option key={d.id} value={d.descricao} />
+          ))}
+        </datalist>
+        {existente && (
+          <p className="mb-2 text-[11px] text-gold">
+            Já cadastrada — vai lançar a ocorrência dessa data pra ela, sem duplicar.
+          </p>
+        )}
+        <div className="mb-3" />
 
         <div className="mb-3 flex gap-3">
           <div className="flex-1">
