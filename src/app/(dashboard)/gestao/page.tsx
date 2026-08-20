@@ -9,6 +9,7 @@ import type {
   DespesaFixa,
   DespesaFixaOcorrencia,
   Evento,
+  FechamentoMensal,
   Fornecedor,
   ItemOrcamento,
   Lancamento,
@@ -38,6 +39,7 @@ export default async function GestaoPage() {
     { data: metas },
     { data: fornecedores },
     { data: comprovantes },
+    { data: fechamentos },
   ] = await Promise.all([
     supabase.from("servicos").select("*"),
     fetchAllClientes(supabase),
@@ -50,6 +52,7 @@ export default async function GestaoPage() {
     supabase.from("metas").select("*"),
     supabase.from("fornecedores").select("*"),
     supabase.from("comprovantes").select("*"),
+    supabase.from("fechamentos_mensais").select("*").order("ano", { ascending: false }).order("mes", { ascending: false }),
   ]);
 
   return (
@@ -74,6 +77,7 @@ export default async function GestaoPage() {
         metas={(metas as Meta[]) ?? []}
         fornecedores={(fornecedores as Fornecedor[]) ?? []}
         comprovantes={(comprovantes as Comprovante[]) ?? []}
+        fechamentos={(fechamentos as FechamentoMensal[]) ?? []}
       />
     </div>
   );

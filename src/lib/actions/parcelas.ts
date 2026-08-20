@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { todayISO } from "@/lib/domain/dates";
 import { revalidateServicoPaths } from "./revalidateServicos";
 import { revalidateFinanceiroPaths } from "./revalidateFinanceiro";
 
@@ -109,7 +110,7 @@ export async function criarParcelasPadrao(servicoId: string) {
   const restante = Math.round((sv.valor - metade) * 100) / 100;
 
   await criarParcelasComLancamento(servicoId, [
-    { descricao: "Sinal (50%)", valor_previsto: metade, data_prevista: null },
+    { descricao: "Sinal (50%)", valor_previsto: metade, data_prevista: todayISO() },
     { descricao: "Restante (50%)", valor_previsto: restante, data_prevista: sv.prazo },
   ]);
 }

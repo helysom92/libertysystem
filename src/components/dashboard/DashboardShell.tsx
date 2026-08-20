@@ -8,6 +8,7 @@ import type {
   DespesaFixa,
   DespesaFixaOcorrencia,
   Evento,
+  FechamentoMensal,
   Fornecedor,
   ItemOrcamento,
   Lancamento,
@@ -39,6 +40,7 @@ import CalendarioView from "./CalendarioView";
 import ClientesView from "./ClientesView";
 import MetasView from "./MetasView";
 import GargalosView from "./GargalosView";
+import ConferenciaView from "./ConferenciaView";
 import RelatoriosClient from "@/components/relatorios/RelatoriosClient";
 
 const TABS = [
@@ -52,6 +54,7 @@ const TABS = [
   { key: "goals", label: "Metas" },
   { key: "gargalos", label: "Gargalos" },
   { key: "relatorios", label: "Relatórios" },
+  { key: "conferencia", label: "Conferência" },
 ];
 
 function cap(s: string): string {
@@ -71,6 +74,7 @@ export default function DashboardShell({
   metas,
   fornecedores,
   comprovantes,
+  fechamentos,
 }: {
   hojeISO: string;
   servicos: Servico[];
@@ -84,6 +88,7 @@ export default function DashboardShell({
   metas: Meta[];
   fornecedores: Fornecedor[];
   comprovantes: Comprovante[];
+  fechamentos: FechamentoMensal[];
 }) {
   const router = useRouter();
   const hoje = useMemo(() => new Date(hojeISO + "T00:00:00"), [hojeISO]);
@@ -275,6 +280,7 @@ export default function DashboardShell({
           fornecedores={fornecedores}
         />
       )}
+      {view === "conferencia" && <ConferenciaView fechamentos={fechamentos} />}
     </div>
   );
 }

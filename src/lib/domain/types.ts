@@ -191,6 +191,17 @@ export interface LogEntry {
 
 export type LancamentoStatus = "previsto" | "realizado" | "cancelado";
 
+export interface FechamentoMensal {
+  id: string;
+  ano: number;
+  mes: number;
+  entrou: number;
+  saiu: number;
+  lucro: number;
+  fechado_em: string;
+  fechado_por: string | null;
+}
+
 export interface Lancamento {
   id: string;
   tipo: "Receita" | "Despesa";
