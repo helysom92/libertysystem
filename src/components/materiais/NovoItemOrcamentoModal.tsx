@@ -46,10 +46,7 @@ export default function NovoItemOrcamentoModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
       <form
         onSubmit={submit}
         onClick={(e) => e.stopPropagation()}

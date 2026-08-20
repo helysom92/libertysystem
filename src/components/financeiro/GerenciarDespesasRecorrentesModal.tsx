@@ -32,7 +32,7 @@ export default function GerenciarDespesasRecorrentesModal({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
       <div
         className="flex h-full w-full max-w-2xl flex-col rounded-card border border-border-gold bg-card"
         onClick={(e) => e.stopPropagation()}

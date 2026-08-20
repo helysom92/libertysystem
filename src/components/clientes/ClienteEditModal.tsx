@@ -94,10 +94,7 @@ export default function ClienteEditModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4">
       <div
         className="w-full max-w-lg rounded-card border border-border-gold bg-card p-6"
         onClick={(e) => e.stopPropagation()}
