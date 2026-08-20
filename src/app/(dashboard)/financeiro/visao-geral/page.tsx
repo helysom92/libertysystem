@@ -118,10 +118,11 @@ export default async function FinanceiroVisaoGeralPage() {
             label="Faturamento do Mês"
             value={fmtBRL(faturamentoMes)}
             hint="Valor das OS aprovadas este mês"
+            href="/financeiro/recebimentos"
           />
-          <KpiCard label="Receita Realizada" value={fmtBRL(receitaRealizada)} />
-          <KpiCard label="Despesa Realizada" value={fmtBRL(despesaRealizada)} />
-          <KpiCard label="Fluxo de Caixa" value={fmtBRL(fluxoCaixa)} gold />
+          <KpiCard label="Receita Realizada" value={fmtBRL(receitaRealizada)} href="/financeiro/lancamentos" />
+          <KpiCard label="Despesa Realizada" value={fmtBRL(despesaRealizada)} href="/financeiro/lancamentos" />
+          <KpiCard label="Fluxo de Caixa" value={fmtBRL(fluxoCaixa)} gold href="/financeiro/lancamentos" />
         </div>
       </div>
 
@@ -132,11 +133,13 @@ export default async function FinanceiroVisaoGeralPage() {
             label="Receita Prevista"
             value={fmtBRL(receitaPrevista)}
             hint="Parcelas a receber este mês"
+            href="/financeiro/lancamentos"
           />
           <KpiCard
             label="Despesa Prevista"
             value={fmtBRL(despesaPrevista)}
             hint="Contas a pagar este mês"
+            href="#contas-a-pagar"
           />
           <KpiCard
             label="Lucro Previsto"
@@ -150,22 +153,30 @@ export default async function FinanceiroVisaoGeralPage() {
       <div>
         <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">Pendências</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard label="Vencimentos Hoje" value={vencemHoje} />
-          <KpiCard label="Comprovantes Pendentes" value={comprovantesPendentes} />
+          <KpiCard label="Vencimentos Hoje" value={vencemHoje} href="#contas-a-pagar" />
+          <KpiCard
+            label="Comprovantes Pendentes"
+            value={comprovantesPendentes}
+            href="/financeiro/comprovantes"
+          />
           <KpiCard
             label="Despesas Fixas"
             value={`${despesasFixasPagas} pagas`}
             hint={`${despesasFixasEmAberto} em aberto`}
+            href="/financeiro/despesas?abrir=recorrentes&secao=fixas"
           />
           <KpiCard
             label="Despesas Variáveis"
             value={`${despesasVariaveisPagas} pagas`}
             hint={`${despesasVariaveisEmAberto} em aberto`}
+            href="/financeiro/despesas?abrir=recorrentes&secao=variaveis"
           />
         </div>
       </div>
 
-      <ContasAPagarList itens={contas} />
+      <div id="contas-a-pagar">
+        <ContasAPagarList itens={contas} />
+      </div>
     </div>
   );
 }

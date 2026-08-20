@@ -10,7 +10,12 @@ import type {
 } from "@/lib/domain/types";
 import DespesasClient from "@/components/financeiro/DespesasClient";
 
-export default async function FinanceiroDespesasPage() {
+export default async function FinanceiroDespesasPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ abrir?: string; secao?: string }>;
+}) {
+  const params = await searchParams;
   const supabase = await createClient();
   const now = new Date();
   const ano = now.getFullYear();
@@ -71,6 +76,8 @@ export default async function FinanceiroDespesasPage() {
       lancamentos={(lancamentos as Lancamento[]) ?? []}
       ano={ano}
       mes={mes}
+      abrirRecorrentes={params.abrir === "recorrentes"}
+      secaoInicial={params.secao === "variaveis" ? "variaveis" : "fixas"}
     />
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type {
   DespesaFixa,
   DespesaFixaOcorrencia,
@@ -20,6 +21,7 @@ export default function GerenciarDespesasRecorrentesModal({
   fornecedores,
   ano,
   mes,
+  secaoInicial,
   onClose,
 }: {
   despesasFixas: DespesaFixa[];
@@ -29,8 +31,20 @@ export default function GerenciarDespesasRecorrentesModal({
   fornecedores: Fornecedor[];
   ano: number;
   mes: number;
+  secaoInicial?: "fixas" | "variaveis";
   onClose: () => void;
 }) {
+  const fixasRef = useRef<HTMLDivElement>(null);
+  const variaveisRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (secaoInicial === "variaveis") {
+      variaveisRef.current?.scrollIntoView({ block: "start" });
+    } else if (secaoInicial === "fixas") {
+      fixasRef.current?.scrollIntoView({ block: "start" });
+    }
+  }, [secaoInicial]);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-8">
       <div
@@ -49,7 +63,7 @@ export default function GerenciarDespesasRecorrentesModal({
           </button>
         </div>
         <div className="flex-1 overflow-y-auto p-6">
-          <div className="mb-4">
+          <div className="mb-4" ref={fixasRef}>
             <DespesasFixasSection
               despesas={despesasFixas}
               ocorrencias={ocorrenciasFixas}
@@ -58,13 +72,15 @@ export default function GerenciarDespesasRecorrentesModal({
               mes={mes}
             />
           </div>
-          <DespesasVariaveisSection
-            despesas={despesasVariaveis}
-            ocorrencias={ocorrenciasVariaveis}
-            fornecedores={fornecedores}
-            ano={ano}
-            mes={mes}
-          />
+          <div ref={variaveisRef}>
+            <DespesasVariaveisSection
+              despesas={despesasVariaveis}
+              ocorrencias={ocorrenciasVariaveis}
+              fornecedores={fornecedores}
+              ano={ano}
+              mes={mes}
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -26,6 +26,8 @@ export default function DespesasClient({
   lancamentos,
   ano,
   mes,
+  abrirRecorrentes = false,
+  secaoInicial = "fixas",
 }: {
   despesasFixas: DespesaFixa[];
   ocorrenciasFixas: DespesaFixaOcorrencia[];
@@ -36,10 +38,12 @@ export default function DespesasClient({
   lancamentos: Lancamento[];
   ano: number;
   mes: number;
+  abrirRecorrentes?: boolean;
+  secaoInicial?: "fixas" | "variaveis";
 }) {
   const router = useRouter();
   const [novaOpen, setNovaOpen] = useState(false);
-  const [gerenciarOpen, setGerenciarOpen] = useState(false);
+  const [gerenciarOpen, setGerenciarOpen] = useState(abrirRecorrentes);
 
   return (
     <div className="flex flex-col gap-5">
@@ -98,6 +102,7 @@ export default function DespesasClient({
           fornecedores={fornecedores}
           ano={ano}
           mes={mes}
+          secaoInicial={secaoInicial}
           onClose={() => {
             setGerenciarOpen(false);
             router.refresh();
