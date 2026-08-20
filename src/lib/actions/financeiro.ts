@@ -439,3 +439,45 @@ export async function lancarDespesaExistente(input: {
     await toggleDespesaVariavelPago(input.despesaId, ano, mes, true);
   }
 }
+
+export interface DespesaParceladaInput {
+  descricao: string;
+  categoria: string;
+  fornecedor_id: string | null;
+  valorParcela: number;
+  totalParcelas: number;
+  primeiraData: string;
+  primeiraPaga: boolean;
+}
+
+/**
+ * Compra parcelada (ex: equipamento em 10x) — gera as N parcelas de uma vez, uma por mês a
+ * partir da primeira data, cada uma como um lançamento próprio (previsto, exceto a 1ª se já
+ * paga). Diferente de despesa fixa: tem fim certo, não repete pra sempre.
+ */
+export async function lancarDespesaParcelada(input: DespesaParceladaInput) {
+  const supabase = await createClient();
+  const [anoStr, mesStr, diaStr] = input.primeiraData.split("-");
+  const ano = Number(anoStr);
+  const mes = Number(mesStr);
+  const dia = Number(diaStr);
+
+  const linhas = Array.from({ length: input.totalParcelas }, (_, i) => {
+    const d = new Date(ano, mes - 1 + i, dia);
+    const dataParcela = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    return {
+      tipo: "Despesa" as const,
+      descricao: `${input.descricao} (Parcela ${i + 1}/${input.totalParcelas})`,
+      categoria: input.categoria,
+      fornecedor_id: input.fornecedor_id,
+      valor: input.valorParcela,
+      data: dataParcela,
+      status: i === 0 && input.primeiraPaga ? "realizado" : "previsto",
+    };
+  });
+
+  const { error } = await supabase.from("lancamentos").insert(linhas);
+  if (error) throw error;
+  revalidateFinanceiroPaths();
+  revalidatePath("/hoje");
+}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { DespesaFixa, DespesaFixaOcorrencia, Fornecedor } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { toggleDespesaOcorrencia } from "@/lib/actions/financeiro";
@@ -32,6 +33,7 @@ export default function DespesasFixasSection({
   ano: number;
   mes: number;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<DespesaFixa | null>(null);
   const [, startTransition] = useTransition();
@@ -91,6 +93,7 @@ export default function DespesasFixasSection({
                       startTransition(async () => {
                         try {
                           await toggleDespesaOcorrencia(d.id, ano, mes, checked);
+                          router.refresh();
                         } catch (err) {
                           console.error("Falha ao atualizar despesa fixa", err);
                           setError(err instanceof Error ? err.message : "Não foi possível atualizar essa despesa.");
@@ -109,9 +112,24 @@ export default function DespesasFixasSection({
         )}
       </div>
 
-      {open && <NovaDespesaFixaModal fornecedores={fornecedores} onClose={() => setOpen(false)} />}
+      {open && (
+        <NovaDespesaFixaModal
+          fornecedores={fornecedores}
+          onClose={() => {
+            setOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
       {editing && (
-        <NovaDespesaFixaModal fornecedores={fornecedores} editing={editing} onClose={() => setEditing(null)} />
+        <NovaDespesaFixaModal
+          fornecedores={fornecedores}
+          editing={editing}
+          onClose={() => {
+            setEditing(null);
+            router.refresh();
+          }}
+        />
       )}
     </div>
   );

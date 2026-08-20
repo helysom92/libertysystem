@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { DespesaFixa, DespesaVariavel, Fornecedor } from "@/lib/domain/types";
 import { todayISO } from "@/lib/domain/dates";
-import { lancarDespesaExistente, lancarNovaDespesa } from "@/lib/actions/financeiro";
+import { lancarDespesaExistente, lancarDespesaParcelada, lancarNovaDespesa } from "@/lib/actions/financeiro";
 
 function normalizar(s: string) {
   return s.trim().toLowerCase();
@@ -22,18 +22,21 @@ export default function NovaDespesaModal({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const [tipo, setTipo] = useState<"fixa" | "variavel">("fixa");
+  const [tipo, setTipo] = useState<"fixa" | "variavel" | "parcelada">("fixa");
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState("Geral");
   const [fornecedorId, setFornecedorId] = useState("");
   const [valor, setValor] = useState("");
   const [data, setData] = useState(todayISO());
+  const [totalParcelas, setTotalParcelas] = useState("2");
+  const [primeiraPaga, setPrimeiraPaga] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const opcoesExistentes = tipo === "fixa" ? despesasFixas : despesasVariaveis;
+  const opcoesExistentes = tipo === "fixa" ? despesasFixas : tipo === "variavel" ? despesasVariaveis : [];
   // Basta o nome digitado bater com uma despesa já cadastrada (desse mesmo tipo) — sem
   // precisar de um seletor separado, é só digitar ou escolher da sugestão do campo.
+  // Parcelada é sempre uma compra nova, sem catálogo de recorrentes.
   const existente = opcoesExistentes.find((d) => normalizar(d.descricao) === normalizar(descricao));
 
   function limparCampos() {
@@ -41,9 +44,11 @@ export default function NovaDespesaModal({
     setCategoria("Geral");
     setFornecedorId("");
     setValor("");
+    setTotalParcelas("2");
+    setPrimeiraPaga(true);
   }
 
-  function selecionarTipo(t: "fixa" | "variavel") {
+  function selecionarTipo(t: "fixa" | "variavel" | "parcelada") {
     setTipo(t);
     limparCampos();
   }
@@ -67,7 +72,17 @@ export default function NovaDespesaModal({
     setSaving(true);
     setError(null);
     try {
-      if (existente) {
+      if (tipo === "parcelada") {
+        await lancarDespesaParcelada({
+          descricao,
+          categoria,
+          fornecedor_id: fornecedorId || null,
+          valorParcela: Number(valor) || 0,
+          totalParcelas: Number(totalParcelas) || 1,
+          primeiraData: data,
+          primeiraPaga,
+        });
+      } else if (existente) {
         await lancarDespesaExistente({ tipo, despesaId: existente.id, valor: Number(valor) || 0, data });
       } else {
         await lancarNovaDespesa({
@@ -98,7 +113,7 @@ export default function NovaDespesaModal({
         <h2 className="mb-4 font-display text-lg font-bold">Nova Despesa</h2>
 
         <div className="mb-3 flex gap-2">
-          {(["fixa", "variavel"] as const).map((t) => (
+          {(["fixa", "variavel", "parcelada"] as const).map((t) => (
             <button
               key={t}
               type="button"
@@ -107,26 +122,28 @@ export default function NovaDespesaModal({
                 tipo === t ? "border-gold bg-gold/10 text-gold" : "border-border-neutral text-text-secondary"
               }`}
             >
-              {t === "fixa" ? "Fixa (repete todo mês)" : "Variável (valor muda)"}
+              {t === "fixa" ? "Fixa (repete todo mês)" : t === "variavel" ? "Variável (valor muda)" : "Parcelada (N vezes)"}
             </button>
           ))}
         </div>
 
         <label className="mb-1 block text-xs text-text-secondary">
-          Descrição — digite um nome novo ou escolha uma já cadastrada
+          {tipo === "parcelada" ? "Descrição da compra" : "Descrição — digite um nome novo ou escolha uma já cadastrada"}
         </label>
         <input
           value={descricao}
           onChange={(e) => handleDescricaoChange(e.target.value)}
-          list="despesas-existentes"
-          placeholder="Ex: Aluguel, Água, Combustível..."
+          list={tipo === "parcelada" ? undefined : "despesas-existentes"}
+          placeholder={tipo === "parcelada" ? "Ex: Parafusadeira, Compressor..." : "Ex: Aluguel, Água, Combustível..."}
           className="mb-1 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
         />
-        <datalist id="despesas-existentes">
-          {opcoesExistentes.map((d) => (
-            <option key={d.id} value={d.descricao} />
-          ))}
-        </datalist>
+        {tipo !== "parcelada" && (
+          <datalist id="despesas-existentes">
+            {opcoesExistentes.map((d) => (
+              <option key={d.id} value={d.descricao} />
+            ))}
+          </datalist>
+        )}
         {existente && (
           <p className="mb-2 text-[11px] text-gold">
             Já cadastrada — vai lançar a ocorrência dessa data pra ela, sem duplicar.
@@ -136,7 +153,9 @@ export default function NovaDespesaModal({
 
         <div className="mb-3 flex gap-3">
           <div className="flex-1">
-            <label className="mb-1 block text-xs text-text-secondary">Valor</label>
+            <label className="mb-1 block text-xs text-text-secondary">
+              {tipo === "parcelada" ? "Valor de cada parcela" : "Valor"}
+            </label>
             <input
               type="number"
               step="0.01"
@@ -146,9 +165,21 @@ export default function NovaDespesaModal({
               className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm disabled:opacity-60"
             />
           </div>
+          {tipo === "parcelada" && (
+            <div className="flex-1">
+              <label className="mb-1 block text-xs text-text-secondary">Quantas parcelas</label>
+              <input
+                type="number"
+                min={1}
+                value={totalParcelas}
+                onChange={(e) => setTotalParcelas(e.target.value)}
+                className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+              />
+            </div>
+          )}
           <div className="flex-1">
             <label className="mb-1 block text-xs text-text-secondary">
-              {tipo === "fixa" && !existente ? "Data (define o dia de vencimento)" : "Data"}
+              {tipo === "parcelada" ? "Data da 1ª parcela" : tipo === "fixa" && !existente ? "Data (define o dia de vencimento)" : "Data"}
             </label>
             <input
               type="date"
@@ -158,6 +189,12 @@ export default function NovaDespesaModal({
             />
           </div>
         </div>
+        {tipo === "parcelada" && (
+          <label className="mb-3 flex items-center gap-2 text-[12.5px]">
+            <input type="checkbox" checked={primeiraPaga} onChange={(e) => setPrimeiraPaga(e.target.checked)} />
+            Já paguei a 1ª parcela
+          </label>
+        )}
 
         <div className="mb-4 flex gap-3">
           <div className="flex-1">

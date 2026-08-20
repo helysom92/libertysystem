@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import type { DespesaVariavel, DespesaVariavelOcorrencia, Fornecedor } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { toggleDespesaVariavelPago, updateDespesaVariavelValor } from "@/lib/actions/financeiro";
@@ -19,6 +20,7 @@ function LinhaDespesaVariavel({
   mes: number;
   onEditar: () => void;
 }) {
+  const router = useRouter();
   const valorInicial = ocorrencia?.valor_real ?? despesa.valor_provisionado;
   const [valor, setValor] = useState(String(valorInicial));
   const [pending, startTransition] = useTransition();
@@ -30,6 +32,7 @@ function LinhaDespesaVariavel({
     startTransition(async () => {
       try {
         await updateDespesaVariavelValor(despesa.id, ano, mes, Number(valor) || 0);
+        router.refresh();
       } catch (err) {
         console.error("Falha ao salvar despesa variável", err);
         setError(err instanceof Error ? err.message : "Não foi possível salvar esse valor.");
@@ -42,6 +45,7 @@ function LinhaDespesaVariavel({
     startTransition(async () => {
       try {
         await toggleDespesaVariavelPago(despesa.id, ano, mes, checked);
+        router.refresh();
       } catch (err) {
         console.error("Falha ao atualizar despesa variável", err);
         setError(err instanceof Error ? err.message : "Não foi possível atualizar essa despesa.");
@@ -104,6 +108,7 @@ export default function DespesasVariaveisSection({
   ano: number;
   mes: number;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<DespesaVariavel | null>(null);
 
@@ -141,12 +146,23 @@ export default function DespesasVariaveisSection({
         )}
       </div>
 
-      {open && <NovaDespesaVariavelModal fornecedores={fornecedores} onClose={() => setOpen(false)} />}
+      {open && (
+        <NovaDespesaVariavelModal
+          fornecedores={fornecedores}
+          onClose={() => {
+            setOpen(false);
+            router.refresh();
+          }}
+        />
+      )}
       {editing && (
         <NovaDespesaVariavelModal
           fornecedores={fornecedores}
           editing={editing}
-          onClose={() => setEditing(null)}
+          onClose={() => {
+            setEditing(null);
+            router.refresh();
+          }}
         />
       )}
     </div>
