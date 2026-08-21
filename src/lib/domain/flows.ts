@@ -38,9 +38,9 @@ export const ROLE_LABELS: Record<Role, string> = {
 };
 
 export function allowedTabs(role: Role): string[] {
-  if (role === "secretaria") return ["hoje", "secretaria", "financeiro", "comercial", "producao"];
+  if (role === "secretaria") return ["hoje", "secretaria", "comercial", "financeiro", "producao"];
   if (role === "producao") return ["producao"];
-  return ["gestao", "hoje", "secretaria", "financeiro", "comercial", "producao"];
+  return ["gestao", "hoje", "secretaria", "comercial", "financeiro", "producao"];
 }
 
 /** Pra onde mandar quem tenta abrir uma tela que o papel dele não tem acesso. */

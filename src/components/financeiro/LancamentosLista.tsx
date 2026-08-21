@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { Fornecedor, Lancamento } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { marcarLancamentoRealizado } from "@/lib/actions/financeiro";
+import { normalizarBusca } from "@/lib/domain/texto";
 import NovoLancamentoModal from "./NovoLancamentoModal";
 
 function fmtDiaLabel(iso: string): string {
@@ -33,16 +34,26 @@ export default function LancamentosLista({
   const [editing, setEditing] = useState<Lancamento | null>(null);
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [busca, setBusca] = useState("");
 
   const fornecedorNome = (id: string | null) => fornecedores.find((f) => f.id === id)?.nome ?? null;
 
+  const filtrados = useMemo(() => {
+    if (!busca.trim()) return lancamentos;
+    const alvo = normalizarBusca(busca);
+    return lancamentos.filter((l) => {
+      const campos = [l.descricao, l.categoria ?? "", fornecedorNome(l.fornecedor_id) ?? ""];
+      return campos.some((c) => normalizarBusca(c).includes(alvo));
+    });
+  }, [lancamentos, busca]);
+
   const grupos = useMemo(() => {
     const map = new Map<string, Lancamento[]>();
-    for (const l of lancamentos) {
+    for (const l of filtrados) {
       map.set(l.data, [...(map.get(l.data) ?? []), l]);
     }
     return [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
-  }, [lancamentos]);
+  }, [filtrados]);
 
   return (
     <div>
@@ -51,6 +62,13 @@ export default function LancamentosLista({
           {error}
         </p>
       )}
+
+      <input
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        placeholder="Buscar por descrição, categoria ou fornecedor..."
+        className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+      />
 
       <div className="flex flex-col gap-4">
         {grupos.map(([data, lancs]) => {

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import type { Comprovante } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { confirmarComprovante, deleteComprovante, registrarComprovante } from "@/lib/actions/financeiro";
+import { normalizarBusca } from "@/lib/domain/texto";
 
 export default function ComprovantesSection({ comprovantes }: { comprovantes: Comprovante[] }) {
   const [open, setOpen] = useState(false);
@@ -11,8 +12,14 @@ export default function ComprovantesSection({ comprovantes }: { comprovantes: Co
   const [valor, setValor] = useState("");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [busca, setBusca] = useState("");
 
-  const pendentes = comprovantes.filter((c) => c.status === "pendente");
+  const pendentes = useMemo(() => {
+    const base = comprovantes.filter((c) => c.status === "pendente");
+    if (!busca.trim()) return base;
+    const alvo = normalizarBusca(busca);
+    return base.filter((c) => normalizarBusca(c.banco ?? "").includes(alvo) || normalizarBusca(c.descricao).includes(alvo));
+  }, [comprovantes, busca]);
 
   function submitNovo(e: React.FormEvent) {
     e.preventDefault();
@@ -110,8 +117,17 @@ export default function ComprovantesSection({ comprovantes }: { comprovantes: Co
         </form>
       )}
 
+      <input
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        placeholder="Buscar por banco ou descrição..."
+        className="mb-3 w-full rounded-btn border border-border-neutral bg-card px-3 py-2 text-sm"
+      />
+
       {pendentes.length === 0 ? (
-        <p className="py-4 text-center text-sm text-text-muted">Nenhum comprovante pendente.</p>
+        <p className="py-4 text-center text-sm text-text-muted">
+          {busca.trim() ? "Nenhum comprovante encontrado." : "Nenhum comprovante pendente."}
+        </p>
       ) : (
         <div className="flex flex-col gap-2">
           {pendentes.map((c) => (

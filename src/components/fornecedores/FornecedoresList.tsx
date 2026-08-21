@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { Fornecedor } from "@/lib/domain/types";
 import { updateFornecedor } from "@/lib/actions/fornecedores";
+import { normalizarBusca } from "@/lib/domain/texto";
 import NovoFornecedorModal from "./NovoFornecedorModal";
 
 export default function FornecedoresList({ fornecedores }: { fornecedores: Fornecedor[] }) {
@@ -11,6 +12,13 @@ export default function FornecedoresList({ fornecedores }: { fornecedores: Forne
   const [novoOpen, setNovoOpen] = useState(false);
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [busca, setBusca] = useState("");
+
+  const filtrados = useMemo(() => {
+    if (!busca.trim()) return fornecedores;
+    const alvo = normalizarBusca(busca);
+    return fornecedores.filter((f) => normalizarBusca(f.nome).includes(alvo) || normalizarBusca(f.categoria ?? "").includes(alvo));
+  }, [fornecedores, busca]);
 
   return (
     <div>
@@ -33,6 +41,13 @@ export default function FornecedoresList({ fornecedores }: { fornecedores: Forne
         </button>
       </div>
 
+      <input
+        value={busca}
+        onChange={(e) => setBusca(e.target.value)}
+        placeholder="Buscar por nome ou categoria..."
+        className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+      />
+
       <div className="overflow-x-auto rounded-card border border-border-neutral">
         <table className="w-full text-left text-[12.5px]">
           <thead>
@@ -45,7 +60,7 @@ export default function FornecedoresList({ fornecedores }: { fornecedores: Forne
             </tr>
           </thead>
           <tbody>
-            {fornecedores.map((f) => (
+            {filtrados.map((f) => (
               <tr key={f.id} className="border-b border-border-neutral bg-card">
                 <td className="px-3 py-2 font-semibold">{f.nome}</td>
                 <td className="px-3 py-2 text-text-secondary">{f.categoria || "—"}</td>
@@ -76,10 +91,10 @@ export default function FornecedoresList({ fornecedores }: { fornecedores: Forne
                 </td>
               </tr>
             ))}
-            {fornecedores.length === 0 && (
+            {filtrados.length === 0 && (
               <tr>
                 <td colSpan={5} className="px-3 py-6 text-center text-text-muted">
-                  Nenhum fornecedor cadastrado.
+                  {fornecedores.length === 0 ? "Nenhum fornecedor cadastrado." : "Nenhum fornecedor encontrado."}
                 </td>
               </tr>
             )}
