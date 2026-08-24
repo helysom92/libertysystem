@@ -67,6 +67,7 @@ export default async function PropostaPublicaPage({
         larguraCm: row.largura_cm,
         alturaCm: row.altura_cm,
         quantidade: row.quantidade,
+        mostrarMedidaCliente: row.mostrar_medida_cliente,
       }),
       valorUnit: unit,
       valorFinal: row.valor_final,

@@ -17,6 +17,7 @@ export interface OrcamentoItemInput {
   custoDireto: number | null;
   precoM2Manual: number | null;
   valorFinal: number;
+  mostrarMedidaCliente: boolean;
 }
 
 export async function createOrcamentoItens(servicoId: string, itens: OrcamentoItemInput[]) {
@@ -36,6 +37,7 @@ export async function createOrcamentoItens(servicoId: string, itens: OrcamentoIt
       custo_direto: item.custoDireto,
       preco_m2_manual: item.precoM2Manual,
       valor_final: item.valorFinal,
+      mostrar_medida_cliente: item.mostrarMedidaCliente,
     }))
   );
   if (error) throw error;
@@ -70,6 +72,7 @@ export async function replaceOrcamentoItens(servicoId: string, itens: OrcamentoI
         custo_direto: item.custoDireto,
         preco_m2_manual: item.precoM2Manual,
         valor_final: item.valorFinal,
+      mostrar_medida_cliente: item.mostrarMedidaCliente,
       }))
     );
     if (insErr) throw insErr;

@@ -43,6 +43,7 @@ function toItemFormState(row: OrcamentoItemRow): ItemFormState {
     ...toDraft(row),
     descricao: row.descricao,
     valorOverride: row.valor_final,
+    mostrarMedidaCliente: row.mostrar_medida_cliente,
   };
 }
 
@@ -159,6 +160,7 @@ export default function OrcamentoItensTab({
           custoDireto: item.custoDireto || null,
           precoM2Manual: item.precoM2Manual || null,
           valorFinal: valorFinalDoItem(item, itensOrcamento),
+          mostrarMedidaCliente: item.mostrarMedidaCliente,
         }))
       );
       setEditingItens(false);
@@ -187,6 +189,7 @@ export default function OrcamentoItensTab({
         unit: unitParaExibicao(row.modo_calculo, calc, row.valor_final, row.quantidade),
         minimoAplicado: calc.minimoAplicado,
         valorFinal: row.valor_final,
+        mostrarMedidaCliente: row.mostrar_medida_cliente,
       };
     });
 

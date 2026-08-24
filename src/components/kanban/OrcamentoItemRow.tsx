@@ -13,6 +13,7 @@ import { fmtBRL, type ItemOrcamento } from "@/lib/domain/types";
 export interface ItemFormState extends OrcamentoItemDraft {
   descricao: string;
   valorOverride: number | null;
+  mostrarMedidaCliente: boolean;
 }
 
 export function novoItemFormState(): ItemFormState {
@@ -25,6 +26,7 @@ export function novoItemFormState(): ItemFormState {
     quantidade: 1,
     custoDireto: 0,
     precoM2Manual: 0,
+    mostrarMedidaCliente: true,
     descricao: "",
     valorOverride: null,
   };
@@ -247,6 +249,16 @@ export default function OrcamentoItemRow({
               className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
             />
           </div>
+        )}
+        {mostrarMedidas && (
+          <label className="mt-1.5 flex items-center gap-1.5 text-[11px] text-text-secondary">
+            <input
+              type="checkbox"
+              checked={item.mostrarMedidaCliente}
+              onChange={(e) => set({ mostrarMedidaCliente: e.target.checked })}
+            />
+            Mostrar medida pro cliente no orçamento
+          </label>
         )}
       </div>
 

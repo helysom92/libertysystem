@@ -16,8 +16,21 @@ export const LIBERTY_CIDADE = "Rio Brilhante - MS, 79.130-000";
 export function formatItemDetalhe(
   modoCalculo: ModoCalculoItem,
   calc: OrcamentoItemCalculo,
-  opts: { itemNome?: string | null; larguraCm?: number | null; alturaCm?: number | null; quantidade: number }
+  opts: {
+    itemNome?: string | null;
+    larguraCm?: number | null;
+    alturaCm?: number | null;
+    quantidade: number;
+    mostrarMedidaCliente?: boolean;
+  }
 ): string {
+  // Preço por m² normalmente exige mostrar a medida exata pra justificar o cálculo — mas
+  // o usuário pode preferir esconder do cliente (evita que a medida vá parar num orçamento
+  // concorrente). Quando escondida, mostra só o que não expõe a medida.
+  if (opts.mostrarMedidaCliente === false) {
+    if (modoCalculo === "catalogo") return opts.itemNome ?? "";
+    return "";
+  }
   if (modoCalculo === "catalogo") {
     if (calc.area == null) return `${opts.itemNome ?? "-"} · Qtd: ${opts.quantidade}`;
     return `${opts.itemNome ?? "-"} · ${opts.larguraCm ?? 0}cm x ${opts.alturaCm ?? 0}cm x ${opts.quantidade}un = ${calc.area.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} m²`;
@@ -40,6 +53,7 @@ export interface OrcamentoTextItem {
   unit: number;
   minimoAplicado: boolean;
   valorFinal: number;
+  mostrarMedidaCliente: boolean;
 }
 
 export interface OrcamentoTextOptions {
@@ -70,7 +84,10 @@ export function buildOrcamentoText(itens: OrcamentoTextItem[], opts: OrcamentoTe
   itens.forEach((item, idx) => {
     lines.push(`${idx + 1}. ${item.descricao || "(sem descrição)"}`);
 
-    if (item.modoCalculo === "catalogo") {
+    if (!item.mostrarMedidaCliente) {
+      if (item.modoCalculo === "catalogo" && item.itemNome) lines.push(`   ${item.itemNome}`);
+      if (item.minimoAplicado) lines.push(`   (pedido mínimo aplicado)`);
+    } else if (item.modoCalculo === "catalogo") {
       if (item.area == null) {
         lines.push(`   ${item.itemNome ?? "-"} | Qtd: ${item.quantidade}`);
       } else {

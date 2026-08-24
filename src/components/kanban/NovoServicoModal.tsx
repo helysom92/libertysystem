@@ -138,6 +138,7 @@ export default function NovoServicoModal({
             custoDireto: item.custoDireto || null,
             precoM2Manual: item.precoM2Manual || null,
             valorFinal: valorFinalDoItem(item, itensOrcamento),
+            mostrarMedidaCliente: item.mostrarMedidaCliente,
           }))
         );
         onClose();

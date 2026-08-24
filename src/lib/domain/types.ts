@@ -111,6 +111,7 @@ export interface OrcamentoItemRow {
   custo_direto: number | null;
   preco_m2_manual: number | null;
   valor_final: number;
+  mostrar_medida_cliente: boolean;
 }
 
 /** Uma das até-3 linhas (Promocional/Custo-Benefício/Premium) de uma proposta interativa. */
