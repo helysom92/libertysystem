@@ -57,6 +57,72 @@ export async function createServico(input: NovoServicoInput) {
   return data.id as string;
 }
 
+/** Cria um orçamento novo a partir de um já existente — mesmo cliente, descrição, proposta
+ * e todos os itens copiados, pra não digitar tudo de novo num pedido parecido. */
+export async function duplicarOrcamento(servicoId: string): Promise<string> {
+  const supabase = await createClient();
+
+  const { data: original, error: svErr } = await supabase
+    .from("servicos")
+    .select(
+      "cliente_id, cliente, descricao, valor, tipo, linha_orcamento, validade_proposta_dias, forma_pagamento_texto, durabilidade_texto, local_instalacao"
+    )
+    .eq("id", servicoId)
+    .single();
+  if (svErr || !original) throw svErr ?? new Error("Orçamento não encontrado.");
+
+  const { data: itens, error: itensErr } = await supabase
+    .from("orcamento_itens")
+    .select("*")
+    .eq("servico_id", servicoId)
+    .order("ordem");
+  if (itensErr) throw itensErr;
+
+  const { data: novo, error: insErr } = await supabase
+    .from("servicos")
+    .insert({
+      cliente_id: original.cliente_id,
+      cliente: original.cliente,
+      descricao: original.descricao,
+      valor: original.valor,
+      financeiro_status: original.valor > 0 ? "Orçado" : "Não orçado",
+      tipo: original.tipo,
+      linha_orcamento: original.linha_orcamento,
+      validade_proposta_dias: original.validade_proposta_dias,
+      forma_pagamento_texto: original.forma_pagamento_texto,
+      durabilidade_texto: original.durabilidade_texto,
+      local_instalacao: original.local_instalacao,
+    })
+    .select("id")
+    .single();
+  if (insErr) throw insErr;
+
+  if (itens && itens.length > 0) {
+    const { error: itensInsErr } = await supabase.from("orcamento_itens").insert(
+      itens.map((item) => ({
+        servico_id: novo.id,
+        ordem: item.ordem,
+        descricao: item.descricao,
+        categoria_prazo: item.categoria_prazo,
+        modo_calculo: item.modo_calculo,
+        item_orcamento_id: item.item_orcamento_id,
+        largura_cm: item.largura_cm,
+        altura_cm: item.altura_cm,
+        quantidade: item.quantidade,
+        custo_direto: item.custo_direto,
+        preco_m2_manual: item.preco_m2_manual,
+        valor_final: item.valor_final,
+        mostrar_medida_cliente: item.mostrar_medida_cliente,
+      }))
+    );
+    if (itensInsErr) throw itensInsErr;
+  }
+
+  revalidateServicoPaths();
+  revalidatePath("/hoje");
+  return novo.id as string;
+}
+
 export async function updateServicoOrcamento(
   servicoId: string,
   fields: Partial<{ tipo: ServicoTipo; descricao: string; prazo: string | null }>

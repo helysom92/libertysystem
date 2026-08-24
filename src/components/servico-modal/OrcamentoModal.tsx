@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { fetchServicoDetail } from "@/lib/supabase/fetchServicoDetail";
 import type { ItemOrcamento, ServicoDetail } from "@/lib/domain/types";
 import { TIPO_LABELS, type ServicoTipo } from "@/lib/domain/flows";
-import { updateServicoOrcamento, deleteServico } from "@/lib/actions/servicos";
+import { updateServicoOrcamento, deleteServico, duplicarOrcamento } from "@/lib/actions/servicos";
 import { aprovarOrcamento } from "@/lib/actions/kanban";
 import ClienteTab from "./ClienteTab";
 import OrcamentoItensTab from "./OrcamentoItensTab";
@@ -41,6 +41,9 @@ export default function OrcamentoModal({
 
   const [aprovando, setAprovando] = useState(false);
   const [aprovarError, setAprovarError] = useState<string | null>(null);
+
+  const [duplicando, setDuplicando] = useState(false);
+  const [duplicarError, setDuplicarError] = useState<string | null>(null);
 
   const [itensDirty, setItensDirty] = useState(false);
   const hasUnsaved = basicoDirty || itensDirty;
@@ -104,6 +107,21 @@ export default function OrcamentoModal({
       setAprovarError(err instanceof Error ? err.message : "Não foi possível aprovar.");
     } finally {
       setAprovando(false);
+    }
+  }
+
+  async function handleDuplicar() {
+    setDuplicando(true);
+    setDuplicarError(null);
+    try {
+      await duplicarOrcamento(servicoId);
+      onClose();
+      router.refresh();
+    } catch (err) {
+      console.error("Falha ao duplicar orçamento", err);
+      setDuplicarError(err instanceof Error ? err.message : "Não foi possível duplicar esse orçamento.");
+    } finally {
+      setDuplicando(false);
     }
   }
 
@@ -238,6 +256,7 @@ export default function OrcamentoModal({
             </div>
 
             {aprovarError && <p className="mb-2 text-[12.5px] text-danger">{aprovarError}</p>}
+            {duplicarError && <p className="mb-2 text-[12.5px] text-danger">{duplicarError}</p>}
 
             <div className="flex items-center gap-2 border-t border-border-neutral pt-4">
               <button
@@ -247,6 +266,15 @@ export default function OrcamentoModal({
                 className="flex-1 rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark py-2.5 text-sm font-semibold text-bg disabled:opacity-40"
               >
                 {aprovando ? "Aprovando..." : "Aprovar Orçamento → Gerar OS"}
+              </button>
+              <button
+                type="button"
+                disabled={duplicando}
+                onClick={handleDuplicar}
+                title="Cria um orçamento novo com o mesmo cliente, proposta e itens"
+                className="rounded-btn border border-border-gold-strong px-3 py-2.5 text-[12.5px] text-gold disabled:opacity-40"
+              >
+                {duplicando ? "Duplicando..." : "⧉ Duplicar"}
               </button>
               <button
                 type="button"
