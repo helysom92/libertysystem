@@ -37,7 +37,7 @@ export async function createOrcamentoItens(servicoId: string, itens: OrcamentoIt
       custo_direto: item.custoDireto,
       preco_m2_manual: item.precoM2Manual,
       valor_final: item.valorFinal,
-      mostrar_medida_cliente: item.mostrarMedidaCliente,
+      mostrar_medida_cliente: item.mostrarMedidaCliente ?? true,
     }))
   );
   if (error) throw error;
@@ -72,7 +72,7 @@ export async function replaceOrcamentoItens(servicoId: string, itens: OrcamentoI
         custo_direto: item.custoDireto,
         preco_m2_manual: item.precoM2Manual,
         valor_final: item.valorFinal,
-      mostrar_medida_cliente: item.mostrarMedidaCliente,
+        mostrar_medida_cliente: item.mostrarMedidaCliente ?? true,
       }))
     );
     if (insErr) throw insErr;
