@@ -28,6 +28,18 @@ const ABAS = [
 ] as const;
 type Aba = (typeof ABAS)[number]["id"];
 
+const STATUS_FILTRO: { id: FinanceiroStatus | "todos"; label: string }[] = [
+  { id: "todos", label: "Todos os status" },
+  { id: "Pago", label: "Pago" },
+  { id: "Parcialmente pago", label: "Parcialmente pago" },
+  { id: "Orçado", label: "Orçado (a receber)" },
+  { id: "Aguardando sinal", label: "Aguardando sinal" },
+  { id: "Vencido", label: "Vencido" },
+  { id: "Cortesia", label: "Cortesia" },
+  { id: "Cancelado", label: "Cancelado" },
+  { id: "Não orçado", label: "Não orçado" },
+];
+
 export default function RecebimentosClient({
   servicos,
   role,
@@ -37,6 +49,9 @@ export default function RecebimentosClient({
 }) {
   const [aba, setAba] = useState<Aba>("abertas");
   const [busca, setBusca] = useState("");
+  const [statusFiltro, setStatusFiltro] = useState<FinanceiroStatus | "todos">("todos");
+  const [dataDe, setDataDe] = useState("");
+  const [dataAte, setDataAte] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
 
   const filtered = useMemo(() => {
@@ -44,6 +59,10 @@ export default function RecebimentosClient({
       const saldo = s.valor - s.valor_pago;
       if (aba === "abertas" && saldo <= 0) return false;
       if (aba === "fechadas" && saldo > 0) return false;
+      if (statusFiltro !== "todos" && s.financeiro_status !== statusFiltro) return false;
+      const dataCriacao = s.criado_em.slice(0, 10);
+      if (dataDe && dataCriacao < dataDe) return false;
+      if (dataAte && dataCriacao > dataAte) return false;
       if (busca) {
         const termo = normalizarBusca(busca);
         const bate =
@@ -53,7 +72,7 @@ export default function RecebimentosClient({
       }
       return true;
     });
-  }, [servicos, aba, busca]);
+  }, [servicos, aba, statusFiltro, dataDe, dataAte, busca]);
 
   return (
     <div>
@@ -72,7 +91,7 @@ export default function RecebimentosClient({
         />
       </div>
 
-      <div className="mb-4 flex gap-1">
+      <div className="mb-3 flex flex-wrap items-center gap-1">
         {ABAS.map((a) => (
           <button
             key={a.id}
@@ -85,6 +104,49 @@ export default function RecebimentosClient({
             {a.label}
           </button>
         ))}
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <select
+          value={statusFiltro}
+          onChange={(e) => setStatusFiltro(e.target.value as FinanceiroStatus | "todos")}
+          className="rounded-btn border border-border-neutral bg-card-secondary px-3 py-1.5 text-[12.5px]"
+        >
+          {STATUS_FILTRO.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.label}
+            </option>
+          ))}
+        </select>
+        <div className="flex items-center gap-1.5 text-[12px] text-text-secondary">
+          <span>Criado de</span>
+          <input
+            type="date"
+            value={dataDe}
+            onChange={(e) => setDataDe(e.target.value)}
+            className="rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-[12.5px]"
+          />
+          <span>até</span>
+          <input
+            type="date"
+            value={dataAte}
+            onChange={(e) => setDataAte(e.target.value)}
+            className="rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-[12.5px]"
+          />
+        </div>
+        {(statusFiltro !== "todos" || dataDe || dataAte) && (
+          <button
+            type="button"
+            onClick={() => {
+              setStatusFiltro("todos");
+              setDataDe("");
+              setDataAte("");
+            }}
+            className="text-[11.5px] text-text-muted hover:text-text hover:underline"
+          >
+            Limpar filtros
+          </button>
+        )}
       </div>
 
       <div className="overflow-x-auto rounded-card border border-border-neutral">

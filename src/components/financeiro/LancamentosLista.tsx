@@ -47,6 +47,8 @@ export default function LancamentosLista({
   const [modo, setModo] = useState<"mensal" | "geral">("mensal");
   const [ano, setAno] = useState(hoje.getFullYear());
   const [mes, setMes] = useState(hoje.getMonth() + 1);
+  const [dataDe, setDataDe] = useState("");
+  const [dataAte, setDataAte] = useState("");
 
   const fornecedorNome = (id: string | null) => fornecedores.find((f) => f.id === id)?.nome ?? null;
 
@@ -57,12 +59,18 @@ export default function LancamentosLista({
   }
 
   const doMes = useMemo(() => {
-    if (modo === "geral") return lancamentos;
-    return lancamentos.filter((l) => {
-      const [y, m] = l.data.split("-").map(Number);
-      return y === ano && m === mes;
-    });
-  }, [lancamentos, modo, ano, mes]);
+    let base = lancamentos;
+    if (modo === "mensal") {
+      base = base.filter((l) => {
+        const [y, m] = l.data.split("-").map(Number);
+        return y === ano && m === mes;
+      });
+    } else {
+      if (dataDe) base = base.filter((l) => l.data >= dataDe);
+      if (dataAte) base = base.filter((l) => l.data <= dataAte);
+    }
+    return base;
+  }, [lancamentos, modo, ano, mes, dataDe, dataAte]);
 
   const filtrados = useMemo(() => {
     if (!busca.trim()) return doMes;
@@ -121,6 +129,36 @@ export default function LancamentosLista({
             >
               ▶
             </button>
+          </div>
+        )}
+        {modo === "geral" && (
+          <div className="flex items-center gap-1.5 text-[12px] text-text-secondary">
+            <span>De</span>
+            <input
+              type="date"
+              value={dataDe}
+              onChange={(e) => setDataDe(e.target.value)}
+              className="rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-[12.5px]"
+            />
+            <span>até</span>
+            <input
+              type="date"
+              value={dataAte}
+              onChange={(e) => setDataAte(e.target.value)}
+              className="rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-[12.5px]"
+            />
+            {(dataDe || dataAte) && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDataDe("");
+                  setDataAte("");
+                }}
+                className="text-[11.5px] text-text-muted hover:text-text hover:underline"
+              >
+                Limpar
+              </button>
+            )}
           </div>
         )}
       </div>
