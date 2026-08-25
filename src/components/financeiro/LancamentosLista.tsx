@@ -13,6 +13,14 @@ function fmtDiaLabel(iso: string): string {
   return d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" });
 }
 
+function capitalizar(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+function fmtMesAno(ano: number, mes: number): string {
+  return capitalizar(new Date(ano, mes - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" }));
+}
+
 function subtotal(lancs: Lancamento[], status: "previsto" | "realizado", tipo: "Receita" | "Despesa") {
   return lancs
     .filter((l) => l.status === status && l.tipo === tipo)
@@ -35,17 +43,35 @@ export default function LancamentosLista({
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
+  const hoje = useMemo(() => new Date(), []);
+  const [modo, setModo] = useState<"mensal" | "geral">("mensal");
+  const [ano, setAno] = useState(hoje.getFullYear());
+  const [mes, setMes] = useState(hoje.getMonth() + 1);
 
   const fornecedorNome = (id: string | null) => fornecedores.find((f) => f.id === id)?.nome ?? null;
 
-  const filtrados = useMemo(() => {
-    if (!busca.trim()) return lancamentos;
-    const alvo = normalizarBusca(busca);
+  function mudarMes(delta: number) {
+    const d = new Date(ano, mes - 1 + delta, 1);
+    setAno(d.getFullYear());
+    setMes(d.getMonth() + 1);
+  }
+
+  const doMes = useMemo(() => {
+    if (modo === "geral") return lancamentos;
     return lancamentos.filter((l) => {
+      const [y, m] = l.data.split("-").map(Number);
+      return y === ano && m === mes;
+    });
+  }, [lancamentos, modo, ano, mes]);
+
+  const filtrados = useMemo(() => {
+    if (!busca.trim()) return doMes;
+    const alvo = normalizarBusca(busca);
+    return doMes.filter((l) => {
       const campos = [l.descricao, l.categoria ?? "", fornecedorNome(l.fornecedor_id) ?? ""];
       return campos.some((c) => normalizarBusca(c).includes(alvo));
     });
-  }, [lancamentos, busca]);
+  }, [doMes, busca]);
 
   const grupos = useMemo(() => {
     const map = new Map<string, Lancamento[]>();
@@ -62,6 +88,42 @@ export default function LancamentosLista({
           {error}
         </p>
       )}
+
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex gap-1">
+          {(["mensal", "geral"] as const).map((m) => (
+            <button
+              key={m}
+              type="button"
+              onClick={() => setModo(m)}
+              className={`rounded-btn border px-3 py-1.5 text-[12px] ${
+                modo === m ? "border-gold bg-gold/10 text-gold" : "border-border-neutral text-text-secondary"
+              }`}
+            >
+              {m === "mensal" ? "Mês a mês" : "Geral"}
+            </button>
+          ))}
+        </div>
+        {modo === "mensal" && (
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => mudarMes(-1)}
+              className="rounded-btn border border-border-neutral px-2 py-1 text-[12px] text-text-secondary hover:text-text"
+            >
+              ◀
+            </button>
+            <span className="min-w-[130px] text-center text-[12.5px] font-semibold">{fmtMesAno(ano, mes)}</span>
+            <button
+              type="button"
+              onClick={() => mudarMes(1)}
+              className="rounded-btn border border-border-neutral px-2 py-1 text-[12px] text-text-secondary hover:text-text"
+            >
+              ▶
+            </button>
+          </div>
+        )}
+      </div>
 
       <input
         value={busca}
@@ -154,7 +216,11 @@ export default function LancamentosLista({
             </div>
           );
         })}
-        {grupos.length === 0 && <p className="py-4 text-center text-sm text-text-muted">{vazioLabel}</p>}
+        {grupos.length === 0 && (
+          <p className="py-4 text-center text-sm text-text-muted">
+            {lancamentos.length > 0 ? "Nada encontrado nesse filtro." : vazioLabel}
+          </p>
+        )}
       </div>
 
       {editing && (
