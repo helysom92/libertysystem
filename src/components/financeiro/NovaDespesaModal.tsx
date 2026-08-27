@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { DespesaFixa, DespesaVariavel, Fornecedor } from "@/lib/domain/types";
+import type { DespesaFixa, DespesaVariavel, Fornecedor, ServicoParaVinculo } from "@/lib/domain/types";
 import { todayISO } from "@/lib/domain/dates";
 import { lancarDespesaExistente, lancarDespesaParcelada, lancarNovaDespesa } from "@/lib/actions/financeiro";
 
@@ -10,15 +10,32 @@ function normalizar(s: string) {
   return s.trim().toLowerCase();
 }
 
+const CATEGORIAS_CUSTO_DIRETO = [
+  "Impressão terceirizada",
+  "Lona e adesivo",
+  "PVC, ACM, metalon e acrílico",
+  "Frete do material",
+  "Instalação terceirizada",
+  "Comissão sobre a venda",
+  "Taxa da maquininha",
+  "Impostos sobre faturamento",
+];
+
+function servicoLabel(s: ServicoParaVinculo) {
+  return `${s.numero} — ${s.cliente} — ${s.descricao}`;
+}
+
 export default function NovaDespesaModal({
   fornecedores,
   despesasFixas,
   despesasVariaveis,
+  servicos,
   onClose,
 }: {
   fornecedores: Fornecedor[];
   despesasFixas: DespesaFixa[];
   despesasVariaveis: DespesaVariavel[];
+  servicos: ServicoParaVinculo[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -30,8 +47,11 @@ export default function NovaDespesaModal({
   const [data, setData] = useState(todayISO());
   const [totalParcelas, setTotalParcelas] = useState("2");
   const [primeiraPaga, setPrimeiraPaga] = useState(true);
+  const [servicoTexto, setServicoTexto] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const servicoVinculado = servicos.find((s) => servicoLabel(s) === servicoTexto) ?? null;
 
   const opcoesExistentes = tipo === "fixa" ? despesasFixas : tipo === "variavel" ? despesasVariaveis : [];
   // Basta o nome digitado bater com uma despesa já cadastrada (desse mesmo tipo) — sem
@@ -46,6 +66,7 @@ export default function NovaDespesaModal({
     setValor("");
     setTotalParcelas("2");
     setPrimeiraPaga(true);
+    setServicoTexto("");
   }
 
   function selecionarTipo(t: "fixa" | "variavel" | "parcelada") {
@@ -81,6 +102,7 @@ export default function NovaDespesaModal({
           totalParcelas: Number(totalParcelas) || 1,
           primeiraData: data,
           primeiraPaga,
+          servico_id: servicoVinculado?.id ?? null,
         });
       } else if (existente) {
         await lancarDespesaExistente({ tipo, despesaId: existente.id, valor: Number(valor) || 0, data });
@@ -196,6 +218,27 @@ export default function NovaDespesaModal({
           </label>
         )}
 
+        {tipo === "parcelada" && (
+          <div className="mb-3">
+            <label className="mb-1 block text-xs text-text-secondary">Vincular a uma Ordem de Serviço (opcional)</label>
+            <input
+              value={servicoTexto}
+              onChange={(e) => setServicoTexto(e.target.value)}
+              list="servicos-vinculo"
+              placeholder="Digite o número, cliente ou descrição da OS..."
+              className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+            />
+            <datalist id="servicos-vinculo">
+              {servicos.map((s) => (
+                <option key={s.id} value={servicoLabel(s)} />
+              ))}
+            </datalist>
+            <p className="mt-1 text-[11px] text-text-muted">
+              Use aqui pra custos de um serviço específico — lona, terceirização, frete, instalação, comissão, etc.
+            </p>
+          </div>
+        )}
+
         <div className="mb-4 flex gap-3">
           <div className="flex-1">
             <label className="mb-1 block text-xs text-text-secondary">Categoria</label>
@@ -203,8 +246,16 @@ export default function NovaDespesaModal({
               value={categoria}
               onChange={(e) => setCategoria(e.target.value)}
               disabled={!!existente}
+              list={tipo === "parcelada" ? "categorias-custo-direto" : undefined}
               className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm disabled:opacity-60"
             />
+            {tipo === "parcelada" && (
+              <datalist id="categorias-custo-direto">
+                {CATEGORIAS_CUSTO_DIRETO.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            )}
           </div>
           <div className="flex-1">
             <label className="mb-1 block text-xs text-text-secondary">Fornecedor</label>

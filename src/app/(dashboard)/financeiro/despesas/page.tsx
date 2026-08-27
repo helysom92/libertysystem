@@ -7,6 +7,7 @@ import type {
   Fornecedor,
   Lancamento,
   LancamentoAtalho,
+  ServicoParaVinculo,
 } from "@/lib/domain/types";
 import DespesasClient from "@/components/financeiro/DespesasClient";
 
@@ -27,12 +28,18 @@ export default async function FinanceiroDespesasPage({
     { data: fornecedores },
     { data: atalhos },
     { data: lancamentos },
+    { data: servicosRaw },
   ] = await Promise.all([
     supabase.from("despesas_fixas").select("*").eq("ativo", true).order("dia_vencimento"),
     supabase.from("despesas_variaveis").select("*").eq("ativo", true).order("descricao"),
     supabase.from("fornecedores").select("*").eq("ativo", true).order("nome"),
     supabase.from("lancamento_atalhos").select("*").eq("ativo", true).order("ordem"),
     supabase.from("lancamentos").select("*").eq("tipo", "Despesa").order("data", { ascending: false }),
+    supabase
+      .from("servicos")
+      .select("id, numero, cliente, descricao")
+      .not("numero", "is", null)
+      .order("criado_em", { ascending: false }),
   ]);
 
   const despesasFixas = (despesasFixasRaw as DespesaFixa[]) ?? [];
@@ -74,6 +81,7 @@ export default async function FinanceiroDespesasPage({
       fornecedores={(fornecedores as Fornecedor[]) ?? []}
       atalhos={(atalhos as LancamentoAtalho[]) ?? []}
       lancamentos={(lancamentos as Lancamento[]) ?? []}
+      servicos={(servicosRaw as ServicoParaVinculo[]) ?? []}
       ano={ano}
       mes={mes}
       abrirRecorrentes={params.abrir === "recorrentes"}

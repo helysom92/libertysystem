@@ -10,6 +10,7 @@ import type {
   Fornecedor,
   Lancamento,
   LancamentoAtalho,
+  ServicoParaVinculo,
 } from "@/lib/domain/types";
 import AtalhosLancamento from "./AtalhosLancamento";
 import LancamentosLista from "./LancamentosLista";
@@ -24,6 +25,7 @@ export default function DespesasClient({
   fornecedores,
   atalhos,
   lancamentos,
+  servicos,
   ano,
   mes,
   abrirRecorrentes = false,
@@ -36,6 +38,7 @@ export default function DespesasClient({
   fornecedores: Fornecedor[];
   atalhos: LancamentoAtalho[];
   lancamentos: Lancamento[];
+  servicos: ServicoParaVinculo[];
   ano: number;
   mes: number;
   abrirRecorrentes?: boolean;
@@ -87,6 +90,7 @@ export default function DespesasClient({
           fornecedores={fornecedores}
           despesasFixas={despesasFixas}
           despesasVariaveis={despesasVariaveis}
+          servicos={servicos}
           onClose={() => {
             setNovaOpen(false);
             router.refresh();

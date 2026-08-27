@@ -41,6 +41,14 @@ export interface Servico {
   proposta_escolhida_em: string | null;
 }
 
+/** Só o necessário pra vincular uma despesa avulsa a uma OS já numerada (Nova Despesa). */
+export interface ServicoParaVinculo {
+  id: string;
+  numero: string;
+  cliente: string;
+  descricao: string;
+}
+
 export interface LancamentoAtalho {
   id: string;
   descricao: string;

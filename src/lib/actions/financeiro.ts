@@ -448,6 +448,7 @@ export interface DespesaParceladaInput {
   totalParcelas: number;
   primeiraData: string;
   primeiraPaga: boolean;
+  servico_id: string | null;
 }
 
 /**
@@ -470,6 +471,7 @@ export async function lancarDespesaParcelada(input: DespesaParceladaInput) {
       descricao: `${input.descricao} (Parcela ${i + 1}/${input.totalParcelas})`,
       categoria: input.categoria,
       fornecedor_id: input.fornecedor_id,
+      servico_id: input.servico_id,
       valor: input.valorParcela,
       data: dataParcela,
       status: i === 0 && input.primeiraPaga ? "realizado" : "previsto",
