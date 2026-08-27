@@ -134,6 +134,15 @@ export default function DashboardShell({
     () => servicos.filter((s) => s.criado_em.slice(0, 7) === mesAtual.key).length,
     [servicos, mesAtual]
   );
+  // Faturamento = valor das OS aprovadas no mês, independente de já ter sido pago — diferente
+  // da Receita (que só soma o que já foi realmente recebido) já mostrada nos KPIs em anel.
+  const faturamentoMes = useMemo(
+    () =>
+      servicos
+        .filter((s) => s.numero != null && s.aprovado_em && s.aprovado_em.slice(0, 7) === mesAtual.key)
+        .reduce((sum, s) => sum + s.valor, 0),
+    [servicos, mesAtual]
+  );
   const mesAtualRefDate = useMemo(() => new Date(mesAtual.year, mesAtual.month, 1), [mesAtual]);
   const porTipo = useMemo(() => vendasPorTipo(servicos, mesAtualRefDate), [servicos, mesAtualRefDate]);
   const topItens = useMemo(() => topItensCatalogo(orcamentoItens, itensOrcamento), [orcamentoItens, itensOrcamento]);
@@ -211,6 +220,7 @@ export default function DashboardShell({
       {view === "overview" && (
         <VisaoGeralView
           kpis={kpis}
+          faturamentoMes={faturamentoMes}
           monthly6={monthly.slice(-6)}
           monthly12={monthly.slice(-12)}
           upcoming={upcoming}

@@ -72,6 +72,7 @@ function MtdRow({
 
 export default function VisaoGeralView({
   kpis,
+  faturamentoMes,
   monthly6,
   monthly12,
   upcoming,
@@ -84,6 +85,7 @@ export default function VisaoGeralView({
   mtd,
 }: {
   kpis: KpisVisaoGeral;
+  faturamentoMes: number;
   monthly6: MonthPoint[];
   monthly12: MonthPoint[];
   upcoming: ProximoItem[];
@@ -98,6 +100,12 @@ export default function VisaoGeralView({
   return (
     <div>
       <MonthNavBar label={monthLabel} onPrev={onPrevMonth} onNext={onNextMonth} disableNext={disableNext} isCurrent={isMesAtual} />
+
+      <div className="mb-4 rounded-card border border-border-neutral bg-card-secondary p-4">
+        <p className="text-[12px] font-semibold text-text-secondary">Faturamento do Mês</p>
+        <p className="mt-0.5 font-display text-[22px] font-bold text-gradient-gold">{fmtBRL(faturamentoMes)}</p>
+        <p className="mt-0.5 text-[11.5px] text-text-muted">Valor das OS aprovadas nesse mês, pago ou não</p>
+      </div>
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard {...kpis.receita} />

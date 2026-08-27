@@ -1,8 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import KpiCard from "@/components/hoje/KpiCard";
 import ContasAPagarList from "@/components/financeiro/ContasAPagarList";
-import { fmtBRL } from "@/lib/domain/types";
-import { contasAPagar } from "@/lib/domain/dashboardMetrics";
+import DespesasAtrasadasList from "@/components/financeiro/DespesasAtrasadasList";
+import { contasAPagar, despesasAtrasadas } from "@/lib/domain/dashboardMetrics";
 import { todayISO } from "@/lib/domain/dates";
 import type {
   Comprovante,
@@ -12,11 +12,6 @@ import type {
   DespesaVariavelOcorrencia,
   Lancamento,
 } from "@/lib/domain/types";
-
-function noMes(dataISO: string, ano: number, mes: number) {
-  const [y, m] = dataISO.split("-").map(Number);
-  return y === ano && m === mes;
-}
 
 export default async function FinanceiroVisaoGeralPage() {
   const supabase = await createClient();
@@ -29,66 +24,33 @@ export default async function FinanceiroVisaoGeralPage() {
     { data: lancamentos },
     { data: comprovantes },
     { data: despesas },
-    { data: ocorrencias },
+    { data: todasOcorrencias },
     { data: despesasVar },
-    { data: ocorrenciasVar },
-    { data: osAprovadas },
+    { data: todasOcorrenciasVar },
   ] = await Promise.all([
     supabase.from("lancamentos").select("id, tipo, valor, status, data, descricao"),
     supabase.from("comprovantes").select("status"),
     supabase.from("despesas_fixas").select("*").eq("ativo", true),
-    supabase.from("despesas_fixas_ocorrencias").select("*").eq("ano", ano).eq("mes", mes),
+    supabase.from("despesas_fixas_ocorrencias").select("*").eq("pago", false),
     supabase.from("despesas_variaveis").select("*").eq("ativo", true),
-    supabase.from("despesas_variaveis_ocorrencias").select("*").eq("ano", ano).eq("mes", mes),
-    supabase.from("servicos").select("valor, aprovado_em").not("numero", "is", null),
+    supabase.from("despesas_variaveis_ocorrencias").select("*").eq("pago", false),
   ]);
 
-  // Faturamento do mês = valor total das OS aprovadas (orçamento virou OS) dentro do mês
-  // atual — independente de já ter sido pago ou não, é "o que foi vendido/fechado" no mês.
-  const faturamentoMes = ((osAprovadas as { valor: number; aprovado_em: string | null }[]) ?? [])
-    .filter((s) => s.aprovado_em && noMes(s.aprovado_em.slice(0, 10), ano, mes))
-    .reduce((a, s) => a + s.valor, 0);
-
   const lancs = (lancamentos as Lancamento[]) ?? [];
-  const lancsDoMes = lancs.filter((l) => noMes(l.data, ano, mes));
-
-  // Realizado (mês) — dinheiro que já entrou/saiu de fato este mês.
-  const realizadosMes = lancsDoMes.filter((l) => l.status === "realizado");
-  const receitaRealizada = realizadosMes.filter((l) => l.tipo === "Receita").reduce((a, l) => a + l.valor, 0);
-  const despesaRealizada = realizadosMes.filter((l) => l.tipo === "Despesa").reduce((a, l) => a + l.valor, 0);
-  const fluxoCaixa = receitaRealizada - despesaRealizada;
-
-  // Previsto (mês) — parcelas a receber e despesas a pagar que ainda vão vencer este mês.
-  const previstosMes = lancsDoMes.filter((l) => l.status === "previsto");
-  const receitaPrevista = previstosMes.filter((l) => l.tipo === "Receita").reduce((a, l) => a + l.valor, 0);
-  const despesaPrevistaLancamentos = previstosMes.filter((l) => l.tipo === "Despesa").reduce((a, l) => a + l.valor, 0);
 
   const despesasFixas = (despesas as DespesaFixa[]) ?? [];
-  const ocorrenciasList = (ocorrencias as DespesaFixaOcorrencia[]) ?? [];
-  const pagas = new Set(ocorrenciasList.filter((o) => o.pago).map((o) => o.despesa_fixa_id));
-  const despesasFixasPagas = despesasFixas.filter((d) => pagas.has(d.id)).length;
-  const despesasFixasEmAberto = despesasFixas.filter((d) => !pagas.has(d.id)).length;
-  const despesasFixasEmAbertoValor = despesasFixas
-    .filter((d) => !pagas.has(d.id))
-    .reduce((a, d) => a + d.valor, 0);
+  const ocorrenciasNaoPagas = (todasOcorrencias as DespesaFixaOcorrencia[]) ?? [];
+  const ocorrenciasList = ocorrenciasNaoPagas.filter((o) => o.ano === ano && o.mes === mes);
+  const despesasFixasEmAberto = despesasFixas.filter((d) => ocorrenciasList.some((o) => o.despesa_fixa_id === d.id)).length;
+  const despesasFixasPagas = despesasFixas.length - despesasFixasEmAberto;
 
   const despesasVariaveis = (despesasVar as DespesaVariavel[]) ?? [];
-  const ocorrenciasVarList = (ocorrenciasVar as DespesaVariavelOcorrencia[]) ?? [];
-  const pagasVar = new Set(ocorrenciasVarList.filter((o) => o.pago).map((o) => o.despesa_variavel_id));
-  const despesasVariaveisPagas = despesasVariaveis.filter((d) => pagasVar.has(d.id)).length;
-  const despesasVariaveisEmAberto = despesasVariaveis.filter((d) => !pagasVar.has(d.id)).length;
-  const despesasVariaveisEmAbertoValor = despesasVariaveis
-    .filter((d) => !pagasVar.has(d.id))
-    .reduce((a, d) => {
-      const ocorrencia = ocorrenciasVarList.find((o) => o.despesa_variavel_id === d.id);
-      return a + (ocorrencia?.valor_real ?? d.valor_provisionado);
-    }, 0);
-
-  // Despesa prevista (mês) = lançamentos previstos + despesas fixas/variáveis ainda não pagas —
-  // mesmas fontes da lista "Contas a Pagar" abaixo, somadas pra virar um número só.
-  const despesaPrevista = despesaPrevistaLancamentos + despesasFixasEmAbertoValor + despesasVariaveisEmAbertoValor;
-
-  const lucroPrevisto = receitaRealizada + receitaPrevista - (despesaRealizada + despesaPrevista);
+  const ocorrenciasNaoPagasVar = (todasOcorrenciasVar as DespesaVariavelOcorrencia[]) ?? [];
+  const ocorrenciasVarList = ocorrenciasNaoPagasVar.filter((o) => o.ano === ano && o.mes === mes);
+  const despesasVariaveisEmAberto = despesasVariaveis.filter((d) =>
+    ocorrenciasVarList.some((o) => o.despesa_variavel_id === d.id)
+  ).length;
+  const despesasVariaveisPagas = despesasVariaveis.length - despesasVariaveisEmAberto;
 
   const comprovantesPendentes = ((comprovantes as Pick<Comprovante, "status">[]) ?? []).filter(
     (c) => c.status === "pendente"
@@ -104,50 +66,22 @@ export default async function FinanceiroVisaoGeralPage() {
   );
   const vencemHoje = contas.filter((c) => c.venceHoje).length;
 
+  const atrasadas = despesasAtrasadas(
+    despesasFixas,
+    ocorrenciasNaoPagas,
+    despesasVariaveis,
+    ocorrenciasNaoPagasVar,
+    ano,
+    mes
+  );
+
   return (
     <div className="flex flex-col gap-5">
       <div>
-        <h1 className="font-display text-xl font-bold">Visão Geral</h1>
-        <p className="text-[13px] text-text-secondary">Receitas, despesas e pendências do mês</p>
-      </div>
-
-      <div>
-        <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">Realizado no mês</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <KpiCard
-            label="Faturamento do Mês"
-            value={fmtBRL(faturamentoMes)}
-            hint="Valor das OS aprovadas este mês"
-            href="/financeiro/recebimentos"
-          />
-          <KpiCard label="Receita Realizada" value={fmtBRL(receitaRealizada)} href="/financeiro/lancamentos" />
-          <KpiCard label="Despesa Realizada" value={fmtBRL(despesaRealizada)} href="/financeiro/lancamentos" />
-          <KpiCard label="Fluxo de Caixa" value={fmtBRL(fluxoCaixa)} gold href="/financeiro/lancamentos" />
-        </div>
-      </div>
-
-      <div>
-        <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">Previsto pro mês</p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <KpiCard
-            label="Receita Prevista"
-            value={fmtBRL(receitaPrevista)}
-            hint="Parcelas a receber este mês"
-            href="/financeiro/lancamentos"
-          />
-          <KpiCard
-            label="Despesa Prevista"
-            value={fmtBRL(despesaPrevista)}
-            hint="Contas a pagar este mês"
-            href="#contas-a-pagar"
-          />
-          <KpiCard
-            label="Lucro Previsto"
-            value={fmtBRL(lucroPrevisto)}
-            hint="Se tudo entrar/sair como combinado"
-            gold
-          />
-        </div>
+        <h1 className="font-display text-xl font-bold">Pendências do Mês</h1>
+        <p className="text-[13px] text-text-secondary">
+          O que precisa de atenção agora — receita, despesa e lucro ficam em Gestão
+        </p>
       </div>
 
       <div>
@@ -173,6 +107,8 @@ export default async function FinanceiroVisaoGeralPage() {
           />
         </div>
       </div>
+
+      <DespesasAtrasadasList itens={atrasadas} />
 
       <div id="contas-a-pagar">
         <ContasAPagarList itens={contas} />

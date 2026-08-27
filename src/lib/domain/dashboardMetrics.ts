@@ -575,6 +575,64 @@ export function contasAPagar(
   return items.sort((a, b) => a.vencimento.localeCompare(b.vencimento));
 }
 
+// ── Despesas atrasadas (Financeiro › Visão Geral) ──
+export interface DespesaAtrasadaItem {
+  ocorrenciaId: string;
+  despesaId: string;
+  tipo: "fixa" | "variavel";
+  descricao: string;
+  valor: number;
+  ano: number;
+  mes: number;
+}
+
+/** Ocorrências não pagas de meses ANTERIORES ao atual — já saíram sozinhas das pendências
+ * do mês (que só olha o mês corrente), mas sem isso ficariam esquecidas pra sempre em vez de
+ * continuarem visíveis e pagáveis depois de atrasadas. */
+export function despesasAtrasadas(
+  despesasFixas: DespesaFixa[],
+  todasOcorrenciasFixas: DespesaFixaOcorrencia[],
+  despesasVariaveis: DespesaVariavel[],
+  todasOcorrenciasVariaveis: DespesaVariavelOcorrencia[],
+  anoAtual: number,
+  mesAtual: number
+): DespesaAtrasadaItem[] {
+  const antesDoMesAtual = (ano: number, mes: number) => ano < anoAtual || (ano === anoAtual && mes < mesAtual);
+  const items: DespesaAtrasadaItem[] = [];
+
+  for (const o of todasOcorrenciasFixas) {
+    if (o.pago || !antesDoMesAtual(o.ano, o.mes)) continue;
+    const df = despesasFixas.find((d) => d.id === o.despesa_fixa_id);
+    if (!df) continue;
+    items.push({
+      ocorrenciaId: o.id,
+      despesaId: df.id,
+      tipo: "fixa",
+      descricao: df.descricao,
+      valor: df.valor,
+      ano: o.ano,
+      mes: o.mes,
+    });
+  }
+
+  for (const o of todasOcorrenciasVariaveis) {
+    if (o.pago || !antesDoMesAtual(o.ano, o.mes)) continue;
+    const dv = despesasVariaveis.find((d) => d.id === o.despesa_variavel_id);
+    if (!dv) continue;
+    items.push({
+      ocorrenciaId: o.id,
+      despesaId: dv.id,
+      tipo: "variavel",
+      descricao: dv.descricao,
+      valor: o.valor_real ?? dv.valor_provisionado,
+      ano: o.ano,
+      mes: o.mes,
+    });
+  }
+
+  return items.sort((a, b) => (a.ano === b.ano ? a.mes - b.mes : a.ano - b.ano));
+}
+
 // ── Metas ──
 export interface MetaClassificacao {
   pct: number;
