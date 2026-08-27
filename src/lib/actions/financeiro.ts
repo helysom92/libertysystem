@@ -86,12 +86,6 @@ export async function deleteDespesaFixa(id: string) {
   revalidateFinanceiroPaths();
 }
 
-function diaVencimentoParaData(ano: number, mes: number, diaVencimento: number) {
-  const diasNoMes = new Date(ano, mes, 0).getDate();
-  const dia = Math.min(diaVencimento, diasNoMes);
-  return `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
-}
-
 /**
  * Marca/desmarca a ocorrência do mês como paga — e mantém um lançamento em `lancamentos` em
  * sincronia (cria ao marcar, apaga ao desmarcar), pra esse pagamento aparecer no Fluxo
@@ -106,65 +100,15 @@ export async function toggleDespesaOcorrencia(
 ) {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
-
-  const { data: existente } = await supabase
-    .from("despesas_fixas_ocorrencias")
-    .select("lancamento_id")
-    .eq("despesa_fixa_id", despesaFixaId)
-    .eq("ano", ano)
-    .eq("mes", mes)
-    .maybeSingle();
-
-  let lancamentoId: string | null = existente?.lancamento_id ?? null;
-
-  if (pago) {
-    const { data: despesa, error: dErr } = await supabase
-      .from("despesas_fixas")
-      .select("descricao, valor, categoria, fornecedor_id, dia_vencimento")
-      .eq("id", despesaFixaId)
-      .single();
-    if (dErr || !despesa) throw dErr ?? new Error("Despesa fixa não encontrada.");
-
-    if (lancamentoId) {
-      const { error: updErr } = await supabase
-        .from("lancamentos")
-        .update({ status: "realizado" })
-        .eq("id", lancamentoId);
-      if (updErr) throw updErr;
-    } else {
-      const { data: lanc, error: lancErr } = await supabase
-        .from("lancamentos")
-        .insert({
-          tipo: "Despesa",
-          descricao: despesa.descricao,
-          categoria: despesa.categoria,
-          valor: despesa.valor,
-          data: diaVencimentoParaData(ano, mes, despesa.dia_vencimento),
-          fornecedor_id: despesa.fornecedor_id,
-          status: "realizado",
-        })
-        .select("id")
-        .single();
-      if (lancErr) throw lancErr;
-      lancamentoId = lanc.id;
-    }
-  } else if (lancamentoId) {
-    const { error: delErr } = await supabase.from("lancamentos").delete().eq("id", lancamentoId);
-    if (delErr) throw delErr;
-    lancamentoId = null;
-  }
-
-  const { error } = await supabase.from("despesas_fixas_ocorrencias").upsert(
-    {
-      despesa_fixa_id: despesaFixaId,
-      ano,
-      mes,
-      pago,
-      pago_em: pago ? new Date().toISOString() : null,
-      lancamento_id: lancamentoId,
-    },
-    { onConflict: "despesa_fixa_id,ano,mes" }
-  );
+  // RPC atômica (migration 0035) — evita a corrida de 2 lançamentos quando "marcar paga" é
+  // clicado 2 vezes rápido: select+insert acontecem numa transação só, com a linha da
+  // ocorrência travada durante toda a operação.
+  const { error } = await supabase.rpc("toggle_despesa_fixa_ocorrencia", {
+    p_despesa_fixa_id: despesaFixaId,
+    p_ano: ano,
+    p_mes: mes,
+    p_pago: pago,
+  });
   if (error) throw error;
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
@@ -242,70 +186,13 @@ export async function toggleDespesaVariavelPago(
 ) {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
-
-  const { data: existente } = await supabase
-    .from("despesas_variaveis_ocorrencias")
-    .select("lancamento_id, valor_real")
-    .eq("despesa_variavel_id", despesaVariavelId)
-    .eq("ano", ano)
-    .eq("mes", mes)
-    .maybeSingle();
-
-  let lancamentoId: string | null = existente?.lancamento_id ?? null;
-
-  if (pago) {
-    const { data: despesa, error: dErr } = await supabase
-      .from("despesas_variaveis")
-      .select("descricao, valor_provisionado, categoria, fornecedor_id, data")
-      .eq("id", despesaVariavelId)
-      .single();
-    if (dErr || !despesa) throw dErr ?? new Error("Despesa variável não encontrada.");
-
-    const valor = existente?.valor_real ?? despesa.valor_provisionado;
-    // Usa a data que o usuário escolheu na despesa (quando pagou/lançou); sem ela, cai no
-    // dia 1 do mês da ocorrência como aproximação.
-    const data = despesa.data ?? `${ano}-${String(mes).padStart(2, "0")}-01`;
-
-    if (lancamentoId) {
-      const { error: updErr } = await supabase
-        .from("lancamentos")
-        .update({ status: "realizado", valor })
-        .eq("id", lancamentoId);
-      if (updErr) throw updErr;
-    } else {
-      const { data: lanc, error: lancErr } = await supabase
-        .from("lancamentos")
-        .insert({
-          tipo: "Despesa",
-          descricao: despesa.descricao,
-          categoria: despesa.categoria,
-          valor,
-          data,
-          fornecedor_id: despesa.fornecedor_id,
-          status: "realizado",
-        })
-        .select("id")
-        .single();
-      if (lancErr) throw lancErr;
-      lancamentoId = lanc.id;
-    }
-  } else if (lancamentoId) {
-    const { error: delErr } = await supabase.from("lancamentos").delete().eq("id", lancamentoId);
-    if (delErr) throw delErr;
-    lancamentoId = null;
-  }
-
-  const { error } = await supabase.from("despesas_variaveis_ocorrencias").upsert(
-    {
-      despesa_variavel_id: despesaVariavelId,
-      ano,
-      mes,
-      pago,
-      pago_em: pago ? new Date().toISOString() : null,
-      lancamento_id: lancamentoId,
-    },
-    { onConflict: "despesa_variavel_id,ano,mes" }
-  );
+  // RPC atômica (migration 0035) — mesma correção de corrida do lado fixo.
+  const { error } = await supabase.rpc("toggle_despesa_variavel_ocorrencia", {
+    p_despesa_variavel_id: despesaVariavelId,
+    p_ano: ano,
+    p_mes: mes,
+    p_pago: pago,
+  });
   if (error) throw error;
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");

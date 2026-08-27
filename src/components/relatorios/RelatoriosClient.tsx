@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import type { Cliente, Fornecedor, Lancamento, Servico } from "@/lib/domain/types";
 import { displayNumero, fmtBRL } from "@/lib/domain/types";
 import { computeClienteStats } from "@/lib/domain/clientes";
-import { todayISO } from "@/lib/domain/dates";
+import { todayISO, isoDateFromTimestampTz } from "@/lib/domain/dates";
+import { recebido, despesasPagas } from "@/lib/domain/financas";
 import FinanceiroBadge from "@/components/ui/FinanceiroBadge";
 
 const TABS = ["Vendas", "Clientes", "Financeiro", "Despesas", "Receitas"] as const;
@@ -32,8 +33,16 @@ export default function RelatoriosClient({
 
   const fornecedorNome = (id: string | null) => fornecedores.find((f) => f.id === id)?.nome ?? "—";
 
+  // Vendas = venda aprovada (regra oficial da Etapa 2): OS numerada, com data de aprovação,
+  // nunca cancelada — não orçamento em elaboração nem OS cancelada.
   const servicosPeriodo = useMemo(
-    () => servicos.filter((s) => s.criado_em.slice(0, 10) >= de && s.criado_em.slice(0, 10) <= ate),
+    () =>
+      servicos.filter((s) => {
+        if (s.numero == null || !s.aprovado_em) return false;
+        if (s.financeiro_status === "Cancelado") return false;
+        const dataAprovacao = isoDateFromTimestampTz(s.aprovado_em);
+        return dataAprovacao >= de && dataAprovacao <= ate;
+      }),
     [servicos, de, ate]
   );
 
@@ -44,6 +53,12 @@ export default function RelatoriosClient({
 
   const receitasPeriodo = lancamentosPeriodo.filter((l) => l.tipo === "Receita");
   const despesasPeriodo = lancamentosPeriodo.filter((l) => l.tipo === "Despesa");
+
+  // Cards de total (aba Financeiro) usam a mesma regra oficial de "recebido"/"despesas
+  // pagas" (só realizado) — a lista abaixo continua mostrando previsto+realizado, só o total
+  // não mistura os dois.
+  const totalRecebido = useMemo(() => recebido(lancamentos, { inicio: de, fim: ate }).total, [lancamentos, de, ate]);
+  const totalPago = useMemo(() => despesasPagas(lancamentos, { inicio: de, fim: ate }).total, [lancamentos, de, ate]);
 
   function imprimir() {
     window.print();
@@ -179,25 +194,16 @@ export default function RelatoriosClient({
       {tab === "Financeiro" && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-card border border-border-neutral bg-card p-4">
-            <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Receitas</p>
-            <p className="font-display text-xl font-bold">
-              {fmtBRL(receitasPeriodo.reduce((a, l) => a + l.valor, 0))}
-            </p>
+            <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Receitas realizadas</p>
+            <p className="font-display text-xl font-bold">{fmtBRL(totalRecebido)}</p>
           </div>
           <div className="rounded-card border border-border-neutral bg-card p-4">
-            <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Despesas</p>
-            <p className="font-display text-xl font-bold">
-              {fmtBRL(despesasPeriodo.reduce((a, l) => a + l.valor, 0))}
-            </p>
+            <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Despesas realizadas</p>
+            <p className="font-display text-xl font-bold">{fmtBRL(totalPago)}</p>
           </div>
           <div className="rounded-card border border-border-neutral bg-card p-4">
-            <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Saldo</p>
-            <p className="font-display text-xl font-bold text-gradient-gold">
-              {fmtBRL(
-                receitasPeriodo.reduce((a, l) => a + l.valor, 0) -
-                  despesasPeriodo.reduce((a, l) => a + l.valor, 0)
-              )}
-            </p>
+            <p className="mb-1 text-[10.5px] tracking-wide text-text-muted uppercase">Saldo realizado</p>
+            <p className="font-display text-xl font-bold text-gradient-gold">{fmtBRL(totalRecebido - totalPago)}</p>
           </div>
         </div>
       )}

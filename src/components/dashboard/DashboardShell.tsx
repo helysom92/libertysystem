@@ -31,6 +31,7 @@ import {
   type Meta,
   type MetaTipo,
 } from "@/lib/domain/dashboardMetrics";
+import { periodoDoMes, vendasAprovadas } from "@/lib/domain/financas";
 import VisaoGeralView from "./VisaoGeralView";
 import VendasView from "./VendasView";
 import DespesasView from "./DespesasView";
@@ -139,13 +140,11 @@ export default function DashboardShell({
     () => servicos.filter((s) => s.criado_em.slice(0, 7) === mesAtual.key).length,
     [servicos, mesAtual]
   );
-  // Faturamento = valor das OS aprovadas no mês, independente de já ter sido pago — diferente
+  // Faturamento = valor das OS aprovadas no mês (regra oficial `vendasAprovadas`, Etapa 2) —
+  // exclui Cancelado e usa o fuso da operação, não `.slice(0,7)` cru no timestamp. Diferente
   // da Receita (que só soma o que já foi realmente recebido) já mostrada nos KPIs em anel.
   const faturamentoMes = useMemo(
-    () =>
-      servicos
-        .filter((s) => s.numero != null && s.aprovado_em && s.aprovado_em.slice(0, 7) === mesAtual.key)
-        .reduce((sum, s) => sum + s.valor, 0),
+    () => vendasAprovadas(servicos, periodoDoMes(mesAtual.year, mesAtual.month + 1)).total,
     [servicos, mesAtual]
   );
   const mesAtualRefDate = useMemo(() => new Date(mesAtual.year, mesAtual.month, 1), [mesAtual]);

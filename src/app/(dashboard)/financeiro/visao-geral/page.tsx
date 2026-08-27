@@ -4,6 +4,7 @@ import ContasAPagarList from "@/components/financeiro/ContasAPagarList";
 import DespesasAtrasadasList from "@/components/financeiro/DespesasAtrasadasList";
 import ReceitasAtrasadasList from "@/components/financeiro/ReceitasAtrasadasList";
 import { contasAPagar, despesasAtrasadas, receitasAtrasadas } from "@/lib/domain/dashboardMetrics";
+import { excluirPrevistosDeServicoCancelado } from "@/lib/domain/financas";
 import { todayISO } from "@/lib/domain/dates";
 import type {
   Comprovante,
@@ -12,6 +13,7 @@ import type {
   DespesaVariavel,
   DespesaVariavelOcorrencia,
   Lancamento,
+  Servico,
 } from "@/lib/domain/types";
 
 export default async function FinanceiroVisaoGeralPage() {
@@ -28,16 +30,23 @@ export default async function FinanceiroVisaoGeralPage() {
     { data: todasOcorrencias },
     { data: despesasVar },
     { data: todasOcorrenciasVar },
+    { data: servicosCancelados },
   ] = await Promise.all([
-    supabase.from("lancamentos").select("id, tipo, valor, status, data, descricao"),
+    supabase.from("lancamentos").select("id, tipo, valor, status, data, descricao, servico_id"),
     supabase.from("comprovantes").select("status"),
     supabase.from("despesas_fixas").select("*").eq("ativo", true),
     supabase.from("despesas_fixas_ocorrencias").select("*").eq("pago", false),
     supabase.from("despesas_variaveis").select("*").eq("ativo", true),
     supabase.from("despesas_variaveis_ocorrencias").select("*").eq("pago", false),
+    supabase.from("servicos").select("id, financeiro_status").eq("financeiro_status", "Cancelado"),
   ]);
 
-  const lancs = (lancamentos as Lancamento[]) ?? [];
+  // Lançamento previsto de um serviço Cancelado nunca vai virar dinheiro de verdade — sai das
+  // pendências (dinheiro já realizado antes do cancelamento continua contando em outro lugar).
+  const lancs = excluirPrevistosDeServicoCancelado(
+    (lancamentos as Lancamento[]) ?? [],
+    (servicosCancelados as Pick<Servico, "id" | "financeiro_status">[]) ?? []
+  );
 
   const despesasFixas = (despesas as DespesaFixa[]) ?? [];
   const ocorrenciasNaoPagas = (todasOcorrencias as DespesaFixaOcorrencia[]) ?? [];

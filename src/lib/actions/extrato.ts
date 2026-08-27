@@ -4,13 +4,21 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { conciliarExtrato, type LinhaExtrato, type ConciliacaoResultado } from "@/lib/domain/extrato";
-import { monthlySeries, pendenciasDoMes as calcPendenciasDoMes, type PendenciasDoMes } from "@/lib/domain/dashboardMetrics";
+import { pendenciasDoMes as calcPendenciasDoMes, type PendenciasDoMes } from "@/lib/domain/dashboardMetrics";
+import {
+  excluirPrevistosDeServicoCancelado,
+  periodoDoMes,
+  recebido,
+  despesasPagas,
+  resultadoRealizado,
+} from "@/lib/domain/financas";
 import type {
   DespesaFixa,
   DespesaFixaOcorrencia,
   DespesaVariavel,
   DespesaVariavelOcorrencia,
   Lancamento,
+  Servico,
 } from "@/lib/domain/types";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/domain/permissions";
@@ -101,20 +109,27 @@ export async function pendenciasDoMes(ano: number, mes: number): Promise<Pendenc
     { data: despesasVariaveis },
     { data: ocorrenciasVariaveis },
     { data: lancamentosPrevistos },
+    { data: servicosCancelados },
   ] = await Promise.all([
     supabase.from("despesas_fixas").select("*").eq("ativo", true),
     supabase.from("despesas_fixas_ocorrencias").select("*").eq("ano", ano).eq("mes", mes),
     supabase.from("despesas_variaveis").select("*").eq("ativo", true),
     supabase.from("despesas_variaveis_ocorrencias").select("*").eq("ano", ano).eq("mes", mes),
     supabase.from("lancamentos").select("*").eq("status", "previsto").gte("data", inicio).lte("data", fim),
+    supabase.from("servicos").select("id, financeiro_status").eq("financeiro_status", "Cancelado"),
   ]);
+
+  const lancamentosValidos = excluirPrevistosDeServicoCancelado(
+    (lancamentosPrevistos as Lancamento[]) ?? [],
+    (servicosCancelados as Pick<Servico, "id" | "financeiro_status">[]) ?? []
+  );
 
   return calcPendenciasDoMes(
     (despesasFixas as DespesaFixa[]) ?? [],
     (ocorrenciasFixas as DespesaFixaOcorrencia[]) ?? [],
     (despesasVariaveis as DespesaVariavel[]) ?? [],
     (ocorrenciasVariaveis as DespesaVariavelOcorrencia[]) ?? [],
-    (lancamentosPrevistos as Lancamento[]) ?? []
+    lancamentosValidos
   );
 }
 
@@ -143,26 +158,30 @@ export async function fecharMes(ano: number, mes: number) {
   await requireRole("administrador");
   const supabase = await createClient();
   const profile = await getCurrentProfile();
+  const periodo = periodoDoMes(ano, mes);
 
-  const { data: lancamentos } = await supabase
+  const { data: lancamentosRaw } = await supabase
     .from("lancamentos")
     .select("*")
-    .eq("status", "realizado")
-    .gte("data", `${ano}-${String(mes).padStart(2, "0")}-01`)
-    .lte("data", ultimoDiaDoMes(ano, mes));
+    .gte("data", periodo.inicio)
+    .lte("data", periodo.fim);
+  const lancamentos = (lancamentosRaw as Lancamento[]) ?? [];
 
-  const [ponto] = monthlySeries((lancamentos as Lancamento[]) ?? [], new Date(ano, mes - 1, 1), 1);
-  const entrou = ponto?.sales ?? 0;
-  const saiu = ponto?.expenses ?? 0;
+  // Resultado realizado (Etapa 2): recebido − despesas pagas, dinheiro que já entrou/saiu de
+  // verdade. Dinheiro de um serviço cancelado ANTES do cancelamento continua contando aqui —
+  // é fato histórico, não é apagado.
+  const entrou = recebido(lancamentos, periodo).total;
+  const saiu = despesasPagas(lancamentos, periodo).total;
+  const lucro = resultadoRealizado(entrou, saiu);
 
   const { error } = await supabase
     .from("fechamentos_mensais")
     .upsert(
-      { ano, mes, entrou, saiu, lucro: entrou - saiu, fechado_em: new Date().toISOString(), fechado_por: profile?.id ?? null },
+      { ano, mes, entrou, saiu, lucro, fechado_em: new Date().toISOString(), fechado_por: profile?.id ?? null },
       { onConflict: "ano,mes" }
     );
   if (error) throw error;
 
   revalidatePath("/gestao");
-  return { entrou, saiu, lucro: entrou - saiu };
+  return { entrou, saiu, lucro };
 }

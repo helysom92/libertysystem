@@ -1,5 +1,6 @@
 import { TIPO_LABELS, type ServicoTipo } from "./flows";
 import { computeClienteStats } from "./clientes";
+import { yearMonthKeyTz } from "./dates";
 import type {
   Cliente,
   DespesaFixa,
@@ -243,11 +244,15 @@ function toFatias(porLabel: Map<string, number>): CategoriaFatia[] {
   return fatias;
 }
 
+/** Venda só existe quando aprovada (mesma regra oficial de `financas.ts`'s `vendasAprovadas`)
+ * — por tipo, aqui, é só a quebra por categoria do mesmo total, não um número à parte. */
 export function vendasPorTipo(servicos: Servico[], refDate: Date): CategoriaFatia[] {
   const key = yearMonthKeyLocal(refDate);
   const porTipo = new Map<string, number>();
   for (const s of servicos) {
-    if (yearMonthKeyLocal(new Date(s.criado_em)) !== key) continue;
+    if (s.numero == null || !s.aprovado_em) continue;
+    if (s.financeiro_status === "Cancelado") continue;
+    if (yearMonthKeyTz(s.aprovado_em) !== key) continue;
     const label = TIPO_LABELS[s.tipo as ServicoTipo] ?? s.tipo;
     porTipo.set(label, (porTipo.get(label) ?? 0) + s.valor);
   }
