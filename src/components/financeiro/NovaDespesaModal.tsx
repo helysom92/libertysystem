@@ -7,7 +7,8 @@ import { todayISO } from "@/lib/domain/dates";
 import { lancarDespesaExistente, lancarDespesaParcelada, lancarNovaDespesa } from "@/lib/actions/financeiro";
 
 function normalizar(s: string) {
-  return s.trim().toLowerCase();
+  // ignora acento — "Combustível" e "combustivel" batem com a mesma despesa cadastrada
+  return s.trim().toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
 }
 
 const CATEGORIAS_CUSTO_DIRETO = [
@@ -48,6 +49,7 @@ export default function NovaDespesaModal({
   const [totalParcelas, setTotalParcelas] = useState("2");
   const [primeiraPaga, setPrimeiraPaga] = useState(true);
   const [servicoTexto, setServicoTexto] = useState("");
+  const [confirmaNova, setConfirmaNova] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -67,6 +69,7 @@ export default function NovaDespesaModal({
     setTotalParcelas("2");
     setPrimeiraPaga(true);
     setServicoTexto("");
+    setConfirmaNova(false);
   }
 
   function selecionarTipo(t: "fixa" | "variavel" | "parcelada") {
@@ -76,6 +79,7 @@ export default function NovaDespesaModal({
 
   function handleDescricaoChange(value: string) {
     setDescricao(value);
+    setConfirmaNova(false);
     const match = opcoesExistentes.find((d) => normalizar(d.descricao) === normalizar(value));
     if (match) {
       setCategoria(match.categoria ?? "Geral");
@@ -84,10 +88,16 @@ export default function NovaDespesaModal({
     }
   }
 
+  const criandoNovaRecorrente = tipo !== "parcelada" && descricao.trim() !== "" && !existente;
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!descricao.trim()) {
       setError("Dê um nome pra despesa.");
+      return;
+    }
+    if (criandoNovaRecorrente && !confirmaNova) {
+      setError('Marque a confirmação de que "' + descricao + '" é mesmo uma despesa recorrente nova antes de lançar.');
       return;
     }
     setSaving(true);
@@ -170,6 +180,18 @@ export default function NovaDespesaModal({
           <p className="mb-2 text-[11px] text-gold">
             Já cadastrada — vai lançar a ocorrência dessa data pra ela, sem duplicar.
           </p>
+        )}
+        {criandoNovaRecorrente && (
+          <div className="mb-2 rounded-btn border border-danger-border bg-card-secondary px-3 py-2">
+            <p className="mb-1.5 text-[11.5px] text-danger">
+              &ldquo;{descricao}&rdquo; ainda não existe — isso vai criar uma despesa {tipo === "fixa" ? "fixa" : "variável"} NOVA,
+              que repete todo mês. Se foi uma compra avulsa/única, cancele e use a aba &ldquo;Parcelada&rdquo; em vez disso.
+            </p>
+            <label className="flex items-center gap-2 text-[11.5px] text-text">
+              <input type="checkbox" checked={confirmaNova} onChange={(e) => setConfirmaNova(e.target.checked)} />
+              Confirmo que é mesmo uma despesa recorrente nova
+            </label>
+          </div>
         )}
         <div className="mb-3" />
 
