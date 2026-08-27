@@ -4,8 +4,14 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { conciliarExtrato, type LinhaExtrato, type ConciliacaoResultado } from "@/lib/domain/extrato";
-import { monthlySeries } from "@/lib/domain/dashboardMetrics";
-import type { Lancamento } from "@/lib/domain/types";
+import { monthlySeries, pendenciasDoMes as calcPendenciasDoMes, type PendenciasDoMes } from "@/lib/domain/dashboardMetrics";
+import type {
+  DespesaFixa,
+  DespesaFixaOcorrencia,
+  DespesaVariavel,
+  DespesaVariavelOcorrencia,
+  Lancamento,
+} from "@/lib/domain/types";
 import { revalidatePath } from "next/cache";
 
 export interface AnaliseExtratoResultado {
@@ -79,6 +85,34 @@ Formato exato de cada item:
 
   const resultado = conciliarExtrato(linhas, (lancamentos as Lancamento[]) ?? [], meuNome);
   return { resultado, totalLinhas: linhas.length };
+}
+
+export async function pendenciasDoMes(ano: number, mes: number): Promise<PendenciasDoMes> {
+  const supabase = await createClient();
+  const inicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
+  const fim = ultimoDiaDoMes(ano, mes);
+
+  const [
+    { data: despesasFixas },
+    { data: ocorrenciasFixas },
+    { data: despesasVariaveis },
+    { data: ocorrenciasVariaveis },
+    { data: lancamentosPrevistos },
+  ] = await Promise.all([
+    supabase.from("despesas_fixas").select("*").eq("ativo", true),
+    supabase.from("despesas_fixas_ocorrencias").select("*").eq("ano", ano).eq("mes", mes),
+    supabase.from("despesas_variaveis").select("*").eq("ativo", true),
+    supabase.from("despesas_variaveis_ocorrencias").select("*").eq("ano", ano).eq("mes", mes),
+    supabase.from("lancamentos").select("*").eq("status", "previsto").gte("data", inicio).lte("data", fim),
+  ]);
+
+  return calcPendenciasDoMes(
+    (despesasFixas as DespesaFixa[]) ?? [],
+    (ocorrenciasFixas as DespesaFixaOcorrencia[]) ?? [],
+    (despesasVariaveis as DespesaVariavel[]) ?? [],
+    (ocorrenciasVariaveis as DespesaVariavelOcorrencia[]) ?? [],
+    (lancamentosPrevistos as Lancamento[]) ?? []
+  );
 }
 
 export async function fecharMes(ano: number, mes: number) {

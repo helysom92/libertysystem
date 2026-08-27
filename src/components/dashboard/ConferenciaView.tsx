@@ -1,13 +1,14 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { analisarExtrato, fecharMes, type AnaliseExtratoResultado } from "@/lib/actions/extrato";
+import { analisarExtrato, fecharMes, pendenciasDoMes, type AnaliseExtratoResultado } from "@/lib/actions/extrato";
 import { createLancamento, deleteLancamento } from "@/lib/actions/financeiro";
 import { fmtBRL } from "@/lib/domain/types";
 import type { AchadoConciliacao } from "@/lib/domain/extrato";
 import type { FechamentoMensal } from "@/lib/domain/types";
+import type { PendenciasDoMes } from "@/lib/domain/dashboardMetrics";
 
 const MESES = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -111,6 +112,52 @@ function AchadoDuplicata({ achado, onRemovido }: { achado: AchadoConciliacao; on
   );
 }
 
+function PendenciasDoMesCard({ pendencias, loading }: { pendencias: PendenciasDoMes | null; loading: boolean }) {
+  if (loading) {
+    return <p className="text-sm text-text-muted">Verificando pendências desse mês...</p>;
+  }
+  if (!pendencias) return null;
+
+  const { despesasNaoPagas, receitasNaoRecebidas, despesasPrevistasNaoPagas, totalPendente } = pendencias;
+
+  if (totalPendente === 0) {
+    return (
+      <div className="rounded-card border border-border-neutral bg-card p-4">
+        <p className="text-sm">Nenhuma pendência solta esse mês 🎉</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-card border border-danger-border bg-card p-4">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="font-display text-sm font-bold text-danger">Pendências desse mês</h3>
+        <span className="font-display text-sm font-bold text-danger">{fmtBRL(totalPendente)}</span>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        {despesasNaoPagas.map((i) => (
+          <div key={`df-${i.id}`} className="flex items-center justify-between rounded-btn bg-card-secondary px-3 py-2 text-[12.5px]">
+            <span>{i.descricao} <span className="text-text-muted">· despesa não paga</span></span>
+            <span className="font-semibold text-danger">{fmtBRL(i.valor)}</span>
+          </div>
+        ))}
+        {despesasPrevistasNaoPagas.map((i) => (
+          <div key={`dp-${i.id}`} className="flex items-center justify-between rounded-btn bg-card-secondary px-3 py-2 text-[12.5px]">
+            <span>{i.descricao} <span className="text-text-muted">· despesa prevista não paga</span></span>
+            <span className="font-semibold text-danger">{fmtBRL(i.valor)}</span>
+          </div>
+        ))}
+        {receitasNaoRecebidas.map((i) => (
+          <div key={`r-${i.id}`} className="flex items-center justify-between rounded-btn bg-card-secondary px-3 py-2 text-[12.5px]">
+            <span>{i.descricao} <span className="text-text-muted">· receita prevista não recebida</span></span>
+            <span className="font-semibold text-danger">{fmtBRL(i.valor)}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function ConferenciaView({ fechamentos }: { fechamentos: FechamentoMensal[] }) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -126,8 +173,25 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
   const [fechando, startFechando] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [fechamentoRecente, setFechamentoRecente] = useState<{ entrou: number; saiu: number; lucro: number } | null>(null);
+  const [pendencias, setPendencias] = useState<PendenciasDoMes | null>(null);
+  const [carregandoPendencias, startPendenciasTransition] = useTransition();
 
   const fechamentoDoMes = fechamentos.find((f) => f.ano === ano && f.mes === mes);
+
+  useEffect(() => {
+    let cancelado = false;
+    startPendenciasTransition(async () => {
+      try {
+        const r = await pendenciasDoMes(ano, mes);
+        if (!cancelado) setPendencias(r);
+      } catch {
+        if (!cancelado) setPendencias(null);
+      }
+    });
+    return () => {
+      cancelado = true;
+    };
+  }, [ano, mes]);
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -162,6 +226,12 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
   }
 
   function handleFecharMes() {
+    if (pendencias && pendencias.totalPendente > 0) {
+      const ok = confirm(
+        `Esse mês ainda tem ${fmtBRL(pendencias.totalPendente)} em pendências — elas continuam aparecendo (em Despesas Atrasadas/Receitas Atrasadas) depois de fechado, não se perdem. Fechar mesmo assim?`
+      );
+      if (!ok) return;
+    }
     setError(null);
     startFechando(async () => {
       try {
@@ -222,6 +292,8 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
           <input ref={inputRef} type="file" accept="application/pdf" className="hidden" onChange={handleFile} disabled={pending} />
         </label>
       </div>
+
+      <PendenciasDoMesCard pendencias={pendencias} loading={carregandoPendencias} />
 
       {error && (
         <p className="rounded-btn border border-danger-border bg-card-secondary px-3 py-2 text-[12.5px] text-danger">{error}</p>

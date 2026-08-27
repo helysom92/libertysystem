@@ -633,6 +633,77 @@ export function despesasAtrasadas(
   return items.sort((a, b) => (a.ano === b.ano ? a.mes - b.mes : a.ano - b.ano));
 }
 
+// ── Receitas previstas atrasadas (Financeiro › Visão Geral) ──
+export interface ReceitaAtrasadaItem {
+  id: string;
+  descricao: string;
+  valor: number;
+  data: string;
+}
+
+/** Lançamentos de receita previstos cuja data já passou e ainda não foram marcados como
+ * realizados — espelha `despesasAtrasadas`, mas pro lado de "cliente ainda não pagou". */
+export function receitasAtrasadas(lancamentos: Lancamento[], hojeISO: string): ReceitaAtrasadaItem[] {
+  return lancamentos
+    .filter((l) => l.tipo === "Receita" && l.status === "previsto" && l.data < hojeISO)
+    .map((l) => ({ id: l.id, descricao: l.descricao, valor: l.valor, data: l.data }))
+    .sort((a, b) => a.data.localeCompare(b.data));
+}
+
+// ── Pendências de um mês específico (Gestão › Conferência, antes de fechar) ──
+export interface PendenciaMesItem {
+  id: string;
+  descricao: string;
+  valor: number;
+}
+
+export interface PendenciasDoMes {
+  despesasNaoPagas: PendenciaMesItem[];
+  receitasNaoRecebidas: PendenciaMesItem[];
+  despesasPrevistasNaoPagas: PendenciaMesItem[];
+  totalPendente: number;
+}
+
+/** Igual a `contasAPagar`/`despesasAtrasadas`, mas escopado a um `ano`/`mes` ESCOLHIDO (o mês
+ * sendo fechado), não ao mês atual — pra mostrar o que ainda falta resolver antes de fechar. */
+export function pendenciasDoMes(
+  despesasFixas: DespesaFixa[],
+  ocorrenciasFixasDoMes: DespesaFixaOcorrencia[],
+  despesasVariaveis: DespesaVariavel[],
+  ocorrenciasVariaveisDoMes: DespesaVariavelOcorrencia[],
+  lancamentosPrevistosDoMes: Lancamento[]
+): PendenciasDoMes {
+  const despesasNaoPagas: PendenciaMesItem[] = [];
+  for (const df of despesasFixas) {
+    if (!df.ativo) continue;
+    const ocorrencia = ocorrenciasFixasDoMes.find((o) => o.despesa_fixa_id === df.id);
+    if (ocorrencia?.pago) continue;
+    despesasNaoPagas.push({ id: df.id, descricao: df.descricao, valor: df.valor });
+  }
+  for (const dv of despesasVariaveis) {
+    if (!dv.ativo) continue;
+    const ocorrencia = ocorrenciasVariaveisDoMes.find((o) => o.despesa_variavel_id === dv.id);
+    if (ocorrencia?.pago) continue;
+    despesasNaoPagas.push({ id: dv.id, descricao: dv.descricao, valor: ocorrencia?.valor_real ?? dv.valor_provisionado });
+  }
+
+  const receitasNaoRecebidas: PendenciaMesItem[] = [];
+  const despesasPrevistasNaoPagas: PendenciaMesItem[] = [];
+  for (const l of lancamentosPrevistosDoMes) {
+    if (l.status !== "previsto") continue;
+    const item = { id: l.id, descricao: l.descricao, valor: l.valor };
+    if (l.tipo === "Receita") receitasNaoRecebidas.push(item);
+    else despesasPrevistasNaoPagas.push(item);
+  }
+
+  const totalPendente =
+    despesasNaoPagas.reduce((sum, i) => sum + i.valor, 0) +
+    receitasNaoRecebidas.reduce((sum, i) => sum + i.valor, 0) +
+    despesasPrevistasNaoPagas.reduce((sum, i) => sum + i.valor, 0);
+
+  return { despesasNaoPagas, receitasNaoRecebidas, despesasPrevistasNaoPagas, totalPendente };
+}
+
 // ── Metas ──
 export interface MetaClassificacao {
   pct: number;

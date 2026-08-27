@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import KpiCard from "@/components/hoje/KpiCard";
 import ContasAPagarList from "@/components/financeiro/ContasAPagarList";
 import DespesasAtrasadasList from "@/components/financeiro/DespesasAtrasadasList";
-import { contasAPagar, despesasAtrasadas } from "@/lib/domain/dashboardMetrics";
+import ReceitasAtrasadasList from "@/components/financeiro/ReceitasAtrasadasList";
+import { contasAPagar, despesasAtrasadas, receitasAtrasadas } from "@/lib/domain/dashboardMetrics";
 import { todayISO } from "@/lib/domain/dates";
 import type {
   Comprovante,
@@ -75,6 +76,8 @@ export default async function FinanceiroVisaoGeralPage() {
     mes
   );
 
+  const receitasAtrasadasList = receitasAtrasadas(lancs, hojeISO);
+
   return (
     <div className="flex flex-col gap-5">
       <div>
@@ -109,6 +112,7 @@ export default async function FinanceiroVisaoGeralPage() {
       </div>
 
       <DespesasAtrasadasList itens={atrasadas} />
+      <ReceitasAtrasadasList itens={receitasAtrasadasList} />
 
       <div id="contas-a-pagar">
         <ContasAPagarList itens={contas} />
