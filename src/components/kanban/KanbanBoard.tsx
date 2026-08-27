@@ -13,6 +13,7 @@ import {
 import { createColuna, moveCardParaColuna } from "@/lib/actions/kanban";
 import type { Coluna, KanbanBoardKey } from "@/lib/domain/kanban";
 import type { Cliente, ItemOrcamento, Servico } from "@/lib/domain/types";
+import type { Role } from "@/lib/domain/flows";
 import KanbanColumn from "./KanbanColumn";
 import NovoServicoModal from "./NovoServicoModal";
 import CentralDoServico from "@/components/servico-modal/CentralDoServico";
@@ -25,6 +26,7 @@ const BOARD_TITLE: Record<KanbanBoardKey, { titulo: string; subtitulo: string }>
 
 export default function KanbanBoard({
   board,
+  role,
   servicos,
   colunas,
   initialOpenId,
@@ -34,6 +36,7 @@ export default function KanbanBoard({
   clientes,
 }: {
   board: KanbanBoardKey;
+  role: Role;
   servicos: Servico[];
   colunas: Coluna[];
   initialOpenId?: string | null;
@@ -136,7 +139,7 @@ export default function KanbanBoard({
               onOpen={setOpenId}
               capaUrls={capaUrls}
               checklistProgress={checklistProgress}
-              hideValores={board === "os"}
+              hideValores={role === "producao"}
             />
           ))}
 
@@ -204,7 +207,7 @@ export default function KanbanBoard({
       {openId && board === "os" && (
         <CentralDoServico
           servicoId={openId}
-          context="producao"
+          context={role === "producao" ? "producao" : "comercial"}
           itensOrcamento={itensOrcamento}
           colunasOS={colunas.filter((c) => c.board === "os").sort((a, b) => a.ordem - b.ordem)}
           onClose={() => setOpenId(null)}

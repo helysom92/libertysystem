@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateFinanceiroPaths } from "./revalidateFinanceiro";
+import { requireRole } from "@/lib/domain/permissions";
 
 export interface NovoFornecedorInput {
   nome: string;
@@ -12,6 +13,7 @@ export interface NovoFornecedorInput {
 }
 
 export async function createFornecedor(input: NovoFornecedorInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("fornecedores").insert(input);
   if (error) throw error;
@@ -29,6 +31,7 @@ export async function updateFornecedor(
     ativo: boolean;
   }>
 ) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("fornecedores").update(fields).eq("id", id);
   if (error) throw error;

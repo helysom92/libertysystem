@@ -8,6 +8,7 @@ import type { ServicoTipo } from "@/lib/domain/flows";
 import type { LinhaOrcamento } from "@/lib/domain/orcamento";
 import { calcularPrazoFim, type PrazoTipo } from "@/lib/domain/kanban";
 import { todayISO } from "@/lib/domain/dates";
+import { requireRole } from "@/lib/domain/permissions";
 
 export interface NovoServicoInput {
   cliente: string;
@@ -24,6 +25,7 @@ export interface NovoServicoInput {
 }
 
 export async function createServico(input: NovoServicoInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
 
   const { data: clienteId, error: clienteErr } = await supabase.rpc("find_or_create_cliente", {
@@ -60,6 +62,7 @@ export async function createServico(input: NovoServicoInput) {
 /** Cria um orçamento novo a partir de um já existente — mesmo cliente, descrição, proposta
  * e todos os itens copiados, pra não digitar tudo de novo num pedido parecido. */
 export async function duplicarOrcamento(servicoId: string): Promise<string> {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
 
   const { data: original, error: svErr } = await supabase
@@ -127,6 +130,7 @@ export async function updateServicoOrcamento(
   servicoId: string,
   fields: Partial<{ tipo: ServicoTipo; descricao: string; prazo: string | null }>
 ) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update(fields).eq("id", servicoId);
   if (error) throw error;
@@ -135,6 +139,7 @@ export async function updateServicoOrcamento(
 }
 
 export async function updatePrazoServico(servicoId: string, tipo: PrazoTipo) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { data: sv } = await supabase
     .from("servicos")
@@ -152,6 +157,7 @@ export async function updatePrazoServico(servicoId: string, tipo: PrazoTipo) {
 }
 
 export async function updateInformacoesAdicionais(servicoId: string, texto: string) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase
     .from("servicos")
@@ -162,6 +168,7 @@ export async function updateInformacoesAdicionais(servicoId: string, texto: stri
 }
 
 export async function updateLocalInstalacao(servicoId: string, texto: string) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase
     .from("servicos")
@@ -172,6 +179,7 @@ export async function updateLocalInstalacao(servicoId: string, texto: string) {
 }
 
 export async function toggleEntregaConfirmada(servicoId: string, value: boolean) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase
     .from("servicos")
@@ -182,6 +190,7 @@ export async function toggleEntregaConfirmada(servicoId: string, value: boolean)
 }
 
 export async function toggleLiberadoAdmin(servicoId: string, value: boolean) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase
     .from("servicos")
@@ -195,6 +204,7 @@ export async function updateProximaAcao(
   servicoId: string,
   fields: { proxima_acao_texto?: string; proxima_responsavel?: string; proxima_prazo?: string; motivo_espera?: string }
 ) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update(fields).eq("id", servicoId);
   if (error) throw error;
@@ -202,6 +212,7 @@ export async function updateProximaAcao(
 }
 
 export async function updateResponsavel(servicoId: string, responsavel: string) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update({ responsavel }).eq("id", servicoId);
   if (error) throw error;
@@ -209,6 +220,7 @@ export async function updateResponsavel(servicoId: string, responsavel: string) 
 }
 
 export async function updatePrioridade(servicoId: string, prioridade: string) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update({ prioridade }).eq("id", servicoId);
   if (error) throw error;
@@ -219,6 +231,7 @@ export async function updateFinanceiro(
   servicoId: string,
   fields: { financeiro_status?: string; valor_pago?: number }
 ) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update(fields).eq("id", servicoId);
   if (error) throw error;
@@ -235,6 +248,7 @@ export async function updatePropostaOrcamento(
     durabilidade_texto: string | null;
   }>
 ) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update(fields).eq("id", servicoId);
   if (error) throw error;
@@ -242,6 +256,7 @@ export async function updatePropostaOrcamento(
 }
 
 export async function ensureShareToken(servicoId: string): Promise<string> {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("ensure_share_token", { p_servico_id: servicoId });
   if (error) throw error;
@@ -249,6 +264,7 @@ export async function ensureShareToken(servicoId: string): Promise<string> {
 }
 
 export async function deleteServico(servicoId: string) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").delete().eq("id", servicoId);
   if (error) throw error;
@@ -269,6 +285,7 @@ export async function updateClienteInline(
     observacoes: string | null;
   }>
 ) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("clientes").update(fields).eq("id", clienteId);
   if (error) throw error;

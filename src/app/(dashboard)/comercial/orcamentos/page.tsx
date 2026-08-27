@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllClientes } from "@/lib/supabase/fetchAllClientes";
+import { requireTab } from "@/lib/domain/permissions";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
 import type { ItemOrcamento, Servico } from "@/lib/domain/types";
 import type { Coluna } from "@/lib/domain/kanban";
@@ -10,6 +11,7 @@ export default async function ComercialOrcamentosPage({
   searchParams: Promise<{ open?: string }>;
 }) {
   const { open } = await searchParams;
+  const profile = await requireTab("comercial");
   const supabase = await createClient();
 
   const [
@@ -69,6 +71,7 @@ export default async function ComercialOrcamentosPage({
   return (
     <KanbanBoard
       board="orcamento"
+      role={profile.role}
       servicos={svs}
       colunas={(colunas as Coluna[]) ?? []}
       initialOpenId={open ?? null}

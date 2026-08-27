@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import type { ClienteStatus } from "@/lib/domain/types";
 import { revalidateServicoPaths } from "./revalidateServicos";
+import { requireRole } from "@/lib/domain/permissions";
 
 export interface NovoClienteInput {
   nome: string;
@@ -19,6 +20,7 @@ export interface NovoClienteInput {
 }
 
 export async function createCliente(input: NovoClienteInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   // Nome + WhatsApp já são obrigatórios pra criar um cliente — com os dois preenchidos, o
   // cadastro nasce Regularizado direto, sem exigir um passo manual extra depois.
@@ -35,6 +37,7 @@ export async function createCliente(input: NovoClienteInput) {
 }
 
 export async function updateClienteStatus(clienteId: string, status: ClienteStatus) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("clientes").update({ status }).eq("id", clienteId);
   if (error) throw error;
@@ -48,6 +51,7 @@ export interface DeleteResult {
 }
 
 export async function deleteCliente(clienteId: string): Promise<DeleteResult> {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { count } = await supabase
     .from("servicos")

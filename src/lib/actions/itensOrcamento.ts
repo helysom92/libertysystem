@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateServicoPaths } from "./revalidateServicos";
+import { requireRole } from "@/lib/domain/permissions";
 
 export interface NovoItemOrcamentoInput {
   nome: string;
@@ -12,6 +13,7 @@ export interface NovoItemOrcamentoInput {
 }
 
 export async function createItemOrcamento(input: NovoItemOrcamentoInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("itens_orcamento")
@@ -34,6 +36,7 @@ export async function updateItemOrcamento(
     ativo: boolean;
   }>
 ) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("itens_orcamento").update(fields).eq("id", id);
   if (error) throw error;

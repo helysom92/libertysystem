@@ -1,8 +1,6 @@
-import { redirect } from "next/navigation";
-import { getCurrentProfile } from "@/lib/supabase/profile";
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllClientes } from "@/lib/supabase/fetchAllClientes";
-import { allowedTabs, homeTabFor } from "@/lib/domain/flows";
+import { requireTab } from "@/lib/domain/permissions";
 import { todayISO } from "@/lib/domain/dates";
 import type {
   Comprovante,
@@ -17,14 +15,11 @@ import type {
   Servico,
 } from "@/lib/domain/types";
 import type { Meta } from "@/lib/domain/dashboardMetrics";
+import type { Profile } from "@/lib/supabase/profile";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 
 export default async function GestaoPage() {
-  const profile = await getCurrentProfile();
-  const role = profile?.role ?? "secretaria";
-  if (!allowedTabs(role).includes("gestao")) {
-    redirect(`/${homeTabFor(role)}`);
-  }
+  await requireTab("gestao");
 
   const supabase = await createClient();
   const [
@@ -40,6 +35,7 @@ export default async function GestaoPage() {
     { data: fornecedores },
     { data: comprovantes },
     { data: fechamentos },
+    { data: usuarios },
   ] = await Promise.all([
     supabase.from("servicos").select("*"),
     fetchAllClientes(supabase),
@@ -53,6 +49,7 @@ export default async function GestaoPage() {
     supabase.from("fornecedores").select("*"),
     supabase.from("comprovantes").select("*"),
     supabase.from("fechamentos_mensais").select("*").order("ano", { ascending: false }).order("mes", { ascending: false }),
+    supabase.from("profiles").select("id, nome, role").order("nome"),
   ]);
 
   return (
@@ -78,6 +75,7 @@ export default async function GestaoPage() {
         fornecedores={(fornecedores as Fornecedor[]) ?? []}
         comprovantes={(comprovantes as Comprovante[]) ?? []}
         fechamentos={(fechamentos as FechamentoMensal[]) ?? []}
+        usuarios={(usuarios as Profile[]) ?? []}
       />
     </div>
   );

@@ -1,14 +1,8 @@
-import { redirect } from "next/navigation";
-import { getCurrentProfile } from "@/lib/supabase/profile";
-import { allowedTabs, homeTabFor } from "@/lib/domain/flows";
+import { requireTab } from "@/lib/domain/permissions";
 import SecretariaTabs from "@/components/secretaria/SecretariaTabs";
 
 export default async function SecretariaLayout({ children }: { children: React.ReactNode }) {
-  const profile = await getCurrentProfile();
-  const role = profile?.role ?? "secretaria";
-  if (!allowedTabs(role).includes("secretaria")) {
-    redirect(`/${homeTabFor(role)}`);
-  }
+  await requireTab("secretaria");
 
   return (
     <div>

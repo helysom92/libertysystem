@@ -41,7 +41,9 @@ import ClientesView from "./ClientesView";
 import MetasView from "./MetasView";
 import GargalosView from "./GargalosView";
 import ConferenciaView from "./ConferenciaView";
+import UsuariosView from "./UsuariosView";
 import RelatoriosClient from "@/components/relatorios/RelatoriosClient";
+import type { Profile } from "@/lib/supabase/profile";
 
 const TABS = [
   { key: "overview", label: "Visão Geral" },
@@ -55,6 +57,7 @@ const TABS = [
   { key: "gargalos", label: "Gargalos" },
   { key: "relatorios", label: "Relatórios" },
   { key: "conferencia", label: "Conferência" },
+  { key: "usuarios", label: "Usuários" },
 ];
 
 function cap(s: string): string {
@@ -75,6 +78,7 @@ export default function DashboardShell({
   fornecedores,
   comprovantes,
   fechamentos,
+  usuarios,
 }: {
   hojeISO: string;
   servicos: Servico[];
@@ -89,6 +93,7 @@ export default function DashboardShell({
   fornecedores: Fornecedor[];
   comprovantes: Comprovante[];
   fechamentos: FechamentoMensal[];
+  usuarios: Profile[];
 }) {
   const router = useRouter();
   const hoje = useMemo(() => new Date(hojeISO + "T00:00:00"), [hojeISO]);
@@ -293,6 +298,7 @@ export default function DashboardShell({
         />
       )}
       {view === "conferencia" && <ConferenciaView fechamentos={fechamentos} />}
+      {view === "usuarios" && <UsuariosView usuarios={usuarios} />}
     </div>
   );
 }

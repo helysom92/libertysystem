@@ -13,6 +13,7 @@ import type {
   Lancamento,
 } from "@/lib/domain/types";
 import { revalidatePath } from "next/cache";
+import { requireRole } from "@/lib/domain/permissions";
 
 export interface AnaliseExtratoResultado {
   resultado: ConciliacaoResultado;
@@ -30,6 +31,7 @@ export async function analisarExtrato(
   mes: number,
   meuNome: string
 ): Promise<AnaliseExtratoResultado> {
+  await requireRole("administrador");
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error("Leitura de extrato por IA não configurada (falta ANTHROPIC_API_KEY).");
   }
@@ -88,6 +90,7 @@ Formato exato de cada item:
 }
 
 export async function pendenciasDoMes(ano: number, mes: number): Promise<PendenciasDoMes> {
+  await requireRole("administrador");
   const supabase = await createClient();
   const inicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
   const fim = ultimoDiaDoMes(ano, mes);
@@ -124,6 +127,7 @@ export interface RetiradaDoMes {
 /** Retirada de lucro já registrada nesse mês (se houver) — evita lançar duas vezes por
  * engano ao reabrir a tela de fechamento. */
 export async function retiradaDoMes(ano: number, mes: number): Promise<RetiradaDoMes | null> {
+  await requireRole("administrador");
   const supabase = await createClient();
   const { data } = await supabase
     .from("lancamentos")
@@ -136,6 +140,7 @@ export async function retiradaDoMes(ano: number, mes: number): Promise<RetiradaD
 }
 
 export async function fecharMes(ano: number, mes: number) {
+  await requireRole("administrador");
   const supabase = await createClient();
   const profile = await getCurrentProfile();
 

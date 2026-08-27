@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateFinanceiroPaths } from "./revalidateFinanceiro";
+import { requireRole } from "@/lib/domain/permissions";
 
 export interface NovoLancamentoInput {
   tipo: "Receita" | "Despesa";
@@ -18,6 +19,7 @@ export interface NovoLancamentoInput {
 }
 
 export async function createLancamento(input: NovoLancamentoInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("lancamentos").insert(input);
   if (error) throw error;
@@ -26,6 +28,7 @@ export async function createLancamento(input: NovoLancamentoInput) {
 }
 
 export async function marcarLancamentoRealizado(id: string) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("lancamentos").update({ status: "realizado" }).eq("id", id);
   if (error) throw error;
@@ -34,6 +37,7 @@ export async function marcarLancamentoRealizado(id: string) {
 }
 
 export async function updateLancamento(id: string, input: NovoLancamentoInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("lancamentos").update(input).eq("id", id);
   if (error) throw error;
@@ -42,6 +46,7 @@ export async function updateLancamento(id: string, input: NovoLancamentoInput) {
 }
 
 export async function deleteLancamento(id: string) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("lancamentos").delete().eq("id", id);
   if (error) throw error;
@@ -58,6 +63,7 @@ export interface NovaDespesaFixaInput {
 }
 
 export async function createDespesaFixa(input: NovaDespesaFixaInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_fixas").insert(input);
   if (error) throw error;
@@ -65,6 +71,7 @@ export async function createDespesaFixa(input: NovaDespesaFixaInput) {
 }
 
 export async function updateDespesaFixa(id: string, input: NovaDespesaFixaInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_fixas").update(input).eq("id", id);
   if (error) throw error;
@@ -72,6 +79,7 @@ export async function updateDespesaFixa(id: string, input: NovaDespesaFixaInput)
 }
 
 export async function deleteDespesaFixa(id: string) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_fixas").delete().eq("id", id);
   if (error) throw error;
@@ -96,6 +104,7 @@ export async function toggleDespesaOcorrencia(
   mes: number,
   pago: boolean
 ) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
 
   const { data: existente } = await supabase
@@ -170,6 +179,7 @@ export interface NovaDespesaVariavelInput {
 }
 
 export async function createDespesaVariavel(input: NovaDespesaVariavelInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_variaveis").insert(input);
   if (error) throw error;
@@ -177,6 +187,7 @@ export async function createDespesaVariavel(input: NovaDespesaVariavelInput) {
 }
 
 export async function updateDespesaVariavel(id: string, input: NovaDespesaVariavelInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_variaveis").update(input).eq("id", id);
   if (error) throw error;
@@ -184,6 +195,7 @@ export async function updateDespesaVariavel(id: string, input: NovaDespesaVariav
 }
 
 export async function deleteDespesaVariavel(id: string) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_variaveis").delete().eq("id", id);
   if (error) throw error;
@@ -196,6 +208,7 @@ export async function updateDespesaVariavelValor(
   mes: number,
   valorReal: number
 ) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: existente } = await supabase
     .from("despesas_variaveis_ocorrencias")
@@ -227,6 +240,7 @@ export async function toggleDespesaVariavelPago(
   mes: number,
   pago: boolean
 ) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
 
   const { data: existente } = await supabase
@@ -304,6 +318,7 @@ export async function registrarComprovante(input: {
   valor: number;
   servico_id?: string | null;
 }) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("comprovantes").insert({
     descricao: input.descricao,
@@ -318,6 +333,7 @@ export async function registrarComprovante(input: {
 }
 
 export async function deleteComprovante(id: string): Promise<{ ok: boolean; reason?: string }> {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: comprovante } = await supabase
     .from("comprovantes")
@@ -334,6 +350,7 @@ export async function deleteComprovante(id: string): Promise<{ ok: boolean; reas
 }
 
 export async function confirmarComprovante(id: string) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: comprovante, error: fetchErr } = await supabase
     .from("comprovantes")
@@ -379,6 +396,7 @@ export interface NovaDespesaRapidaInput {
  * gerenciamento recorrente dos meses seguintes continua em "Gerenciar despesas recorrentes".
  */
 export async function lancarNovaDespesa(input: NovaDespesaRapidaInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const [anoStr, mesStr, diaStr] = input.data.split("-");
   const ano = Number(anoStr);
@@ -428,6 +446,7 @@ export async function lancarDespesaExistente(input: {
   valor: number;
   data: string;
 }) {
+  await requireRole("administrador", "secretaria");
   const [anoStr, mesStr] = input.data.split("-");
   const ano = Number(anoStr);
   const mes = Number(mesStr);
@@ -457,6 +476,7 @@ export interface DespesaParceladaInput {
  * paga). Diferente de despesa fixa: tem fim certo, não repete pra sempre.
  */
 export async function lancarDespesaParcelada(input: DespesaParceladaInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const [anoStr, mesStr, diaStr] = input.primeiraData.split("-");
   const ano = Number(anoStr);

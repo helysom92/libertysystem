@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { todayISO } from "@/lib/domain/dates";
 import { revalidateServicoPaths } from "./revalidateServicos";
 import { revalidateFinanceiroPaths } from "./revalidateFinanceiro";
+import { requireRole } from "@/lib/domain/permissions";
 
 export interface ParcelaInput {
   descricao: string;
@@ -98,6 +99,7 @@ async function criarParcelasComLancamento(servicoId: string, itens: ParcelaInput
 /** Semeia o par padrão Sinal (50%) + Restante (50%, na data do prazo) — ponto de partida rápido
  * pro caso mais comum; o usuário edita/adiciona parcelas depois se o combinado for diferente. */
 export async function criarParcelasPadrao(servicoId: string) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: sv, error: svErr } = await supabase
     .from("servicos")
@@ -117,6 +119,7 @@ export async function criarParcelasPadrao(servicoId: string) {
 
 /** Cliente pagou (ou vai pagar) tudo de uma vez — uma parcela só, no valor cheio do serviço. */
 export async function criarParcelaAvista(servicoId: string) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: sv, error: svErr } = await supabase
     .from("servicos")
@@ -133,15 +136,18 @@ export async function criarParcelaAvista(servicoId: string) {
 /** Cria várias parcelas de uma vez (fluxo "Personalizar") — usado quando o combinado não é o
  * padrão 50/50 nem um pagamento único: número de parcelas, valor e data de cada uma à mão. */
 export async function criarParcelasPersonalizadas(servicoId: string, itens: ParcelaInput[]) {
+  await requireRole("administrador", "secretaria");
   await criarParcelasComLancamento(servicoId, itens);
 }
 
 /** Adiciona uma parcela extra a um plano de pagamento que já existe. */
 export async function addParcela(servicoId: string, input: ParcelaInput, ordem: number) {
+  await requireRole("administrador", "secretaria");
   await criarParcelasComLancamento(servicoId, [input], ordem);
 }
 
 export async function updateParcela(parcelaId: string, input: ParcelaInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("servico_parcelas").update(input).eq("id", parcelaId);
   if (error) throw error;
@@ -149,6 +155,7 @@ export async function updateParcela(parcelaId: string, input: ParcelaInput) {
 }
 
 export async function deleteParcela(parcelaId: string, servicoId: string) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: parcela } = await supabase
     .from("servico_parcelas")
@@ -176,6 +183,7 @@ export async function deleteParcela(parcelaId: string, servicoId: string) {
  * que já foram pagas, pra não perder histórico de recebimento.
  */
 export async function reconfigurarParcelasPendentes(servicoId: string, itens: ParcelaInput[]) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
 
   const { data: pendentes } = await supabase
@@ -224,6 +232,7 @@ export async function marcarParcelaPaga(
   servicoId: string,
   fields: { valorPago: number; dataPagamento: string; formaPagamento: string | null }
 ) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
 
   const { data: parcela, error: pErr } = await supabase

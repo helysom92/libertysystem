@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { fetchServicoDetail } from "@/lib/supabase/fetchServicoDetail";
+import { fetchServicoDetailProducao } from "@/lib/supabase/fetchServicoDetailProducao";
 import { displayNumero, type ItemOrcamento, type ServicoDetail } from "@/lib/domain/types";
 import { exigeMedida } from "@/lib/domain/flows";
 import type { Coluna } from "@/lib/domain/kanban";
@@ -75,18 +76,22 @@ export default function CentralDoServico({
     onClose();
   }
 
+  // Produção nunca busca o registro completo (valor/valor_pago/financeiro_status/parcelas) —
+  // usa a função restrita, que nem chega a buscar esses campos no banco.
+  const buscarDetalhe = context === "producao" ? fetchServicoDetailProducao : fetchServicoDetail;
+
   const reload = useCallback(async () => {
-    const d = await fetchServicoDetail(servicoId);
+    const d = await buscarDetalhe(servicoId);
     setDetail(d);
     setLoading(false);
     // O board por trás do modal (capa do card, badge de checklist, coluna) é renderizado no
     // servidor — sem isso ele fica com dado velho até uma navegação/refresh manual.
     router.refresh();
-  }, [servicoId, router]);
+  }, [servicoId, router, buscarDetalhe]);
 
   useEffect(() => {
     let cancelled = false;
-    fetchServicoDetail(servicoId).then((d) => {
+    buscarDetalhe(servicoId).then((d) => {
       if (cancelled) return;
       setDetail(d);
       setLoading(false);
@@ -94,7 +99,7 @@ export default function CentralDoServico({
     return () => {
       cancelled = true;
     };
-  }, [servicoId]);
+  }, [servicoId, buscarDetalhe]);
 
   const baseTabs = context === "producao" ? TABS_PRODUCAO : TABS_COMERCIAL;
   const tabs = baseTabs.filter(

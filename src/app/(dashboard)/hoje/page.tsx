@@ -1,32 +1,34 @@
-import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import { getCurrentProfile } from "@/lib/supabase/profile";
+import { requireTab } from "@/lib/domain/permissions";
 import { computeKpisAdmin, computeKpisProducao } from "@/lib/domain/kpis";
 import { computeIaAlerts } from "@/lib/domain/alerts";
-import { allowedTabs, homeTabFor, ROLE_LABELS } from "@/lib/domain/flows";
+import { ROLE_LABELS } from "@/lib/domain/flows";
 import { fmtBRL } from "@/lib/domain/types";
 import type { Comprovante, Lancamento, Servico } from "@/lib/domain/types";
+import { CAMPOS_SERVICO_PRODUCAO, toServicoProducaoSafe } from "@/lib/domain/servicoProducao";
 import KpiCard from "@/components/hoje/KpiCard";
 import MeuTrabalho from "@/components/hoje/MeuTrabalho";
 import AlertasIA from "@/components/hoje/AlertasIA";
 import SemFinanceiroPosEntrega from "@/components/hoje/SemFinanceiroPosEntrega";
 
 export default async function HojePage() {
-  const profile = await getCurrentProfile();
-  const role = profile?.role ?? "secretaria";
-  if (!allowedTabs(role).includes("hoje")) {
-    redirect(`/${homeTabFor(role)}`);
-  }
+  const profile = await requireTab("hoje");
+  const role = profile.role;
 
   const supabase = await createClient();
 
   const [{ data: servicos }, { data: comprovantes }, { data: lancamentos }] = await Promise.all([
-    supabase.from("servicos").select("*"),
-    supabase.from("comprovantes").select("*"),
+    role === "producao"
+      ? supabase.from("servicos").select(CAMPOS_SERVICO_PRODUCAO)
+      : supabase.from("servicos").select("*"),
+    role !== "producao" ? supabase.from("comprovantes").select("*") : Promise.resolve({ data: [] }),
     role !== "producao" ? supabase.from("lancamentos").select("*") : Promise.resolve({ data: [] }),
   ]);
 
-  const svs = (servicos as Servico[]) ?? [];
+  const svs =
+    role === "producao"
+      ? ((servicos ?? []) as unknown as Parameters<typeof toServicoProducaoSafe>[0][]).map(toServicoProducaoSafe)
+      : ((servicos as unknown as Servico[]) ?? []);
   const comps = (comprovantes as Comprovante[]) ?? [];
   const lancs = (lancamentos as Lancamento[]) ?? [];
   const alerts = computeIaAlerts(svs, comps);

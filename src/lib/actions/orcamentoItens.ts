@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateServicoPaths } from "./revalidateServicos";
 import type { CategoriaPrazo, ModoCalculoItem } from "@/lib/domain/orcamento";
+import { requireRole } from "@/lib/domain/permissions";
 
 export interface OrcamentoItemInput {
   ordem: number;
@@ -22,6 +23,7 @@ export interface OrcamentoItemInput {
 
 export async function createOrcamentoItens(servicoId: string, itens: OrcamentoItemInput[]) {
   if (itens.length === 0) return;
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("orcamento_itens").insert(
     itens.map((item) => ({
@@ -51,6 +53,7 @@ export async function createOrcamentoItens(servicoId: string, itens: OrcamentoIt
  * sem mexer num status mais avançado (Pago, Cortesia etc.) que já estava definido.
  */
 export async function replaceOrcamentoItens(servicoId: string, itens: OrcamentoItemInput[]) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const total = itens.reduce((sum, item) => sum + item.valorFinal, 0);
 

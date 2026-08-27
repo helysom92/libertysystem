@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidateServicoPaths } from "./revalidateServicos";
 import type { LinhaOrcamento } from "@/lib/domain/orcamento";
+import { requireRole } from "@/lib/domain/permissions";
 
 export interface PropostaOpcaoInput {
   linha: LinhaOrcamento;
@@ -15,6 +16,7 @@ export interface PropostaOpcaoInput {
 /** Substitui as até-3 opções da proposta interativa de um serviço (mesmo padrão de
  * replaceOrcamentoItens: apaga e recria, mais simples que diff linha a linha). */
 export async function salvarPropostaOpcoes(servicoId: string, opcoes: PropostaOpcaoInput[]) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
 
   const { error: delErr } = await supabase.from("proposta_opcoes").delete().eq("servico_id", servicoId);

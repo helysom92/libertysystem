@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { PRAZO_STATUS_COLOR, PRAZO_STATUS_LABEL, prazoStatus, type Coluna, type PrazoStatus } from "@/lib/domain/kanban";
 import { displayNumero, type ItemOrcamento, type Servico } from "@/lib/domain/types";
+import type { Role } from "@/lib/domain/flows";
 import { normalizarBusca } from "@/lib/domain/texto";
 import CentralDoServico from "@/components/servico-modal/CentralDoServico";
 
@@ -14,11 +15,13 @@ const PRAZO_FILTROS: { value: "todos" | PrazoStatus; label: string }[] = [
 ];
 
 export default function VisaoGeralServicosTable({
+  role,
   servicos,
   colunas,
   itensOrcamento,
   initialOpenId,
 }: {
+  role: Role;
   servicos: Servico[];
   colunas: Coluna[];
   itensOrcamento: ItemOrcamento[];
@@ -146,7 +149,7 @@ export default function VisaoGeralServicosTable({
       {openId && (
         <CentralDoServico
           servicoId={openId}
-          context="producao"
+          context={role === "producao" ? "producao" : "comercial"}
           itensOrcamento={itensOrcamento}
           colunasOS={colunas.filter((c) => c.board === "os").sort((a, b) => a.ordem - b.ordem)}
           onClose={() => setOpenId(null)}

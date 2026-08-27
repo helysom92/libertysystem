@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireRole } from "@/lib/domain/permissions";
 
 export interface NovoMaterialInput {
   nome: string;
@@ -11,6 +12,7 @@ export interface NovoMaterialInput {
 }
 
 export async function createMaterial(input: NovoMaterialInput) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("materiais").insert(input);
   if (error) throw error;
@@ -27,6 +29,7 @@ export async function updateMaterial(
     ativo: boolean;
   }>
 ) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("materiais").update(fields).eq("id", id);
   if (error) throw error;

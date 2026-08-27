@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateServicoPaths } from "./revalidateServicos";
 import type { KanbanBoardKey } from "@/lib/domain/kanban";
+import { requireRole } from "@/lib/domain/permissions";
 
 export interface MoveResult {
   ok: boolean;
@@ -17,6 +18,7 @@ export interface MoveResult {
  * dela, em vez de simplesmente colar tudo no fim.
  */
 export async function createColuna(board: KanbanBoardKey, label: string) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: existentes } = await supabase
     .from("colunas")
@@ -44,6 +46,7 @@ export async function createColuna(board: KanbanBoardKey, label: string) {
 }
 
 export async function renameColuna(id: string, label: string) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("colunas").update({ label }).eq("id", id);
   if (error) throw error;
@@ -51,6 +54,7 @@ export async function renameColuna(id: string, label: string) {
 }
 
 export async function toggleConclusaoColuna(id: string, value: boolean) {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("colunas").update({ is_conclusao: value }).eq("id", id);
   if (error) throw error;
@@ -58,6 +62,7 @@ export async function toggleConclusaoColuna(id: string, value: boolean) {
 }
 
 export async function deleteColuna(id: string): Promise<MoveResult> {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { count } = await supabase
     .from("servicos")
@@ -73,6 +78,7 @@ export async function deleteColuna(id: string): Promise<MoveResult> {
 }
 
 export async function moveCardParaColuna(servicoId: string, colunaId: string): Promise<MoveResult> {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("move_card_para_coluna", {
     p_servico_id: servicoId,
@@ -86,6 +92,7 @@ export async function moveCardParaColuna(servicoId: string, colunaId: string): P
 }
 
 export async function aprovarOrcamento(servicoId: string): Promise<MoveResult> {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("aprova_orcamento", { p_servico_id: servicoId });
   if (error) throw error;

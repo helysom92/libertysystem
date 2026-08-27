@@ -4,6 +4,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { createClient } from "@/lib/supabase/server";
 import { fmtBRL } from "@/lib/domain/types";
 import { TIPO_LABELS, type ServicoTipo } from "@/lib/domain/flows";
+import { requireRole } from "@/lib/domain/permissions";
 
 export interface SugestaoIaInput {
   tipo: ServicoTipo;
@@ -21,6 +22,7 @@ export interface SugestaoIaInput {
  * descrição nem o valor calculado, devolve a última resposta salva em vez de pagar de novo.
  */
 export async function sugerirValorComIa(servicoId: string, input: SugestaoIaInput): Promise<string> {
+  await requireRole("administrador", "secretaria");
   if (!process.env.ANTHROPIC_API_KEY) {
     return "Sugestão por IA não configurada ainda (falta a chave ANTHROPIC_API_KEY nas variáveis de ambiente).";
   }

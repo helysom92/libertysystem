@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidateServicoPaths } from "./revalidateServicos";
+import { requireRole } from "@/lib/domain/permissions";
 
 export interface NovaMedidaInput {
   largura: number;
@@ -15,6 +16,7 @@ export interface NovaMedidaInput {
 }
 
 export async function addMedida(servicoId: string, input: NovaMedidaInput) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase.from("medicoes").insert({ servico_id: servicoId, ...input });
   if (error) throw error;
@@ -22,6 +24,7 @@ export async function addMedida(servicoId: string, input: NovaMedidaInput) {
 }
 
 export async function addArquivo(servicoId: string, nome: string, storagePath: string, sizeBytes: number, contentType: string) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const {
     data: { user },
@@ -39,6 +42,7 @@ export async function addArquivo(servicoId: string, nome: string, storagePath: s
 }
 
 export async function removeArquivo(id: string, storagePath: string) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   await supabase.storage.from("arquivos").remove([storagePath]);
   const { error } = await supabase.from("arquivos").delete().eq("id", id);
@@ -47,6 +51,7 @@ export async function removeArquivo(id: string, storagePath: string) {
 }
 
 export async function upsertFoto(servicoId: string, slot: number, storagePath: string) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("fotos")
@@ -59,6 +64,7 @@ export async function upsertFoto(servicoId: string, slot: number, storagePath: s
 }
 
 export async function setCapaFoto(servicoId: string, fotoId: string) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update({ capa_foto_id: fotoId }).eq("id", servicoId);
   if (error) throw error;
@@ -67,6 +73,7 @@ export async function setCapaFoto(servicoId: string, fotoId: string) {
 
 /** Cria um espaço de foto vazio (sem limite fixo) — próximo slot livre pra esse serviço. */
 export async function addFotoSlot(servicoId: string): Promise<number> {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { data: existentes } = await supabase
     .from("fotos")
@@ -82,6 +89,7 @@ export async function addFotoSlot(servicoId: string): Promise<number> {
 }
 
 export async function removeFoto(fotoId: string, storagePath: string | null) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   if (storagePath) {
     await supabase.storage.from("fotos").remove([storagePath]);
@@ -93,6 +101,7 @@ export async function removeFoto(fotoId: string, storagePath: string | null) {
 }
 
 export async function addChecklistItem(servicoId: string, texto: string) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase.from("checklist_items").insert({ servico_id: servicoId, texto });
   if (error) throw error;
@@ -100,6 +109,7 @@ export async function addChecklistItem(servicoId: string, texto: string) {
 }
 
 export async function toggleChecklistItem(id: string, done: boolean) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase.from("checklist_items").update({ done }).eq("id", id);
   if (error) throw error;
@@ -107,6 +117,7 @@ export async function toggleChecklistItem(id: string, done: boolean) {
 }
 
 export async function removeChecklistItem(id: string) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase.from("checklist_items").delete().eq("id", id);
   if (error) throw error;
@@ -114,6 +125,7 @@ export async function removeChecklistItem(id: string) {
 }
 
 export async function getSignedUrl(bucket: "arquivos" | "fotos", path: string) {
+  await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
   return data?.signedUrl ?? null;
