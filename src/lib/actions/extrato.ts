@@ -115,6 +115,26 @@ export async function pendenciasDoMes(ano: number, mes: number): Promise<Pendenc
   );
 }
 
+export interface RetiradaDoMes {
+  id: string;
+  valor: number;
+  data: string;
+}
+
+/** Retirada de lucro já registrada nesse mês (se houver) — evita lançar duas vezes por
+ * engano ao reabrir a tela de fechamento. */
+export async function retiradaDoMes(ano: number, mes: number): Promise<RetiradaDoMes | null> {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("lancamentos")
+    .select("id, valor, data")
+    .eq("categoria", "Retirada de Lucro")
+    .gte("data", `${ano}-${String(mes).padStart(2, "0")}-01`)
+    .lte("data", ultimoDiaDoMes(ano, mes))
+    .maybeSingle();
+  return (data as RetiradaDoMes) ?? null;
+}
+
 export async function fecharMes(ano: number, mes: number) {
   const supabase = await createClient();
   const profile = await getCurrentProfile();

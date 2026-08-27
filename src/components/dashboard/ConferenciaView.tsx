@@ -3,9 +3,17 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { analisarExtrato, fecharMes, pendenciasDoMes, type AnaliseExtratoResultado } from "@/lib/actions/extrato";
+import {
+  analisarExtrato,
+  fecharMes,
+  pendenciasDoMes,
+  retiradaDoMes,
+  type AnaliseExtratoResultado,
+  type RetiradaDoMes,
+} from "@/lib/actions/extrato";
 import { createLancamento, deleteLancamento } from "@/lib/actions/financeiro";
 import { fmtBRL } from "@/lib/domain/types";
+import { todayISO } from "@/lib/domain/dates";
 import type { AchadoConciliacao } from "@/lib/domain/extrato";
 import type { FechamentoMensal } from "@/lib/domain/types";
 import type { PendenciasDoMes } from "@/lib/domain/dashboardMetrics";
@@ -175,8 +183,12 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
   const [fechamentoRecente, setFechamentoRecente] = useState<{ entrou: number; saiu: number; lucro: number } | null>(null);
   const [pendencias, setPendencias] = useState<PendenciasDoMes | null>(null);
   const [carregandoPendencias, startPendenciasTransition] = useTransition();
+  const [retirada, setRetirada] = useState<RetiradaDoMes | null>(null);
+  const [valorRetirada, setValorRetirada] = useState("");
+  const [retirando, startRetirando] = useTransition();
 
   const fechamentoDoMes = fechamentos.find((f) => f.ano === ano && f.mes === mes);
+  const fechamentoAtivo = fechamentoDoMes ?? fechamentoRecente;
 
   useEffect(() => {
     let cancelado = false;
@@ -192,6 +204,47 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
       cancelado = true;
     };
   }, [ano, mes]);
+
+  useEffect(() => {
+    let cancelado = false;
+    retiradaDoMes(ano, mes)
+      .then((r) => {
+        if (!cancelado) setRetirada(r);
+      })
+      .catch(() => {
+        if (!cancelado) setRetirada(null);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [ano, mes]);
+
+  // Pré-preenche com o lucro até o usuário digitar algo — sem useEffect, pra não disparar
+  // setState em cascata; se o campo estiver vazio, cai no lucro do fechamento ativo.
+  const valorRetiradaExibido = valorRetirada !== "" ? valorRetirada : String(fechamentoAtivo?.lucro ?? "");
+
+  function handleRegistrarRetirada() {
+    const valor = Number(valorRetiradaExibido) || 0;
+    if (valor <= 0) return;
+    setError(null);
+    startRetirando(async () => {
+      try {
+        await createLancamento({
+          tipo: "Despesa",
+          descricao: `Retirada de lucro — ${MESES[mes - 1]}/${ano}`,
+          categoria: "Retirada de Lucro",
+          valor,
+          data: todayISO(),
+          status: "realizado",
+        });
+        const r = await retiradaDoMes(ano, mes);
+        setRetirada(r);
+        router.refresh();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Não foi possível registrar a retirada.");
+      }
+    });
+  }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -372,6 +425,40 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
           </button>
         )}
       </div>
+
+      {fechamentoAtivo && (
+        <div className="rounded-card border border-border-gold bg-card p-4">
+          {retirada ? (
+            <p className="text-sm">
+              ✓ Retirada de {fmtBRL(retirada.valor)} registrada em {retirada.data.split("-").reverse().join("/")}
+            </p>
+          ) : (
+            <>
+              <p className="mb-2 text-sm">
+                Lucro do mês: <span className="font-semibold text-gold">{fmtBRL(fechamentoAtivo.lucro)}</span> — quanto você
+                quer retirar?
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="number"
+                  step="0.01"
+                  value={valorRetiradaExibido}
+                  onChange={(e) => setValorRetirada(e.target.value)}
+                  className="w-40 rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleRegistrarRetirada}
+                  disabled={retirando}
+                  className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-4 py-2 text-sm font-semibold text-bg disabled:opacity-60"
+                >
+                  {retirando ? "Registrando..." : "Registrar Retirada"}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {fechamentos.length > 0 && (
         <div>
