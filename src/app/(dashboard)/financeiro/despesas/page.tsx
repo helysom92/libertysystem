@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { requireTab } from "@/lib/domain/permissions";
 import type {
   DespesaFixa,
   DespesaFixaOcorrencia,
@@ -17,10 +18,17 @@ export default async function FinanceiroDespesasPage({
   searchParams: Promise<{ abrir?: string; secao?: string }>;
 }) {
   const params = await searchParams;
+  const profile = await requireTab("financeiro");
   const supabase = await createClient();
   const now = new Date();
   const ano = now.getFullYear();
   const mes = now.getMonth() + 1;
+
+  const despesasLancamentosQuery = supabase.from("lancamentos").select("*").eq("tipo", "Despesa").order("data", { ascending: false });
+  // Mesma regra da lista de Lançamentos — retirada de lucro é assunto de Administrador/Gestão.
+  if (profile.role !== "administrador") {
+    despesasLancamentosQuery.neq("categoria", "Retirada de Lucro");
+  }
 
   const [
     { data: despesasFixasRaw },
@@ -34,7 +42,7 @@ export default async function FinanceiroDespesasPage({
     supabase.from("despesas_variaveis").select("*").eq("ativo", true).order("descricao"),
     supabase.from("fornecedores").select("*").eq("ativo", true).order("nome"),
     supabase.from("lancamento_atalhos").select("*").eq("ativo", true).order("ordem"),
-    supabase.from("lancamentos").select("*").eq("tipo", "Despesa").order("data", { ascending: false }),
+    despesasLancamentosQuery,
     supabase
       .from("servicos")
       .select("id, numero, cliente, descricao")
