@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { fmtBRL } from "@/lib/domain/types";
 import {
   fmtPct,
@@ -11,6 +12,7 @@ import ProgressRing from "./charts/ProgressRing";
 import BarChart from "./charts/BarChart";
 import LineAreaChart from "./charts/LineAreaChart";
 import MonthNavBar from "./MonthNavBar";
+import DetalheMesPanel from "./DetalheMesPanel";
 
 function KpiCard({
   label,
@@ -18,19 +20,29 @@ function KpiCard({
   isPct,
   deltaPct,
   ringPct,
+  active,
+  onClick,
 }: {
   label: string;
   value: number;
   isPct?: boolean;
   deltaPct: number | null;
   ringPct: number;
+  active?: boolean;
+  onClick?: () => void;
 }) {
   const deltaColor = deltaPct == null ? "var(--color-text-muted)" : deltaPct >= 0 ? "var(--color-success)" : "var(--color-danger)";
   const deltaText =
     deltaPct == null ? "sem comparativo" : `${deltaPct >= 0 ? "↑" : "↓"} ${fmtPct(Math.abs(deltaPct))} vs mês anterior`;
 
   return (
-    <div className="flex items-center gap-4 rounded-card border border-border-neutral bg-card p-4">
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex items-center gap-4 rounded-card border bg-card p-4 text-left transition-colors ${
+        active ? "border-gold" : "border-border-neutral hover:border-border-gold"
+      }`}
+    >
       <ProgressRing pct={ringPct} label={`${Math.round(ringPct)}%`} />
       <div className="min-w-0">
         <p className="text-[12px] font-semibold text-text-secondary">{label}</p>
@@ -39,7 +51,7 @@ function KpiCard({
           {deltaText}
         </p>
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -73,6 +85,8 @@ function MtdRow({
 export default function VisaoGeralView({
   kpis,
   faturamentoMes,
+  ano,
+  mes,
   monthly6,
   monthly12,
   upcoming,
@@ -86,6 +100,8 @@ export default function VisaoGeralView({
 }: {
   kpis: KpisVisaoGeral;
   faturamentoMes: number;
+  ano: number;
+  mes: number;
   monthly6: MonthPoint[];
   monthly12: MonthPoint[];
   upcoming: ProximoItem[];
@@ -97,6 +113,8 @@ export default function VisaoGeralView({
   disableNext: boolean;
   mtd: MtdComparativo | null;
 }) {
+  const [detalheAberto, setDetalheAberto] = useState(false);
+
   return (
     <div>
       <MonthNavBar label={monthLabel} onPrev={onPrevMonth} onNext={onNextMonth} disableNext={disableNext} isCurrent={isMesAtual} />
@@ -108,11 +126,21 @@ export default function VisaoGeralView({
       </div>
 
       <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard {...kpis.receita} />
-        <KpiCard {...kpis.despesas} />
-        <KpiCard {...kpis.lucro} />
-        <KpiCard {...kpis.margem} />
+        <KpiCard {...kpis.receita} active={detalheAberto} onClick={() => setDetalheAberto((v) => !v)} />
+        <KpiCard {...kpis.despesas} active={detalheAberto} onClick={() => setDetalheAberto((v) => !v)} />
+        <KpiCard {...kpis.lucro} active={detalheAberto} onClick={() => setDetalheAberto((v) => !v)} />
+        <KpiCard {...kpis.margem} active={detalheAberto} onClick={() => setDetalheAberto((v) => !v)} />
       </div>
+
+      {detalheAberto && (
+        <DetalheMesPanel
+          ano={ano}
+          mes={mes}
+          faturamentoMes={faturamentoMes}
+          receitaRealizada={kpis.receita.value}
+          despesaRealizada={kpis.despesas.value}
+        />
+      )}
 
       {mtd && (
         <div className="mb-5 rounded-card border border-border-neutral bg-card p-5">

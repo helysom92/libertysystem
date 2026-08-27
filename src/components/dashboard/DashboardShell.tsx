@@ -221,6 +221,8 @@ export default function DashboardShell({
         <VisaoGeralView
           kpis={kpis}
           faturamentoMes={faturamentoMes}
+          ano={mesAtual.year}
+          mes={mesAtual.month + 1}
           monthly6={monthly.slice(-6)}
           monthly12={monthly.slice(-12)}
           upcoming={upcoming}
