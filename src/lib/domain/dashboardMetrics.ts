@@ -510,18 +510,26 @@ export interface ContaAPagarItem {
   atrasado: boolean;
 }
 
-/** Tudo que ainda está em aberto pro mês atual (hojeISO): despesas fixas não pagas, despesas
+/** Tudo que ainda está em aberto pro mês de referência: despesas fixas não pagas, despesas
  * variáveis não pagas e lançamentos previstos — junto numa lista só, ordenada por vencimento,
- * pra dar uma visão real de "o que falta pagar" em vez de só um contador. */
+ * pra dar uma visão real de "o que falta pagar" em vez de só um contador. `refAnoMes` decide de
+ * qual mês são as ocorrências fixas/variáveis buscadas em `despesasFixasOcorrencias`/
+ * `despesasVariaveisOcorrencias` (Etapa 3: antes só existia "o mês atual", derivado de
+ * `hojeISO` — sem isso, navegar pro mês passado/futuro no Financeiro não mudava essa lista).
+ * Omitido, cai no mês de `hojeISO` — comportamento idêntico ao de antes pra quem já chama sem
+ * esse parâmetro. */
 export function contasAPagar(
   despesasFixas: DespesaFixa[],
   despesasFixasOcorrencias: DespesaFixaOcorrencia[],
   despesasVariaveis: DespesaVariavel[],
   despesasVariaveisOcorrencias: DespesaVariavelOcorrencia[],
   lancamentosPrevistos: Lancamento[],
-  hojeISO: string
+  hojeISO: string,
+  refAnoMes?: { ano: number; mes: number }
 ): ContaAPagarItem[] {
-  const [hy, hm] = hojeISO.split("-").map(Number);
+  const [hyHoje, hmHoje] = hojeISO.split("-").map(Number);
+  const hy = refAnoMes?.ano ?? hyHoje;
+  const hm = refAnoMes?.mes ?? hmHoje;
   const items: ContaAPagarItem[] = [];
 
   for (const df of despesasFixas) {
@@ -529,7 +537,7 @@ export function contasAPagar(
     const ocorrencia = despesasFixasOcorrencias.find(
       (o) => o.despesa_fixa_id === df.id && o.ano === hy && o.mes === hm
     );
-    if (ocorrencia?.pago) continue;
+    if (ocorrencia?.pago || ocorrencia?.cancelada_em) continue;
     const diasNoMes = new Date(hy, hm, 0).getDate();
     const dia = Math.min(df.dia_vencimento, diasNoMes);
     const vencimento = `${hy}-${String(hm).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
@@ -549,10 +557,11 @@ export function contasAPagar(
     const ocorrencia = despesasVariaveisOcorrencias.find(
       (o) => o.despesa_variavel_id === dv.id && o.ano === hy && o.mes === hm
     );
-    if (ocorrencia?.pago) continue;
+    if (ocorrencia?.pago || ocorrencia?.cancelada_em) continue;
     // Essas despesas não têm vencimento fixo — usa a data que o usuário escolheu (quando
-    // paga/lança), caindo em hoje só se ainda não tiver data nenhuma.
-    const vencimento = dv.data ?? hojeISO;
+    // paga/lança); sem data ainda, cai no 1º dia do mês de referência (hoje, se estiver vendo o
+    // mês atual — senão o mês navegado, pra não "vencer hoje" uma despesa de um mês diferente).
+    const vencimento = dv.data ?? (refAnoMes ? `${hy}-${String(hm).padStart(2, "0")}-01` : hojeISO);
     items.push({
       id: dv.id,
       descricao: dv.descricao,

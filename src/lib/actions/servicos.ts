@@ -263,12 +263,21 @@ export async function ensureShareToken(servicoId: string): Promise<string> {
   return data as string;
 }
 
+/** Exclusão definitiva de um serviço — ação já irreversível e explícita (exige confirmação na
+ * tela). `servico_parcelas` já cai sozinha via `on delete cascade`, mas `lancamentos.servico_id`
+ * é `on delete set null` (pra não apagar histórico financeiro só por cancelamento de OS) — sem
+ * isso, excluir a OS deixava lançamentos "órfãos" (sem OS, mas ainda contando nos totais do
+ * Financeiro) que só dava pra achar manualmente. Já que apagar a OS já é uma decisão explícita
+ * e definitiva do usuário, apaga junto os lançamentos vinculados a ela. */
 export async function deleteServico(servicoId: string) {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
+  const { error: lancErr } = await supabase.from("lancamentos").delete().eq("servico_id", servicoId);
+  if (lancErr) throw lancErr;
   const { error } = await supabase.from("servicos").delete().eq("id", servicoId);
   if (error) throw error;
   revalidateServicoPaths();
+  revalidateFinanceiroPaths();
 }
 
 export async function updateClienteInline(

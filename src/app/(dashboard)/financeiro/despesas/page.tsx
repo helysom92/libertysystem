@@ -1,5 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import { requireTab } from "@/lib/domain/permissions";
+import { podeVerRetiradaDeLucro, requireTab } from "@/lib/domain/permissions";
+import { resolverPeriodoDaUrl } from "@/lib/domain/periodoFinanceiro";
+import { periodoDoMes } from "@/lib/domain/financas";
+import { hojeISOOperacao } from "@/lib/domain/dates";
 import type {
   DespesaFixa,
   DespesaFixaOcorrencia,
@@ -15,19 +18,24 @@ import DespesasClient from "@/components/financeiro/DespesasClient";
 export default async function FinanceiroDespesasPage({
   searchParams,
 }: {
-  searchParams: Promise<{ abrir?: string; secao?: string }>;
+  searchParams: Promise<{ abrir?: string; secao?: string; ano?: string; mes?: string; geral?: string }>;
 }) {
   const params = await searchParams;
   const profile = await requireTab("financeiro");
   const supabase = await createClient();
-  const now = new Date();
-  const ano = now.getFullYear();
-  const mes = now.getMonth() + 1;
+  const { ano, mes } = resolverPeriodoDaUrl(params);
+  const geral = params.geral === "1";
+  const periodo = periodoDoMes(ano, mes);
+  const [anoAtual, mesAtual] = hojeISOOperacao().split("-").map(Number);
+  const ehMesAtual = ano === anoAtual && mes === mesAtual;
 
-  const despesasLancamentosQuery = supabase.from("lancamentos").select("*").eq("tipo", "Despesa").order("data", { ascending: false });
+  let despesasLancamentosQuery = supabase.from("lancamentos").select("*").eq("tipo", "Despesa").order("data", { ascending: false });
+  if (!geral) {
+    despesasLancamentosQuery = despesasLancamentosQuery.gte("data", periodo.inicio).lte("data", periodo.fim);
+  }
   // Mesma regra da lista de Lançamentos — retirada de lucro é assunto de Administrador/Gestão.
-  if (profile.role !== "administrador") {
-    despesasLancamentosQuery.neq("categoria", "Retirada de Lucro");
+  if (!podeVerRetiradaDeLucro(profile.role)) {
+    despesasLancamentosQuery = despesasLancamentosQuery.neq("categoria", "Retirada de Lucro");
   }
 
   const [
@@ -53,27 +61,31 @@ export default async function FinanceiroDespesasPage({
   const despesasFixas = (despesasFixasRaw as DespesaFixa[]) ?? [];
   const despesasVariaveis = (despesasVarRaw as DespesaVariavel[]) ?? [];
 
-  // Lazily ensure this month's occurrence row exists for every despesa ativa (fixa e variável).
-  await Promise.all([
-    despesasFixas.length > 0
-      ? supabase.from("despesas_fixas_ocorrencias").upsert(
-          despesasFixas.map((d) => ({ despesa_fixa_id: d.id, ano, mes, pago: false })),
-          { onConflict: "despesa_fixa_id,ano,mes", ignoreDuplicates: true }
-        )
-      : Promise.resolve(),
-    despesasVariaveis.length > 0
-      ? supabase.from("despesas_variaveis_ocorrencias").upsert(
-          despesasVariaveis.map((d) => ({
-            despesa_variavel_id: d.id,
-            ano,
-            mes,
-            valor_real: d.valor_provisionado,
-            pago: false,
-          })),
-          { onConflict: "despesa_variavel_id,ano,mes", ignoreDuplicates: true }
-        )
-      : Promise.resolve(),
-  ]);
+  // Lazily ensure this month's occurrence row exists — só pro mês ATUAL de verdade (nunca
+  // pra um mês passado/futuro navegado pelo seletor), senão só abrir a página num mês futuro já
+  // materializaria ocorrências que ainda não deveriam existir.
+  if (ehMesAtual) {
+    await Promise.all([
+      despesasFixas.length > 0
+        ? supabase.from("despesas_fixas_ocorrencias").upsert(
+            despesasFixas.map((d) => ({ despesa_fixa_id: d.id, ano, mes, pago: false })),
+            { onConflict: "despesa_fixa_id,ano,mes", ignoreDuplicates: true }
+          )
+        : Promise.resolve(),
+      despesasVariaveis.length > 0
+        ? supabase.from("despesas_variaveis_ocorrencias").upsert(
+            despesasVariaveis.map((d) => ({
+              despesa_variavel_id: d.id,
+              ano,
+              mes,
+              valor_real: d.valor_provisionado,
+              pago: false,
+            })),
+            { onConflict: "despesa_variavel_id,ano,mes", ignoreDuplicates: true }
+          )
+        : Promise.resolve(),
+    ]);
+  }
 
   const [{ data: ocorrenciasFixas }, { data: ocorrenciasVar }] = await Promise.all([
     supabase.from("despesas_fixas_ocorrencias").select("*").eq("ano", ano).eq("mes", mes),
@@ -92,6 +104,7 @@ export default async function FinanceiroDespesasPage({
       servicos={(servicosRaw as ServicoParaVinculo[]) ?? []}
       ano={ano}
       mes={mes}
+      geral={geral}
       abrirRecorrentes={params.abrir === "recorrentes"}
       secaoInicial={params.secao === "variaveis" ? "variaveis" : "fixas"}
     />

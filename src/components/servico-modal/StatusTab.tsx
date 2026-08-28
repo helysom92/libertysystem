@@ -66,7 +66,7 @@ export default function StatusTab({
   }
 
   async function handleDelete() {
-    if (!confirm("Excluir este serviço? Esta ação não pode ser desfeita.")) return;
+    if (!confirm("Excluir este serviço? Isso também apaga os lançamentos financeiros vinculados a ele. Esta ação não pode ser desfeita.")) return;
     setMiscError(null);
     try {
       await deleteServico(servico.id);

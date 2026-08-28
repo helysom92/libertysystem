@@ -243,6 +243,9 @@ export interface DespesaFixaOcorrencia {
   pago: boolean;
   pago_em: string | null;
   lancamento_id: string | null;
+  cancelada_em: string | null;
+  cancelada_por: string | null;
+  motivo_cancelamento: string | null;
 }
 
 /** Água, energia, comissão etc. — sem valor fixo nem dia certo; valor_provisionado é só a
@@ -266,6 +269,9 @@ export interface DespesaVariavelOcorrencia {
   pago: boolean;
   pago_em: string | null;
   lancamento_id: string | null;
+  cancelada_em: string | null;
+  cancelada_por: string | null;
+  motivo_cancelamento: string | null;
 }
 
 export interface Evento {
@@ -293,6 +299,23 @@ export interface ServicoParcela {
   pago_em: string | null;
   forma_pagamento: string | null;
   lancamento_id: string | null;
+  cancelada_em: string | null;
+  cancelada_por: string | null;
+  motivo_cancelamento: string | null;
+}
+
+/** Log único de auditoria (Etapa 3) — todo pagamento/cancelamento/estorno de uma entidade
+ * financeira gera uma linha aqui, nunca editada/apagada. */
+export interface FinanceiroEvento {
+  id: string;
+  entidade: "lancamento" | "parcela" | "despesa_fixa_ocorrencia" | "despesa_variavel_ocorrencia";
+  entidade_id: string;
+  evento: "pagamento_total" | "pagamento_parcial" | "cancelamento" | "estorno";
+  valor_anterior: number | null;
+  valor_novo: number | null;
+  motivo: string | null;
+  usuario_id: string | null;
+  criado_em: string;
 }
 
 export interface ServicoDetail {

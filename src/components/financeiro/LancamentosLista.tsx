@@ -1,12 +1,32 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
-import type { Fornecedor, Lancamento } from "@/lib/domain/types";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
+import type { Fornecedor, Lancamento, ServicoParaVinculo } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
-import { marcarLancamentoRealizado } from "@/lib/actions/financeiro";
+import { marcarLancamentoRealizado, cancelarLancamento, estornarLancamento } from "@/lib/actions/financeiro";
+import { recebido, despesasPagas, situacaoLancamento, type SituacaoLancamento } from "@/lib/domain/financas";
+import { hojeISOOperacao } from "@/lib/domain/dates";
 import { normalizarBusca } from "@/lib/domain/texto";
 import NovoLancamentoModal from "./NovoLancamentoModal";
+
+const SITUACAO_LABEL: Record<SituacaoLancamento, string> = {
+  previsto: "Previsto",
+  parcial: "Parcial",
+  realizado: "Realizado",
+  a_vencer: "A vencer",
+  vencido: "Vencido",
+  cancelado: "Cancelado",
+};
+
+const SITUACAO_COR: Record<SituacaoLancamento, string> = {
+  previsto: "#E0A64E",
+  parcial: "#E0A64E",
+  realizado: "#25D366",
+  a_vencer: "#8a6ba0",
+  vencido: "#E07A7A",
+  cancelado: "#8a8378",
+};
 
 function fmtDiaLabel(iso: string): string {
   const d = new Date(iso + "T00:00:00");
@@ -21,65 +41,106 @@ function fmtMesAno(ano: number, mes: number): string {
   return capitalizar(new Date(ano, mes - 1, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" }));
 }
 
-function subtotal(lancs: Lancamento[], status: "previsto" | "realizado", tipo: "Receita" | "Despesa") {
-  return lancs
-    .filter((l) => l.status === status && l.tipo === tipo)
-    .reduce((acc, l) => acc + l.valor, 0);
-}
-
-/** Histórico de lançamentos agrupado por dia, com clique pra editar — usado tanto em
- * Lançamentos (tudo) quanto em Despesas (só o que é tipo Despesa). */
+/** Histórico de lançamentos agrupado por dia, com filtros combináveis e clique pra editar —
+ * usado tanto em Lançamentos (tudo) quanto em Despesas (só o que é tipo Despesa). O filtro de
+ * mês vem do servidor (URL) — aqui só os filtros extras (tipo, situação, categoria, etc). */
 export default function LancamentosLista({
   lancamentos,
   fornecedores,
+  servicos = [],
   vazioLabel = "Nenhum lançamento ainda.",
+  geral = false,
+  ano,
+  mes,
 }: {
   lancamentos: Lancamento[];
   fornecedores: Fornecedor[];
+  servicos?: ServicoParaVinculo[];
   vazioLabel?: string;
+  geral?: boolean;
+  ano?: number;
+  mes?: number;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const hoje = hojeISOOperacao();
   const [editing, setEditing] = useState<Lancamento | null>(null);
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
-  const hoje = useMemo(() => new Date(), []);
-  const [modo, setModo] = useState<"mensal" | "geral">("mensal");
-  const [ano, setAno] = useState(hoje.getFullYear());
-  const [mes, setMes] = useState(hoje.getMonth() + 1);
-  const [dataDe, setDataDe] = useState("");
-  const [dataAte, setDataAte] = useState("");
+  const [filtroTipo, setFiltroTipo] = useState<"todos" | "Receita" | "Despesa">("todos");
+  const [filtroSituacao, setFiltroSituacao] = useState<"todas" | SituacaoLancamento>("todas");
+  const [filtroCategoria, setFiltroCategoria] = useState("todas");
+  const [filtroFornecedor, setFiltroFornecedor] = useState("todos");
+  const [filtroForma, setFiltroForma] = useState("todas");
+  const [filtroOS, setFiltroOS] = useState("");
 
   const fornecedorNome = (id: string | null) => fornecedores.find((f) => f.id === id)?.nome ?? null;
+  const servicoDoLancamento = (servicoId: string | null) => servicos.find((s) => s.id === servicoId) ?? null;
 
-  function mudarMes(delta: number) {
-    const d = new Date(ano, mes - 1 + delta, 1);
-    setAno(d.getFullYear());
-    setMes(d.getMonth() + 1);
+  const categorias = useMemo(
+    () => Array.from(new Set(lancamentos.map((l) => l.categoria).filter((c): c is string => !!c))).sort(),
+    [lancamentos]
+  );
+  const formasPagamento = useMemo(
+    () => Array.from(new Set(lancamentos.map((l) => l.forma_pagamento).filter((f): f is string => !!f))).sort(),
+    [lancamentos]
+  );
+
+  function toggleHistoricoGeral() {
+    const params = new URLSearchParams(searchParams.toString());
+    if (geral) {
+      params.delete("geral");
+    } else {
+      params.set("geral", "1");
+    }
+    router.push(`${pathname}?${params.toString()}`);
   }
 
-  const doMes = useMemo(() => {
-    let base = lancamentos;
-    if (modo === "mensal") {
-      base = base.filter((l) => {
-        const [y, m] = l.data.split("-").map(Number);
-        return y === ano && m === mes;
-      });
-    } else {
-      if (dataDe) base = base.filter((l) => l.data >= dataDe);
-      if (dataAte) base = base.filter((l) => l.data <= dataAte);
-    }
-    return base;
-  }, [lancamentos, modo, ano, mes, dataDe, dataAte]);
+  function limparFiltros() {
+    setBusca("");
+    setFiltroTipo("todos");
+    setFiltroSituacao("todas");
+    setFiltroCategoria("todas");
+    setFiltroFornecedor("todos");
+    setFiltroForma("todas");
+    setFiltroOS("");
+  }
+
+  const filtrosAtivos =
+    busca || filtroTipo !== "todos" || filtroSituacao !== "todas" || filtroCategoria !== "todas" || filtroFornecedor !== "todos" || filtroForma !== "todas" || filtroOS;
 
   const filtrados = useMemo(() => {
-    if (!busca.trim()) return doMes;
-    const alvo = normalizarBusca(busca);
-    return doMes.filter((l) => {
-      const campos = [l.descricao, l.categoria ?? "", fornecedorNome(l.fornecedor_id) ?? ""];
-      return campos.some((c) => normalizarBusca(c).includes(alvo));
+    const alvoBusca = busca.trim() ? normalizarBusca(busca) : null;
+    const alvoOS = filtroOS.trim() ? normalizarBusca(filtroOS) : null;
+    return lancamentos.filter((l) => {
+      const situacao = situacaoLancamento(l.status, l.data, hoje);
+      // Cancelado só aparece quando explicitamente pedido — nunca por padrão, e sempre fora
+      // dos totais (já garantido por `recebido`/`despesasPagas`, que só somam 'realizado').
+      if (situacao === "cancelado" && filtroSituacao !== "cancelado") return false;
+      if (filtroTipo !== "todos" && l.tipo !== filtroTipo) return false;
+      if (filtroSituacao !== "todas" && situacao !== filtroSituacao) return false;
+      if (filtroCategoria !== "todas" && l.categoria !== filtroCategoria) return false;
+      if (filtroFornecedor !== "todos" && l.fornecedor_id !== filtroFornecedor) return false;
+      if (filtroForma !== "todas" && l.forma_pagamento !== filtroForma) return false;
+      if (alvoOS) {
+        const sv = servicos.find((s) => s.id === l.servico_id);
+        if (!sv || !normalizarBusca(sv.numero ?? "").includes(alvoOS)) return false;
+      }
+      if (alvoBusca) {
+        const nomeFornecedor = fornecedores.find((f) => f.id === l.fornecedor_id)?.nome ?? "";
+        const campos = [l.descricao, l.categoria ?? "", nomeFornecedor];
+        if (!campos.some((c) => normalizarBusca(c).includes(alvoBusca))) return false;
+      }
+      return true;
     });
-  }, [doMes, busca]);
+  }, [lancamentos, busca, filtroTipo, filtroSituacao, filtroCategoria, filtroFornecedor, filtroForma, filtroOS, hoje, servicos, fornecedores]);
+
+  const somaFiltrados = useMemo(() => {
+    const periodo = { inicio: "0000-01-01", fim: "9999-12-31" };
+    return recebido(filtrados, periodo).total - despesasPagas(filtrados, periodo).total;
+  }, [filtrados]);
 
   const grupos = useMemo(() => {
     const map = new Map<string, Lancamento[]>();
@@ -88,6 +149,28 @@ export default function LancamentosLista({
     }
     return [...map.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
   }, [filtrados]);
+
+  async function handleCancelar(l: Lancamento) {
+    const motivo = prompt("Motivo do cancelamento (opcional):");
+    if (motivo === null) return;
+    try {
+      await cancelarLancamento(l.id, motivo || null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível cancelar esse lançamento.");
+    }
+  }
+
+  async function handleEstornar(l: Lancamento) {
+    const motivo = prompt("Motivo do estorno (opcional):");
+    if (motivo === null) return;
+    try {
+      await estornarLancamento(l.id, motivo || null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível estornar esse lançamento.");
+    }
+  }
 
   return (
     <div>
@@ -98,68 +181,70 @@ export default function LancamentosLista({
       )}
 
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <div className="flex gap-1">
-          {(["mensal", "geral"] as const).map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setModo(m)}
-              className={`rounded-btn border px-3 py-1.5 text-[12px] ${
-                modo === m ? "border-gold bg-gold/10 text-gold" : "border-border-neutral text-text-secondary"
-              }`}
-            >
-              {m === "mensal" ? "Mês a mês" : "Geral"}
-            </button>
+        <span className="text-[12.5px] font-semibold">
+          {geral ? "Histórico geral — não limitado ao mês selecionado" : ano && mes ? fmtMesAno(ano, mes) : ""}
+        </span>
+        <button
+          type="button"
+          onClick={toggleHistoricoGeral}
+          className={`rounded-btn border px-3 py-1.5 text-[12px] ${
+            geral ? "border-gold bg-gold/10 text-gold" : "border-border-neutral text-text-secondary"
+          }`}
+        >
+          {geral ? "Voltar pro mês selecionado" : "Ver histórico geral"}
+        </button>
+      </div>
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <select value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value as typeof filtroTipo)} className="rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-[12px]">
+          <option value="todos">Todos os tipos</option>
+          <option value="Receita">Receita</option>
+          <option value="Despesa">Despesa</option>
+        </select>
+        <select value={filtroSituacao} onChange={(e) => setFiltroSituacao(e.target.value as typeof filtroSituacao)} className="rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-[12px]">
+          <option value="todas">Todas as situações</option>
+          {(Object.keys(SITUACAO_LABEL) as SituacaoLancamento[]).map((s) => (
+            <option key={s} value={s}>
+              {SITUACAO_LABEL[s]}
+            </option>
           ))}
-        </div>
-        {modo === "mensal" && (
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => mudarMes(-1)}
-              className="rounded-btn border border-border-neutral px-2 py-1 text-[12px] text-text-secondary hover:text-text"
-            >
-              ◀
-            </button>
-            <span className="min-w-[130px] text-center text-[12.5px] font-semibold">{fmtMesAno(ano, mes)}</span>
-            <button
-              type="button"
-              onClick={() => mudarMes(1)}
-              className="rounded-btn border border-border-neutral px-2 py-1 text-[12px] text-text-secondary hover:text-text"
-            >
-              ▶
-            </button>
-          </div>
+        </select>
+        <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)} className="rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-[12px]">
+          <option value="todas">Todas as categorias</option>
+          {categorias.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+        <select value={filtroFornecedor} onChange={(e) => setFiltroFornecedor(e.target.value)} className="rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-[12px]">
+          <option value="todos">Todos os fornecedores</option>
+          {fornecedores.map((f) => (
+            <option key={f.id} value={f.id}>
+              {f.nome}
+            </option>
+          ))}
+        </select>
+        {formasPagamento.length > 0 && (
+          <select value={filtroForma} onChange={(e) => setFiltroForma(e.target.value)} className="rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-[12px]">
+            <option value="todas">Todas as formas</option>
+            {formasPagamento.map((f) => (
+              <option key={f} value={f}>
+                {f}
+              </option>
+            ))}
+          </select>
         )}
-        {modo === "geral" && (
-          <div className="flex items-center gap-1.5 text-[12px] text-text-secondary">
-            <span>De</span>
-            <input
-              type="date"
-              value={dataDe}
-              onChange={(e) => setDataDe(e.target.value)}
-              className="rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-[12.5px]"
-            />
-            <span>até</span>
-            <input
-              type="date"
-              value={dataAte}
-              onChange={(e) => setDataAte(e.target.value)}
-              className="rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-[12.5px]"
-            />
-            {(dataDe || dataAte) && (
-              <button
-                type="button"
-                onClick={() => {
-                  setDataDe("");
-                  setDataAte("");
-                }}
-                className="text-[11.5px] text-text-muted hover:text-text hover:underline"
-              >
-                Limpar
-              </button>
-            )}
-          </div>
+        <input
+          value={filtroOS}
+          onChange={(e) => setFiltroOS(e.target.value)}
+          placeholder="Nº da OS..."
+          className="w-24 rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-[12px]"
+        />
+        {filtrosAtivos && (
+          <button type="button" onClick={limparFiltros} className="text-[11.5px] text-text-muted hover:text-text hover:underline">
+            Limpar filtros
+          </button>
         )}
       </div>
 
@@ -170,94 +255,95 @@ export default function LancamentosLista({
         className="mb-3 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
       />
 
+      <div className="mb-3 flex items-center justify-between rounded-btn bg-card-secondary px-3 py-2 text-[12.5px]">
+        <span className="text-text-secondary">
+          {filtrados.length} registro{filtrados.length === 1 ? "" : "s"} nesse filtro
+        </span>
+        <span className="font-semibold" style={{ color: somaFiltrados >= 0 ? "#25D366" : "#E07A7A" }}>
+          Saldo: {fmtBRL(somaFiltrados)}
+        </span>
+      </div>
+
       <div className="flex flex-col gap-4">
         {grupos.map(([data, lancs]) => {
-          const previstoReceita = subtotal(lancs, "previsto", "Receita");
-          const previstoDespesa = subtotal(lancs, "previsto", "Despesa");
-          const realizadoReceita = subtotal(lancs, "realizado", "Receita");
-          const realizadoDespesa = subtotal(lancs, "realizado", "Despesa");
+          const periodoDia = { inicio: data, fim: data };
+          const realizado = recebido(lancs, periodoDia).total - despesasPagas(lancs, periodoDia).total;
 
           return (
             <div key={data}>
               <div className="mb-1.5 flex items-center justify-between rounded-btn bg-card-secondary px-3 py-1.5">
-                <p className="text-[11.5px] font-semibold capitalize text-text-secondary">
-                  {fmtDiaLabel(data)}
-                </p>
-                <div className="flex gap-4 text-[11px]">
-                  {(previstoReceita > 0 || previstoDespesa > 0) && (
-                    <span className="text-text-muted">
-                      Previsto: {fmtBRL(previstoReceita - previstoDespesa)}
-                    </span>
-                  )}
-                  <span style={{ color: realizadoReceita - realizadoDespesa >= 0 ? "#25D366" : "#E07A7A" }}>
-                    Realizado: {fmtBRL(realizadoReceita - realizadoDespesa)}
-                  </span>
-                </div>
+                <p className="text-[11.5px] font-semibold capitalize text-text-secondary">{fmtDiaLabel(data)}</p>
+                <span className="text-[11px]" style={{ color: realizado >= 0 ? "#25D366" : "#E07A7A" }}>
+                  Realizado: {fmtBRL(realizado)}
+                </span>
               </div>
 
               <div className="flex flex-col gap-1">
-                {lancs.map((l) => (
-                  <div
-                    key={l.id}
-                    onClick={() => setEditing(l)}
-                    className="flex cursor-pointer items-center justify-between rounded-btn px-3 py-2 text-[12.5px] hover:bg-card-secondary"
-                  >
-                    <div>
-                      <p className="font-medium">{l.descricao}</p>
-                      <p className="text-[11px] text-text-muted">
-                        {fornecedorNome(l.fornecedor_id) ?? l.categoria} · {l.banco || "—"} ·{" "}
-                        {l.forma_pagamento || "—"}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <span
-                        className="rounded-pill px-2 py-0.5 text-[10.5px]"
-                        style={{
-                          color: l.status === "realizado" ? "#25D366" : "#E0A64E",
-                          border: "1px solid currentColor",
-                        }}
-                      >
-                        {l.status === "realizado" ? "Realizado" : "Previsto"}
-                      </span>
-                      <span
-                        className={`w-24 text-right font-semibold ${
-                          l.tipo === "Despesa" ? "text-danger" : "text-success"
-                        }`}
-                      >
-                        {l.tipo === "Despesa" ? "- " : ""}
-                        {fmtBRL(l.valor)}
-                      </span>
-                      {l.status === "previsto" && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            startTransition(async () => {
-                              try {
-                                await marcarLancamentoRealizado(l.id);
-                                router.refresh();
-                              } catch (err) {
-                                console.error("Falha ao marcar lançamento como realizado", err);
-                                setError(err instanceof Error ? err.message : "Não foi possível atualizar esse lançamento.");
-                              }
-                            });
-                          }}
-                          className="rounded-btn border border-border-gold-strong px-2 py-1 text-[11px] text-gold"
+                {lancs.map((l) => {
+                  const situacao = situacaoLancamento(l.status, l.data, hoje);
+                  const sv = servicoDoLancamento(l.servico_id);
+                  return (
+                    <div
+                      key={l.id}
+                      className="flex flex-col gap-1.5 rounded-btn px-3 py-2 text-[12.5px] hover:bg-card-secondary sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <div onClick={() => situacao !== "cancelado" && setEditing(l)} className={situacao !== "cancelado" ? "flex-1 cursor-pointer" : "flex-1"}>
+                        <p className="font-medium">
+                          {l.descricao} {sv && <span className="text-[10.5px] text-text-muted">· {sv.numero}</span>}
+                        </p>
+                        <p className="text-[11px] text-text-muted">
+                          {fornecedorNome(l.fornecedor_id) ?? l.categoria} · {l.banco || "—"} · {l.forma_pagamento || "—"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <span
+                          className="rounded-pill px-2 py-0.5 text-[10.5px]"
+                          style={{ color: SITUACAO_COR[situacao], border: "1px solid currentColor" }}
                         >
-                          Marcar realizado
-                        </button>
-                      )}
+                          {SITUACAO_LABEL[situacao]}
+                        </span>
+                        <span className={`w-24 text-right font-semibold ${l.tipo === "Despesa" ? "text-danger" : "text-success"}`}>
+                          {l.tipo === "Despesa" ? "- " : ""}
+                          {fmtBRL(l.valor)}
+                        </span>
+                        {situacao === "a_vencer" || situacao === "vencido" ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              startTransition(async () => {
+                                try {
+                                  await marcarLancamentoRealizado(l.id);
+                                  router.refresh();
+                                } catch (err) {
+                                  setError(err instanceof Error ? err.message : "Não foi possível atualizar esse lançamento.");
+                                }
+                              })
+                            }
+                            className="rounded-btn border border-border-gold-strong px-2 py-1 text-[11px] text-gold"
+                          >
+                            Marcar realizado
+                          </button>
+                        ) : null}
+                        {situacao !== "cancelado" && (
+                          <button type="button" onClick={() => handleCancelar(l)} className="text-[11px] text-danger">
+                            Cancelar
+                          </button>
+                        )}
+                        {situacao === "realizado" && (
+                          <button type="button" onClick={() => handleEstornar(l)} className="text-[11px] text-danger">
+                            Estornar
+                          </button>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           );
         })}
         {grupos.length === 0 && (
-          <p className="py-4 text-center text-sm text-text-muted">
-            {lancamentos.length > 0 ? "Nada encontrado nesse filtro." : vazioLabel}
-          </p>
+          <p className="py-4 text-center text-sm text-text-muted">{lancamentos.length > 0 ? "Nada encontrado nesse filtro." : vazioLabel}</p>
         )}
       </div>
 

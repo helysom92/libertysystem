@@ -21,6 +21,8 @@ import {
   excluirPrevistosDeServicoCancelado,
   duplicidadesLancamentos,
   inconsistenciasFinanceiras,
+  situacaoLancamento,
+  tipoDespesaLancamentoAvulso,
 } from "../financas";
 
 function servico(overrides: Partial<Servico> = {}): Servico {
@@ -94,6 +96,9 @@ function parcela(overrides: Partial<ServicoParcela> = {}): ServicoParcela {
     pago_em: null,
     forma_pagamento: null,
     lancamento_id: null,
+    cancelada_em: null,
+    cancelada_por: null,
+    motivo_cancelamento: null,
     ...overrides,
   };
 }
@@ -103,7 +108,19 @@ function despesaFixa(overrides: Partial<DespesaFixa> = {}): DespesaFixa {
 }
 
 function ocorrenciaFixa(overrides: Partial<DespesaFixaOcorrencia> = {}): DespesaFixaOcorrencia {
-  return { id: "of-1", despesa_fixa_id: "df-1", ano: 2026, mes: 8, pago: false, pago_em: null, lancamento_id: null, ...overrides };
+  return {
+    id: "of-1",
+    despesa_fixa_id: "df-1",
+    ano: 2026,
+    mes: 8,
+    pago: false,
+    pago_em: null,
+    lancamento_id: null,
+    cancelada_em: null,
+    cancelada_por: null,
+    motivo_cancelamento: null,
+    ...overrides,
+  };
 }
 
 function despesaVariavel(overrides: Partial<DespesaVariavel> = {}): DespesaVariavel {
@@ -111,7 +128,20 @@ function despesaVariavel(overrides: Partial<DespesaVariavel> = {}): DespesaVaria
 }
 
 function ocorrenciaVariavel(overrides: Partial<DespesaVariavelOcorrencia> = {}): DespesaVariavelOcorrencia {
-  return { id: "ov-1", despesa_variavel_id: "dv-1", ano: 2026, mes: 8, valor_real: null, pago: false, pago_em: null, lancamento_id: null, ...overrides };
+  return {
+    id: "ov-1",
+    despesa_variavel_id: "dv-1",
+    ano: 2026,
+    mes: 8,
+    valor_real: null,
+    pago: false,
+    pago_em: null,
+    lancamento_id: null,
+    cancelada_em: null,
+    cancelada_por: null,
+    motivo_cancelamento: null,
+    ...overrides,
+  };
 }
 
 const AGOSTO = periodoDoMes(2026, 8);
@@ -321,5 +351,61 @@ describe("financas — confirmações extras pedidas", () => {
     const oc = ocorrenciaVariavel({ despesa_variavel_id: "dv-x", ano: 2026, mes: 8, pago: false, valor_real: 250 });
     const r = aPagar([], [], [dv], [oc], [], AGOSTO, HOJE);
     expect(r.total).toBe(250);
+  });
+});
+
+describe("situacaoLancamento (Etapa 3)", () => {
+  it("cancelado sempre vence tudo, mesmo se realizado", () => {
+    expect(situacaoLancamento("cancelado", "2026-08-10", HOJE)).toBe("cancelado");
+  });
+
+  it("realizado sem saldo parcial é 'realizado'", () => {
+    expect(situacaoLancamento("realizado", "2026-08-10", HOJE)).toBe("realizado");
+  });
+
+  it("realizado com saldo parcial em aberto vira 'parcial'", () => {
+    const r = situacaoLancamento("realizado", "2026-08-10", HOJE, { valorOriginal: 600, saldoRestante: 200 });
+    expect(r).toBe("parcial");
+  });
+
+  it("realizado com saldo zerado NÃO vira 'parcial' (já está tudo pago)", () => {
+    const r = situacaoLancamento("realizado", "2026-08-10", HOJE, { valorOriginal: 600, saldoRestante: 0 });
+    expect(r).toBe("realizado");
+  });
+
+  it("previsto com data no passado é 'vencido'", () => {
+    expect(situacaoLancamento("previsto", "2026-08-01", HOJE)).toBe("vencido");
+  });
+
+  it("previsto com data futura é 'a_vencer'", () => {
+    expect(situacaoLancamento("previsto", "2026-09-01", HOJE)).toBe("a_vencer");
+  });
+});
+
+describe("Parcela cancelada individualmente (Etapa 3) — extensão aditiva de aReceber", () => {
+  it("parcela cancelada some de A Receber, mesmo com saldo em aberto e serviço ativo", () => {
+    const s = servico({ id: "sv-9", numero: "OS-9", financeiro_status: "Aguardando sinal" });
+    const p = parcela({ servico_id: "sv-9", valor_previsto: 500, valor_pago: null, data_prevista: "2026-08-20", cancelada_em: "2026-08-15T00:00:00Z" });
+    const r = aReceber([s], [p], [], AGOSTO, HOJE);
+    expect(r.total).toBe(0);
+    expect(r.registros).toHaveLength(0);
+  });
+
+  it("parcela NÃO cancelada do mesmo serviço continua contando normalmente", () => {
+    const s = servico({ id: "sv-10", numero: "OS-10", financeiro_status: "Aguardando sinal" });
+    const pCancelada = parcela({ id: "pc-a", servico_id: "sv-10", valor_previsto: 300, data_prevista: "2026-08-20", cancelada_em: "2026-08-15T00:00:00Z" });
+    const pAtiva = parcela({ id: "pc-b", servico_id: "sv-10", valor_previsto: 700, data_prevista: "2026-08-22" });
+    const r = aReceber([s], [pCancelada, pAtiva], [], AGOSTO, HOJE);
+    expect(r.total).toBe(700);
+  });
+});
+
+describe("tipoDespesaLancamentoAvulso (Etapa 3)", () => {
+  it("lançamento avulso vinculado a uma OS é 'variavel_venda'", () => {
+    expect(tipoDespesaLancamentoAvulso("sv-1")).toBe("variavel_venda");
+  });
+
+  it("lançamento avulso sem OS vinculada é 'avulsa'", () => {
+    expect(tipoDespesaLancamentoAvulso(null)).toBe("avulsa");
   });
 });

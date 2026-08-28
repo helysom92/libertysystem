@@ -54,6 +54,68 @@ export async function deleteLancamento(id: string) {
   revalidatePath("/hoje");
 }
 
+/** Cancela um lançamento avulso sem apagar o registro (Etapa 3) — `recebido`/`despesasPagas`/
+ * `aReceber`/`aPagar` (financas.ts) já filtram por status='realizado'/'previsto', então um
+ * lançamento cancelado sai sozinho de todos os totais, sem precisar tocar em nenhuma fórmula. */
+export async function cancelarLancamento(id: string, motivo: string | null) {
+  const profile = await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const { error } = await supabase.from("lancamentos").update({ status: "cancelado" }).eq("id", id);
+  if (error) throw error;
+  await supabase.from("financeiro_eventos").insert({
+    entidade: "lancamento",
+    entidade_id: id,
+    evento: "cancelamento",
+    motivo,
+    usuario_id: profile.id,
+  });
+  revalidateFinanceiroPaths();
+  revalidatePath("/hoje");
+}
+
+/** Reverte um lançamento marcado como realizado por engano — volta a "previsto", preserva o
+ * registro. Não usar pra reverter cancelamento (use `createLancamento`/edite o status na hora
+ * de corrigir, já que cancelar é uma decisão de negócio diferente de "baixa errada"). */
+export async function estornarLancamento(id: string, motivo: string | null) {
+  const profile = await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const { data: atual } = await supabase.from("lancamentos").select("valor,status").eq("id", id).single();
+  if (!atual || atual.status !== "realizado") {
+    throw new Error("Só é possível estornar um lançamento que já foi realizado.");
+  }
+  const { error } = await supabase.from("lancamentos").update({ status: "previsto" }).eq("id", id);
+  if (error) throw error;
+  await supabase.from("financeiro_eventos").insert({
+    entidade: "lancamento",
+    entidade_id: id,
+    evento: "estorno",
+    valor_anterior: atual.valor,
+    valor_novo: atual.valor,
+    motivo,
+    usuario_id: profile.id,
+  });
+  revalidateFinanceiroPaths();
+  revalidatePath("/hoje");
+}
+
+/** Histórico de eventos (pagamento/cancelamento/estorno) de um registro específico — alimenta
+ * "consultar histórico de recebimentos/pagamentos" em Recebimentos e Despesas. */
+export async function historicoDoRegistro(
+  entidade: "lancamento" | "parcela" | "despesa_fixa_ocorrencia" | "despesa_variavel_ocorrencia",
+  entidadeId: string
+) {
+  await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("financeiro_eventos")
+    .select("*")
+    .eq("entidade", entidade)
+    .eq("entidade_id", entidadeId)
+    .order("criado_em", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
 export interface NovaDespesaFixaInput {
   descricao: string;
   valor: number;
@@ -110,6 +172,72 @@ export async function toggleDespesaOcorrencia(
     p_pago: pago,
   });
   if (error) throw error;
+  revalidateFinanceiroPaths();
+  revalidatePath("/hoje");
+}
+
+/** Cancela só a ocorrência deste mês (o cliente/fornecedor não vai cobrar/pagar esse mês
+ * específico) — sem desativar a regra recorrente inteira, que continua gerando os meses
+ * seguintes normalmente. */
+export async function cancelarOcorrenciaDespesaFixa(despesaFixaId: string, ano: number, mes: number, motivo: string | null) {
+  const profile = await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  await supabase
+    .from("despesas_fixas_ocorrencias")
+    .upsert({ despesa_fixa_id: despesaFixaId, ano, mes, pago: false }, { onConflict: "despesa_fixa_id,ano,mes" });
+  const { data: ocorrencia, error } = await supabase
+    .from("despesas_fixas_ocorrencias")
+    .update({ cancelada_em: new Date().toISOString(), cancelada_por: profile.id, motivo_cancelamento: motivo })
+    .eq("despesa_fixa_id", despesaFixaId)
+    .eq("ano", ano)
+    .eq("mes", mes)
+    .select("id")
+    .single();
+  if (error) throw error;
+  await supabase.from("financeiro_eventos").insert({
+    entidade: "despesa_fixa_ocorrencia",
+    entidade_id: ocorrencia.id,
+    evento: "cancelamento",
+    motivo,
+    usuario_id: profile.id,
+  });
+  revalidateFinanceiroPaths();
+}
+
+/** Estorna o pagamento de uma ocorrência de despesa fixa — reaproveita a RPC atômica já
+ * existente (migration 0035, `pago=false`, que já reverte/apaga o lançamento vinculado com
+ * segurança contra clique duplo) e só registra o evento de auditoria por cima, sem editar a
+ * migration antiga. */
+export async function estornarPagamentoOcorrenciaDespesaFixa(despesaFixaId: string, ano: number, mes: number, motivo: string | null) {
+  const profile = await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const { data: antes } = await supabase
+    .from("despesas_fixas_ocorrencias")
+    .select("id, lancamento_id")
+    .eq("despesa_fixa_id", despesaFixaId)
+    .eq("ano", ano)
+    .eq("mes", mes)
+    .maybeSingle();
+  if (!antes?.lancamento_id) throw new Error("Essa ocorrência não tem pagamento pra estornar.");
+  const { data: lanc } = await supabase.from("lancamentos").select("valor").eq("id", antes.lancamento_id).single();
+
+  const { error } = await supabase.rpc("toggle_despesa_fixa_ocorrencia", {
+    p_despesa_fixa_id: despesaFixaId,
+    p_ano: ano,
+    p_mes: mes,
+    p_pago: false,
+  });
+  if (error) throw error;
+
+  await supabase.from("financeiro_eventos").insert({
+    entidade: "despesa_fixa_ocorrencia",
+    entidade_id: antes.id,
+    evento: "estorno",
+    valor_anterior: lanc?.valor ?? null,
+    valor_novo: null,
+    motivo,
+    usuario_id: profile.id,
+  });
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
 }
@@ -194,6 +322,67 @@ export async function toggleDespesaVariavelPago(
     p_pago: pago,
   });
   if (error) throw error;
+  revalidateFinanceiroPaths();
+  revalidatePath("/hoje");
+}
+
+/** Espelha `cancelarOcorrenciaDespesaFixa`, pro lado das despesas variáveis. */
+export async function cancelarOcorrenciaDespesaVariavel(despesaVariavelId: string, ano: number, mes: number, motivo: string | null) {
+  const profile = await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  await supabase
+    .from("despesas_variaveis_ocorrencias")
+    .upsert({ despesa_variavel_id: despesaVariavelId, ano, mes, pago: false }, { onConflict: "despesa_variavel_id,ano,mes" });
+  const { data: ocorrencia, error } = await supabase
+    .from("despesas_variaveis_ocorrencias")
+    .update({ cancelada_em: new Date().toISOString(), cancelada_por: profile.id, motivo_cancelamento: motivo })
+    .eq("despesa_variavel_id", despesaVariavelId)
+    .eq("ano", ano)
+    .eq("mes", mes)
+    .select("id")
+    .single();
+  if (error) throw error;
+  await supabase.from("financeiro_eventos").insert({
+    entidade: "despesa_variavel_ocorrencia",
+    entidade_id: ocorrencia.id,
+    evento: "cancelamento",
+    motivo,
+    usuario_id: profile.id,
+  });
+  revalidateFinanceiroPaths();
+}
+
+/** Espelha `estornarPagamentoOcorrenciaDespesaFixa`, pro lado das despesas variáveis. */
+export async function estornarPagamentoOcorrenciaDespesaVariavel(despesaVariavelId: string, ano: number, mes: number, motivo: string | null) {
+  const profile = await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const { data: antes } = await supabase
+    .from("despesas_variaveis_ocorrencias")
+    .select("id, lancamento_id")
+    .eq("despesa_variavel_id", despesaVariavelId)
+    .eq("ano", ano)
+    .eq("mes", mes)
+    .maybeSingle();
+  if (!antes?.lancamento_id) throw new Error("Essa ocorrência não tem pagamento pra estornar.");
+  const { data: lanc } = await supabase.from("lancamentos").select("valor").eq("id", antes.lancamento_id).single();
+
+  const { error } = await supabase.rpc("toggle_despesa_variavel_ocorrencia", {
+    p_despesa_variavel_id: despesaVariavelId,
+    p_ano: ano,
+    p_mes: mes,
+    p_pago: false,
+  });
+  if (error) throw error;
+
+  await supabase.from("financeiro_eventos").insert({
+    entidade: "despesa_variavel_ocorrencia",
+    entidade_id: antes.id,
+    evento: "estorno",
+    valor_anterior: lanc?.valor ?? null,
+    valor_novo: null,
+    motivo,
+    usuario_id: profile.id,
+  });
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
 }

@@ -8,6 +8,13 @@ export function todayISO(): string {
   return toISODate(d);
 }
 
+/** "Hoje" no fuso da operação (MS), não no fuso do processo Node/Vercel — usar em qualquer
+ * comparação nova de vencido/a-vencer (Etapa 3) em vez de `todayISO()`, que depende do fuso do
+ * servidor. */
+export function hojeISOOperacao(timeZone: string = FUSO_OPERACAO): string {
+  return isoDateFromTimestampTz(new Date().toISOString(), timeZone);
+}
+
 /** "YYYY-MM-DD" a partir de um `timestamptz`, sempre no fuso da operação — não usar
  * `.slice(0,10)` direto na string do timestamp, que reflete o fuso em que o Postgres/Supabase
  * serializou o valor (UTC), não o fuso real do evento. */

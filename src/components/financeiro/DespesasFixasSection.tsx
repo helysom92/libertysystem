@@ -4,20 +4,25 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { DespesaFixa, DespesaFixaOcorrencia, Fornecedor } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
-import { toggleDespesaOcorrencia } from "@/lib/actions/financeiro";
+import { toggleDespesaOcorrencia, cancelarOcorrenciaDespesaFixa, estornarPagamentoOcorrenciaDespesaFixa } from "@/lib/actions/financeiro";
+import { hojeISOOperacao } from "@/lib/domain/dates";
 import NovaDespesaFixaModal from "./NovaDespesaFixaModal";
 
-function computeStatus(ocorrencia: DespesaFixaOcorrencia | undefined, diaVencimento: number) {
+/** Vencimento como data completa (ano/mes já vêm do mês selecionado, não "hoje") — antes essa
+ * função só comparava o dia do mês, ignorando ano/mês, divergindo do critério usado no resto
+ * do app (`dashboardMetrics.ts`). */
+function computeStatus(ocorrencia: DespesaFixaOcorrencia | undefined, diaVencimento: number, ano: number, mes: number) {
+  if (ocorrencia?.cancelada_em) return "Cancelada";
   if (ocorrencia?.pago) return "Pago";
-  const today = new Date();
-  if (today.getDate() > diaVencimento) return "Vencido";
-  return "A Pagar";
+  const vencimento = `${ano}-${String(mes).padStart(2, "0")}-${String(diaVencimento).padStart(2, "0")}`;
+  return vencimento < hojeISOOperacao() ? "Vencido" : "A Pagar";
 }
 
 const STATUS_COLOR: Record<string, string> = {
   Pago: "#25D366",
   "A Pagar": "rgba(244,242,236,0.6)",
   Vencido: "#E07A7A",
+  Cancelada: "#8a8378",
 };
 
 export default function DespesasFixasSection({
@@ -38,6 +43,28 @@ export default function DespesasFixasSection({
   const [editing, setEditing] = useState<DespesaFixa | null>(null);
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  async function handleCancelar(despesaFixaId: string) {
+    const motivo = prompt("Motivo do cancelamento desse mês (opcional):");
+    if (motivo === null) return;
+    try {
+      await cancelarOcorrenciaDespesaFixa(despesaFixaId, ano, mes, motivo || null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível cancelar essa ocorrência.");
+    }
+  }
+
+  async function handleEstornar(despesaFixaId: string) {
+    const motivo = prompt("Motivo do estorno (opcional):");
+    if (motivo === null) return;
+    try {
+      await estornarPagamentoOcorrenciaDespesaFixa(despesaFixaId, ano, mes, motivo || null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível estornar esse pagamento.");
+    }
+  }
 
   return (
     <div className="rounded-card border border-border-neutral bg-card p-4">
@@ -60,11 +87,11 @@ export default function DespesasFixasSection({
       <div className="flex flex-col gap-2">
         {despesas.map((d) => {
           const ocorrencia = ocorrencias.find((o) => o.despesa_fixa_id === d.id);
-          const status = computeStatus(ocorrencia, d.dia_vencimento);
+          const status = computeStatus(ocorrencia, d.dia_vencimento, ano, mes);
           return (
             <div
               key={d.id}
-              className="flex items-center justify-between rounded-btn bg-card-secondary px-3 py-2 text-sm"
+              className="flex flex-col gap-2 rounded-btn bg-card-secondary px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
             >
               <button
                 type="button"
@@ -76,33 +103,45 @@ export default function DespesasFixasSection({
                   {d.categoria} · vence dia {d.dia_vencimento} · {fmtBRL(d.valor)}
                 </p>
               </button>
-              <div className="flex items-center gap-3">
+              <div className="flex flex-wrap items-center gap-3">
                 <span
                   className="rounded-pill px-2 py-0.5 text-[10.5px] font-semibold"
                   style={{ color: STATUS_COLOR[status] }}
                 >
                   {status}
                 </span>
-                <label className="flex items-center gap-1.5 text-[12px]">
-                  <input
-                    type="checkbox"
-                    checked={ocorrencia?.pago ?? false}
-                    onChange={(e) => {
-                      const checked = e.target.checked;
-                      setError(null);
-                      startTransition(async () => {
-                        try {
-                          await toggleDespesaOcorrencia(d.id, ano, mes, checked);
-                          router.refresh();
-                        } catch (err) {
-                          console.error("Falha ao atualizar despesa fixa", err);
-                          setError(err instanceof Error ? err.message : "Não foi possível atualizar essa despesa.");
-                        }
-                      });
-                    }}
-                  />
-                  Pago
-                </label>
+                {status !== "Cancelada" && (
+                  <label className="flex items-center gap-1.5 text-[12px]">
+                    <input
+                      type="checkbox"
+                      checked={ocorrencia?.pago ?? false}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setError(null);
+                        startTransition(async () => {
+                          try {
+                            await toggleDespesaOcorrencia(d.id, ano, mes, checked);
+                            router.refresh();
+                          } catch (err) {
+                            console.error("Falha ao atualizar despesa fixa", err);
+                            setError(err instanceof Error ? err.message : "Não foi possível atualizar essa despesa.");
+                          }
+                        });
+                      }}
+                    />
+                    Pago
+                  </label>
+                )}
+                {status === "Pago" && (
+                  <button type="button" onClick={() => handleEstornar(d.id)} className="text-[11px] text-danger">
+                    Estornar
+                  </button>
+                )}
+                {status !== "Cancelada" && status !== "Pago" && (
+                  <button type="button" onClick={() => handleCancelar(d.id)} className="text-[11px] text-danger">
+                    Cancelar mês
+                  </button>
+                )}
               </div>
             </div>
           );

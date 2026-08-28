@@ -31,3 +31,16 @@ export async function requireRole(...allowed: Role[]): Promise<Profile> {
   }
   return profile;
 }
+
+/** Só Administrador vê lançamentos de "Retirada de Lucro" — regra da Etapa 1, antes duplicada
+ * ad-hoc em `lancamentos/page.tsx` e `despesas/page.tsx`. Fonte única aqui. */
+export function podeVerRetiradaDeLucro(role: Role): boolean {
+  return role === "administrador";
+}
+
+/** Só Administrador vê os indicadores consolidados de resultado (Etapa 3) — Secretaria
+ * mantém o operacional (lançar, receber, pagar, consultar), mas não Resultado Realizado/
+ * Pendente/Previsto Final nem a memória de cálculo. */
+export function podeVerResultadoConsolidado(role: Role): boolean {
+  return role === "administrador";
+}

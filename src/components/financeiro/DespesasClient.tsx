@@ -28,6 +28,7 @@ export default function DespesasClient({
   servicos,
   ano,
   mes,
+  geral = false,
   abrirRecorrentes = false,
   secaoInicial = "fixas",
 }: {
@@ -41,6 +42,7 @@ export default function DespesasClient({
   servicos: ServicoParaVinculo[];
   ano: number;
   mes: number;
+  geral?: boolean;
   abrirRecorrentes?: boolean;
   secaoInicial?: "fixas" | "variaveis";
 }) {
@@ -81,7 +83,11 @@ export default function DespesasClient({
         <LancamentosLista
           lancamentos={lancamentos}
           fornecedores={fornecedores}
+          servicos={servicos}
           vazioLabel="Nenhuma despesa lançada ainda."
+          geral={geral}
+          ano={ano}
+          mes={mes}
         />
       </div>
 

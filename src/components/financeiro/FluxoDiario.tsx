@@ -1,14 +1,22 @@
 "use client";
 
-import type { Fornecedor, Lancamento } from "@/lib/domain/types";
+import type { Fornecedor, Lancamento, ServicoParaVinculo } from "@/lib/domain/types";
 import LancamentosLista from "./LancamentosLista";
 
 export default function FluxoDiario({
   lancamentos,
   fornecedores,
+  servicos = [],
+  geral = false,
+  ano,
+  mes,
 }: {
   lancamentos: Lancamento[];
   fornecedores: Fornecedor[];
+  servicos?: ServicoParaVinculo[];
+  geral?: boolean;
+  ano?: number;
+  mes?: number;
 }) {
   return (
     <div className="rounded-card border border-border-neutral bg-card p-4">
@@ -19,7 +27,7 @@ export default function FluxoDiario({
         </p>
       </div>
 
-      <LancamentosLista lancamentos={lancamentos} fornecedores={fornecedores} />
+      <LancamentosLista lancamentos={lancamentos} fornecedores={fornecedores} servicos={servicos} geral={geral} ano={ano} mes={mes} />
     </div>
   );
 }

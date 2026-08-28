@@ -6,6 +6,7 @@ import type {
   DespesaVariavel,
   DespesaVariavelOcorrencia,
   Lancamento,
+  LancamentoStatus,
   Servico,
   ServicoParcela,
 } from "./types";
@@ -157,6 +158,7 @@ export function aReceber(
   const registros: (RegistroIndicador & { vencido: boolean })[] = [];
 
   for (const p of parcelas) {
+    if (p.cancelada_em) continue; // parcela cancelada individualmente (Etapa 3) — não é serviço cancelado
     const servico = servicoPorId.get(p.servico_id);
     if (servico?.financeiro_status === "Cancelado") continue;
     const pago = p.valor_pago ?? 0;
@@ -224,7 +226,8 @@ export function aPagar(
     despesasVariaveis,
     ocorrenciasVariaveisDoMes,
     lancamentosPrevistosDespesa,
-    hojeISO
+    hojeISO,
+    { ano: periodo.ano, mes: periodo.mes }
   ).filter((i) => i.vencimento >= periodo.inicio && i.vencimento <= periodo.fim);
 
   const registros = itens.map((i) => ({ id: i.id, descricao: i.descricao, valor: i.valor, data: i.vencimento }));
@@ -310,6 +313,38 @@ export interface InconsistenciaFinanceira {
   tipo: "saldo_negativo" | "aprovado_sem_data";
   descricao: string;
   registroId: string;
+}
+
+// ── Situação de um lançamento (Etapa 3) — função única, reusada por Lançamentos, Recebimentos
+// e Despesas, pra não reimplementar "vencido"/"parcial" divergente em cada tela. ──
+export type SituacaoLancamento = "previsto" | "parcial" | "realizado" | "a_vencer" | "vencido" | "cancelado";
+
+/**
+ * `saldoParcial` só se aplica quando o lançamento está vinculado a uma parcela/ocorrência com
+ * valor parcial já pago (0 < saldoRestante < valorOriginal) — nesse caso a situação vira
+ * "parcial" mesmo que o lançamento em si já esteja `realizado`.
+ */
+export function situacaoLancamento(
+  status: LancamentoStatus,
+  data: string,
+  hojeISO: string,
+  saldoParcial?: { valorOriginal: number; saldoRestante: number }
+): SituacaoLancamento {
+  if (status === "cancelado") return "cancelado";
+  if (saldoParcial && saldoParcial.saldoRestante > 0 && saldoParcial.saldoRestante < saldoParcial.valorOriginal) {
+    return "parcial";
+  }
+  if (status === "realizado") return "realizado";
+  return data < hojeISO ? "vencido" : "a_vencer";
+}
+
+// ── Tipo de despesa por comportamento (Etapa 3) — dimensão separada de "forma de repetição"
+// (recorrente = despesas_fixas/despesas_variaveis, parcelada/única = lançamento avulso). Não
+// precisa de coluna nova: deriva de qual tabela o registro vive + se tem servico_id. ──
+export type TipoDespesa = "fixa" | "mensal_variavel" | "variavel_venda" | "avulsa";
+
+export function tipoDespesaLancamentoAvulso(servicoId: string | null): TipoDespesa {
+  return servicoId ? "variavel_venda" : "avulsa";
 }
 
 export function inconsistenciasFinanceiras(servicos: Servico[], parcelas: ServicoParcela[]): InconsistenciaFinanceira[] {

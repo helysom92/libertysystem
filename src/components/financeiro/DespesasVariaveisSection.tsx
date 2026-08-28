@@ -4,7 +4,12 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { DespesaVariavel, DespesaVariavelOcorrencia, Fornecedor } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
-import { toggleDespesaVariavelPago, updateDespesaVariavelValor } from "@/lib/actions/financeiro";
+import {
+  cancelarOcorrenciaDespesaVariavel,
+  estornarPagamentoOcorrenciaDespesaVariavel,
+  toggleDespesaVariavelPago,
+  updateDespesaVariavelValor,
+} from "@/lib/actions/financeiro";
 import NovaDespesaVariavelModal from "./NovaDespesaVariavelModal";
 
 function LinhaDespesaVariavel({
@@ -26,6 +31,8 @@ function LinhaDespesaVariavel({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const dirty = Number(valor) !== valorInicial;
+  const cancelada = !!ocorrencia?.cancelada_em;
+  const pago = ocorrencia?.pago ?? false;
 
   function salvar() {
     setError(null);
@@ -53,6 +60,28 @@ function LinhaDespesaVariavel({
     });
   }
 
+  async function handleCancelar() {
+    const motivo = prompt("Motivo do cancelamento desse mês (opcional):");
+    if (motivo === null) return;
+    try {
+      await cancelarOcorrenciaDespesaVariavel(despesa.id, ano, mes, motivo || null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível cancelar essa ocorrência.");
+    }
+  }
+
+  async function handleEstornar() {
+    const motivo = prompt("Motivo do estorno (opcional):");
+    if (motivo === null) return;
+    try {
+      await estornarPagamentoOcorrenciaDespesaVariavel(despesa.id, ano, mes, motivo || null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível estornar esse pagamento.");
+    }
+  }
+
   return (
     <div className="flex flex-col gap-1.5 rounded-btn bg-card-secondary px-3 py-2 text-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -62,33 +91,42 @@ function LinhaDespesaVariavel({
             {despesa.categoria} · provisionado {fmtBRL(despesa.valor_provisionado)}
           </p>
         </button>
-        <div className="flex items-center gap-2">
-          <input
-            type="number"
-            step="0.01"
-            value={valor}
-            onChange={(e) => setValor(e.target.value)}
-            className="w-28 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
-          />
-          {dirty && (
-            <button
-              type="button"
-              onClick={salvar}
-              disabled={pending}
-              className="rounded-btn bg-gold px-2.5 py-1.5 text-[11.5px] font-semibold text-bg disabled:opacity-60"
-            >
-              Salvar
-            </button>
-          )}
-          <label className="flex items-center gap-1.5 text-[12px]">
+        {cancelada ? (
+          <span className="rounded-pill border border-danger-border px-2 py-0.5 text-[11px] font-semibold text-danger">Cancelada</span>
+        ) : (
+          <div className="flex items-center gap-2">
             <input
-              type="checkbox"
-              checked={ocorrencia?.pago ?? false}
-              onChange={(e) => togglePago(e.target.checked)}
+              type="number"
+              step="0.01"
+              value={valor}
+              onChange={(e) => setValor(e.target.value)}
+              className="w-28 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
             />
-            Pago
-          </label>
-        </div>
+            {dirty && (
+              <button
+                type="button"
+                onClick={salvar}
+                disabled={pending}
+                className="rounded-btn bg-gold px-2.5 py-1.5 text-[11.5px] font-semibold text-bg disabled:opacity-60"
+              >
+                Salvar
+              </button>
+            )}
+            <label className="flex items-center gap-1.5 text-[12px]">
+              <input type="checkbox" checked={pago} onChange={(e) => togglePago(e.target.checked)} />
+              Pago
+            </label>
+            {pago ? (
+              <button type="button" onClick={handleEstornar} className="text-[11px] text-danger">
+                Estornar
+              </button>
+            ) : (
+              <button type="button" onClick={handleCancelar} className="text-[11px] text-danger">
+                Cancelar mês
+              </button>
+            )}
+          </div>
+        )}
       </div>
       {error && <p className="text-[11px] text-danger">{error}</p>}
     </div>

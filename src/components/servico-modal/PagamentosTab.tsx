@@ -8,15 +8,21 @@ import { FINANCEIRO_STATUSES, type Role } from "@/lib/domain/flows";
 import { updateFinanceiro } from "@/lib/actions/servicos";
 import {
   addParcela,
+  cancelarParcela,
   criarParcelaAvista,
   criarParcelasPadrao,
   criarParcelasPersonalizadas,
   deleteParcela,
+  estornarPagamentoParcela,
   marcarParcelaPaga,
   reconfigurarParcelasPendentes,
   updateParcela,
   type ParcelaInput,
 } from "@/lib/actions/parcelas";
+
+function saldoDaParcela(p: ServicoParcela): number {
+  return Math.max(0, p.valor_previsto - (p.valor_pago ?? 0));
+}
 
 const FORMAS_PAGAMENTO = ["Pix", "Cartão", "Dinheiro", "Cheque"];
 
@@ -128,7 +134,7 @@ export default function PagamentosTab({
     setCustomError(null);
     setReconfigurando(true);
     setEntradaValor("");
-    const pendentes = parcelas.filter((p) => p.valor_pago == null);
+    const pendentes = parcelas.filter((p) => p.valor_pago == null && !p.cancelada_em);
     setCustomRows(
       pendentes.map((p) => ({
         descricao: p.descricao,
@@ -256,18 +262,23 @@ export default function PagamentosTab({
 
   function startPay(p: ServicoParcela) {
     setPayingId(p.id);
-    setPayValor(String(p.valor_previsto));
+    setPayValor(String(saldoDaParcela(p)));
     setPayData(todayISO());
     setPayForma("");
     setPayError(null);
   }
 
-  async function confirmPay(parcelaId: string) {
+  async function confirmPay(p: ServicoParcela) {
+    const valor = Number(payValor) || 0;
+    const saldo = saldoDaParcela(p);
+    if (valor > saldo && !confirm(`O valor informado (${fmtBRL(valor)}) é maior que o saldo em aberto (${fmtBRL(saldo)}). Confirmar mesmo assim?`)) {
+      return;
+    }
     setPayingSaving(true);
     setPayError(null);
     try {
-      await marcarParcelaPaga(parcelaId, servico.id, {
-        valorPago: Number(payValor) || 0,
+      await marcarParcelaPaga(p.id, servico.id, {
+        valorRecebidoAgora: valor,
         dataPagamento: payData,
         formaPagamento: payForma || null,
       });
@@ -277,6 +288,28 @@ export default function PagamentosTab({
       setPayError(err instanceof Error ? err.message : "Não foi possível confirmar o pagamento.");
     } finally {
       setPayingSaving(false);
+    }
+  }
+
+  async function handleCancelar(p: ServicoParcela) {
+    const motivo = prompt("Motivo do cancelamento (opcional):");
+    if (motivo === null) return; // usuário cancelou o prompt
+    try {
+      await cancelarParcela(p.id, motivo || null);
+      onChanged();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Não foi possível cancelar essa parcela.");
+    }
+  }
+
+  async function handleEstornar(p: ServicoParcela) {
+    const motivo = prompt("Motivo do estorno (opcional):");
+    if (motivo === null) return;
+    try {
+      await estornarPagamentoParcela(p.id, servico.id, motivo || null);
+      onChanged();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Não foi possível estornar esse pagamento.");
     }
   }
 
@@ -308,7 +341,7 @@ export default function PagamentosTab({
     setQuickError(null);
     try {
       await marcarParcelaPaga(p.id, servico.id, {
-        valorPago: p.valor_previsto,
+        valorRecebidoAgora: saldoDaParcela(p),
         dataPagamento: todayISO(),
         formaPagamento: forma,
       });
@@ -552,7 +585,9 @@ export default function PagamentosTab({
       )}
 
       {parcelas.map((p) => {
-        const pago = p.valor_pago != null;
+        const cancelada = !!p.cancelada_em;
+        const totalmentePago = p.valor_pago != null && saldoDaParcela(p) <= 0;
+        const parcial = p.valor_pago != null && saldoDaParcela(p) > 0;
         return (
           <div key={p.id} className="rounded-card border border-border-neutral bg-card-secondary p-3 text-[12.5px]">
             {editingId === p.id ? (
@@ -600,10 +635,15 @@ export default function PagamentosTab({
               </div>
             ) : payingId === p.id ? (
               <div className="flex flex-col gap-2">
-                <p className="font-semibold">Confirmar pagamento — {p.descricao}</p>
+                <p className="font-semibold">Confirmar recebimento — {p.descricao}</p>
+                {(p.valor_pago ?? 0) > 0 && (
+                  <p className="text-[12px] text-text-muted">
+                    Já recebido: {fmtBRL(p.valor_pago as number)} · Saldo em aberto: {fmtBRL(saldoDaParcela(p))}
+                  </p>
+                )}
                 <div className="flex gap-2">
                   <div className="flex-1">
-                    <label className="mb-1 block text-[11px] text-text-secondary">Valor recebido</label>
+                    <label className="mb-1 block text-[11px] text-text-secondary">Valor recebido agora</label>
                     <input
                       type="number"
                       step="0.01"
@@ -644,7 +684,7 @@ export default function PagamentosTab({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    onClick={() => confirmPay(p.id)}
+                    onClick={() => confirmPay(p)}
                     disabled={payingSaving}
                     className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg disabled:opacity-40"
                   >
@@ -674,9 +714,17 @@ export default function PagamentosTab({
                 <div>
                   <div className="flex items-center gap-2">
                     <strong>{p.descricao}</strong>
-                    {pago ? (
+                    {cancelada ? (
+                      <span className="rounded-pill border border-danger-border px-2 py-0.5 text-[11px] font-semibold text-danger">
+                        Cancelada
+                      </span>
+                    ) : totalmentePago ? (
                       <span className="rounded-pill bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">
-                        ✓ Pago
+                        ✓ Recebido
+                      </span>
+                    ) : parcial ? (
+                      <span className="rounded-pill border border-border-gold-strong bg-gold/10 px-2 py-0.5 text-[11px] font-semibold text-gold">
+                        Parcial
                       </span>
                     ) : (
                       <span className="rounded-pill border border-border-gold-strong px-2 py-0.5 text-[11px] text-gold">
@@ -685,9 +733,13 @@ export default function PagamentosTab({
                     )}
                   </div>
                   <p className="text-text-muted">
-                    {pago ? (
+                    {cancelada ? (
+                      <>Previsto: {fmtBRL(p.valor_previsto)} · cancelada{p.motivo_cancelamento ? ` — ${p.motivo_cancelamento}` : ""}</>
+                    ) : totalmentePago || parcial ? (
                       <>
-                        {fmtBRL(p.valor_pago as number)} · {p.pago_em ? fmtDatePtBR(p.pago_em.slice(0, 10)) : ""}
+                        {fmtBRL(p.valor_pago as number)} de {fmtBRL(p.valor_previsto)}
+                        {parcial && ` · saldo ${fmtBRL(saldoDaParcela(p))}`} ·{" "}
+                        {p.pago_em ? fmtDatePtBR(p.pago_em.slice(0, 10)) : ""}
                         {p.forma_pagamento && ` · ${p.forma_pagamento}`}
                       </>
                     ) : (
@@ -699,15 +751,22 @@ export default function PagamentosTab({
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-3">
-                  {pago ? (
-                    <a
-                      href={`/servicos/${servico.id}/parcelas/${p.id}/recibo`}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="rounded-btn border border-border-neutral px-2.5 py-1.5 text-[11.5px] text-text-secondary"
-                    >
-                      🧾 Emitir recibo
-                    </a>
+                  {cancelada ? null : totalmentePago ? (
+                    <>
+                      <a
+                        href={`/servicos/${servico.id}/parcelas/${p.id}/recibo`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-btn border border-border-neutral px-2.5 py-1.5 text-[11.5px] text-text-secondary"
+                      >
+                        🧾 Emitir recibo
+                      </a>
+                      {canEdit && (
+                        <button type="button" onClick={() => handleEstornar(p)} className="text-[11.5px] text-danger">
+                          Estornar
+                        </button>
+                      )}
+                    </>
                   ) : quickFormaFor === p.id ? (
                     <div className="flex items-center gap-1.5">
                       <span className="text-[11.5px] text-text-secondary">Como pagou?</span>
@@ -742,35 +801,47 @@ export default function PagamentosTab({
                   ) : (
                     canEdit && (
                       <>
+                        {parcial && (
+                          <button
+                            type="button"
+                            onClick={() => handleEstornar(p)}
+                            className="text-[11.5px] text-text-secondary hover:text-text"
+                          >
+                            Estornar
+                          </button>
+                        )}
                         <label className="flex items-center gap-1.5 text-[12.5px]">
-                          <input
-                            type="checkbox"
-                            checked={false}
-                            onChange={() => setQuickFormaFor(p.id)}
-                          />
-                          Pago
+                          <input type="checkbox" checked={false} onChange={() => setQuickFormaFor(p.id)} />
+                          {parcial ? "Quitar saldo" : "Pago"}
                         </label>
                         <button
                           type="button"
                           onClick={() => startPay(p)}
                           className="text-[11.5px] text-text-secondary hover:text-text"
                         >
-                          Ajustar valor
+                          {parcial ? "Recebimento parcial" : "Ajustar valor"}
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => startEdit(p)}
-                          className="text-[11.5px] text-text-secondary hover:text-text"
-                        >
-                          Editar
+                        {!parcial && (
+                          <button
+                            type="button"
+                            onClick={() => startEdit(p)}
+                            className="text-[11.5px] text-text-secondary hover:text-text"
+                          >
+                            Editar
+                          </button>
+                        )}
+                        <button type="button" onClick={() => handleCancelar(p)} className="text-[11.5px] text-danger">
+                          Cancelar
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDelete(p.id)}
-                          className="text-[11.5px] text-danger"
-                        >
-                          Excluir
-                        </button>
+                        {!parcial && (
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(p.id)}
+                            className="text-[11.5px] text-danger"
+                          >
+                            Excluir
+                          </button>
+                        )}
                       </>
                     )
                   )}
@@ -839,7 +910,7 @@ export default function PagamentosTab({
                 >
                   + Adicionar parcela
                 </button>
-                {parcelas.some((p) => p.valor_pago == null) && (
+                {parcelas.some((p) => p.valor_pago == null && !p.cancelada_em) && (
                   <button
                     type="button"
                     onClick={startReconfigurar}
