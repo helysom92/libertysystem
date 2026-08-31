@@ -406,3 +406,99 @@ export function servicoOpenHref(servico: { id: string; numero: string | null }):
     ? `/comercial/orcamentos?open=${servico.id}`
     : `/producao/servicos?open=${servico.id}`;
 }
+
+// ── Finanças Pessoais (módulo exclusivo do Helysom, isolado do Financeiro empresarial) ──
+
+export type RecorrenciaPessoal = "unica" | "mensal" | "semanal" | "anual";
+
+export interface ContaPessoal {
+  id: string;
+  owner_id: string;
+  nome: string;
+  instituicao: string | null;
+  tipo: string | null;
+  saldo_inicial: number;
+  data_saldo_inicial: string;
+  ativa: boolean;
+}
+
+export interface OrigemReceitaPessoal {
+  id: string;
+  owner_id: string;
+  nome: string;
+  ativo: boolean;
+}
+
+export type SituacaoReceitaPessoal = "prevista" | "parcial" | "recebida" | "cancelada";
+
+export interface ReceitaPessoal {
+  id: string;
+  owner_id: string;
+  descricao: string;
+  origem_id: string | null;
+  pagador: string | null;
+  categoria: string | null;
+  valor_previsto: number;
+  valor_recebido: number;
+  conta_destino_id: string | null;
+  data_prevista: string | null;
+  data_efetiva: string | null;
+  recorrencia: RecorrenciaPessoal;
+  situacao: SituacaoReceitaPessoal;
+  observacoes: string | null;
+  cancelada_em: string | null;
+  motivo_cancelamento: string | null;
+}
+
+export interface RecebimentoPessoal {
+  id: string;
+  receita_id: string;
+  valor: number;
+  data: string;
+  conta_destino_id: string | null;
+  criado_em: string;
+  estornado_em: string | null;
+  motivo_estorno: string | null;
+}
+
+export type SituacaoDespesaPessoal = "prevista" | "parcial" | "paga" | "cancelada";
+
+export interface DespesaPessoal {
+  id: string;
+  owner_id: string;
+  descricao: string;
+  categoria: string | null;
+  favorecido: string | null;
+  valor_previsto: number;
+  valor_pago: number;
+  conta_id: string | null;
+  vencimento: string | null;
+  data_efetiva: string | null;
+  recorrencia: RecorrenciaPessoal;
+  situacao: SituacaoDespesaPessoal;
+  observacoes: string | null;
+  cancelada_em: string | null;
+  motivo_cancelamento: string | null;
+}
+
+export interface PagamentoPessoal {
+  id: string;
+  despesa_id: string;
+  valor: number;
+  data: string;
+  conta_id: string | null;
+  criado_em: string;
+  estornado_em: string | null;
+  motivo_estorno: string | null;
+}
+
+export interface TransferenciaPessoal {
+  id: string;
+  owner_id: string;
+  conta_origem_id: string;
+  conta_destino_id: string;
+  valor: number;
+  tarifa: number;
+  data: string;
+  descricao: string | null;
+}
