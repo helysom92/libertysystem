@@ -69,14 +69,14 @@ export default function ReceitasDespesasClient({
   const [registrandoDespesa, setRegistrandoDespesa] = useState<DespesaPessoal | null>(null);
   const [historicoDespesa, setHistoricoDespesa] = useState<DespesaPessoal | null>(null);
 
-  function acao(fn: () => Promise<void>) {
+  function acao(fn: () => Promise<{ ok: boolean; message?: string }>) {
     startTransition(async () => {
-      try {
-        await fn();
-        router.refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Não foi possível concluir essa ação.");
+      const resultado = await fn();
+      if (!resultado.ok) {
+        setError(resultado.message ?? "Não foi possível concluir essa ação.");
+        return;
       }
+      router.refresh();
     });
   }
 
@@ -150,9 +150,9 @@ export default function ReceitasDespesasClient({
                           <button
                             type="button"
                             onClick={() =>
-                              acao(async () => {
+                              acao(() => {
                                 const motivo = window.prompt("Motivo do cancelamento (opcional):") ?? "";
-                                await cancelarReceita(r.id, motivo || null);
+                                return cancelarReceita(r.id, motivo || null);
                               })
                             }
                             className="text-text-muted hover:underline"
@@ -252,9 +252,9 @@ export default function ReceitasDespesasClient({
                           <button
                             type="button"
                             onClick={() =>
-                              acao(async () => {
+                              acao(() => {
                                 const motivo = window.prompt("Motivo do cancelamento (opcional):") ?? "";
-                                await cancelarDespesa(d.id, motivo || null);
+                                return cancelarDespesa(d.id, motivo || null);
                               })
                             }
                             className="text-text-muted hover:underline"
@@ -317,9 +317,7 @@ export default function ReceitasDespesasClient({
           saldoAberto={Math.max(0, registrandoReceita.valor_previsto - registrandoReceita.valor_recebido)}
           contas={contas}
           contaLabel="Conta de destino"
-          onConfirm={async (valor, data, contaId) => {
-            await registrarRecebimento(registrandoReceita.id, { valor, data, contaDestinoId: contaId });
-          }}
+          onConfirm={(valor, data, contaId) => registrarRecebimento(registrandoReceita.id, { valor, data, contaDestinoId: contaId })}
           onClose={() => {
             setRegistrandoReceita(null);
             router.refresh();
@@ -331,8 +329,9 @@ export default function ReceitasDespesasClient({
           titulo={`Histórico de recebimentos — ${historicoReceita.descricao}`}
           carregar={() => listarRecebimentosDaReceita(historicoReceita.id)}
           onEstornar={async (id, motivo) => {
-            await estornarRecebimento(id, motivo);
-            router.refresh();
+            const resultado = await estornarRecebimento(id, motivo);
+            if (resultado.ok) router.refresh();
+            return resultado;
           }}
           onFechar={() => {
             setHistoricoReceita(null);
@@ -366,9 +365,7 @@ export default function ReceitasDespesasClient({
           saldoAberto={Math.max(0, registrandoDespesa.valor_previsto - registrandoDespesa.valor_pago)}
           contas={contas}
           contaLabel="Conta usada"
-          onConfirm={async (valor, data, contaId) => {
-            await registrarPagamento(registrandoDespesa.id, { valor, data, contaId });
-          }}
+          onConfirm={(valor, data, contaId) => registrarPagamento(registrandoDespesa.id, { valor, data, contaId })}
           onClose={() => {
             setRegistrandoDespesa(null);
             router.refresh();
@@ -380,8 +377,9 @@ export default function ReceitasDespesasClient({
           titulo={`Histórico de pagamentos — ${historicoDespesa.descricao}`}
           carregar={() => listarPagamentosDaDespesa(historicoDespesa.id)}
           onEstornar={async (id, motivo) => {
-            await estornarPagamento(id, motivo);
-            router.refresh();
+            const resultado = await estornarPagamento(id, motivo);
+            if (resultado.ok) router.refresh();
+            return resultado;
           }}
           onFechar={() => {
             setHistoricoDespesa(null);

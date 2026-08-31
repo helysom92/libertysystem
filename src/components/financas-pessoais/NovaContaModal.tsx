@@ -33,13 +33,12 @@ export default function NovaContaModal({ conta, onClose }: { conta?: ContaPessoa
       data_saldo_inicial: dataSaldoInicial,
     };
     startTransition(async () => {
-      try {
-        if (conta) await updateConta(conta.id, input);
-        else await createConta(input);
-        onClose();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Não foi possível salvar essa conta.");
+      const resultado = conta ? await updateConta(conta.id, input) : await createConta(input);
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      onClose();
     });
   }
 

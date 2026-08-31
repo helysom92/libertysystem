@@ -20,7 +20,7 @@ export default function HistoricoPessoalModal({
 }: {
   titulo: string;
   carregar: () => Promise<ItemLedger[]>;
-  onEstornar: (id: string, motivo: string | null) => Promise<void>;
+  onEstornar: (id: string, motivo: string | null) => Promise<{ ok: boolean; message?: string }>;
   onFechar: () => void;
 }) {
   const [itens, setItens] = useState<ItemLedger[]>([]);
@@ -47,11 +47,11 @@ export default function HistoricoPessoalModal({
   function estornar(id: string) {
     const motivo = window.prompt("Motivo do estorno (opcional):") ?? "";
     startTransition(async () => {
-      try {
-        await onEstornar(id, motivo || null);
+      const resultado = await onEstornar(id, motivo || null);
+      if (resultado.ok) {
         setRefreshKey((k) => k + 1);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Não foi possível estornar.");
+      } else {
+        setError(resultado.message ?? "Não foi possível estornar.");
       }
     });
   }

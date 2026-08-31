@@ -53,13 +53,12 @@ export default function NovaDespesaModal({
       observacoes: observacoes.trim() || null,
     };
     startTransition(async () => {
-      try {
-        if (despesa) await updateDespesa(despesa.id, input);
-        else await createDespesa(input);
-        onClose();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Não foi possível salvar essa despesa.");
+      const resultado = despesa ? await updateDespesa(despesa.id, input) : await createDespesa(input);
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      onClose();
     });
   }
 

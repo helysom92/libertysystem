@@ -28,19 +28,19 @@ export default function NovaTransferenciaModal({ contas, onClose }: { contas: Co
       return;
     }
     startTransition(async () => {
-      try {
-        await createTransferencia({
-          conta_origem_id: origemId,
-          conta_destino_id: destinoId,
-          valor: valorNum,
-          tarifa: tarifaNum,
-          data,
-          descricao: descricao || null,
-        });
-        onClose();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Não foi possível registrar essa transferência.");
+      const resultado = await createTransferencia({
+        conta_origem_id: origemId,
+        conta_destino_id: destinoId,
+        valor: valorNum,
+        tarifa: tarifaNum,
+        data,
+        descricao: descricao || null,
+      });
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      onClose();
     });
   }
 

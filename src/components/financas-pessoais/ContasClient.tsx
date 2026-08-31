@@ -70,12 +70,12 @@ export default function ContasClient({
             onEditar={() => setEditando(c)}
             onArquivar={() =>
               startTransition(async () => {
-                try {
-                  await arquivarConta(c.id, false);
-                  router.refresh();
-                } catch (err) {
-                  setError(err instanceof Error ? err.message : "Não foi possível arquivar essa conta.");
+                const resultado = await arquivarConta(c.id, false);
+                if (!resultado.ok) {
+                  setError(resultado.message);
+                  return;
                 }
+                router.refresh();
               })
             }
           />
@@ -100,12 +100,12 @@ export default function ContasClient({
                 onEditar={() => setEditando(c)}
                 onArquivar={() =>
                   startTransition(async () => {
-                    try {
-                      await arquivarConta(c.id, true);
-                      router.refresh();
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : "Não foi possível reativar essa conta.");
+                    const resultado = await arquivarConta(c.id, true);
+                    if (!resultado.ok) {
+                      setError(resultado.message);
+                      return;
                     }
+                    router.refresh();
                   })
                 }
               />

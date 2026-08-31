@@ -17,7 +17,7 @@ export default function RegistrarValorModal({
   saldoAberto: number;
   contas: ContaPessoal[];
   contaLabel: string;
-  onConfirm: (valor: number, data: string, contaId: string | null) => Promise<void>;
+  onConfirm: (valor: number, data: string, contaId: string | null) => Promise<{ ok: boolean; message?: string }>;
   onClose: () => void;
 }) {
   const [valor, setValor] = useState(String(saldoAberto));
@@ -34,12 +34,12 @@ export default function RegistrarValorModal({
       return;
     }
     startTransition(async () => {
-      try {
-        await onConfirm(valorNum, data, contaId || null);
-        onClose();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Não foi possível registrar.");
+      const resultado = await onConfirm(valorNum, data, contaId || null);
+      if (!resultado.ok) {
+        setError(resultado.message ?? "Não foi possível registrar.");
+        return;
       }
+      onClose();
     });
   }
 

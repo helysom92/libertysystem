@@ -57,13 +57,12 @@ export default function NovaReceitaModal({
       observacoes: observacoes.trim() || null,
     };
     startTransition(async () => {
-      try {
-        if (receita) await updateReceita(receita.id, input);
-        else await createReceita(input);
-        onClose();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Não foi possível salvar essa receita.");
+      const resultado = receita ? await updateReceita(receita.id, input) : await createReceita(input);
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      onClose();
     });
   }
 
