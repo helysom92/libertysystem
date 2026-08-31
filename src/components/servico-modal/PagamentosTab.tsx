@@ -87,15 +87,13 @@ export default function PagamentosTab({
   async function handleSeed(tipo: "sinal" | "avista") {
     setSeeding(true);
     setSeedError(null);
-    try {
-      if (tipo === "sinal") await criarParcelasPadrao(servico.id);
-      else await criarParcelaAvista(servico.id);
+    const resultado = tipo === "sinal" ? await criarParcelasPadrao(servico.id) : await criarParcelaAvista(servico.id);
+    if (!resultado.ok) {
+      setSeedError(resultado.message);
+    } else {
       onChanged();
-    } catch (err) {
-      setSeedError(err instanceof Error ? err.message : "Não foi possível gerar as parcelas.");
-    } finally {
-      setSeeding(false);
     }
+    setSeeding(false);
   }
 
   /** Se tiver entrada, ela vira a 1ª linha com o valor exato e o restante do valor do serviço
@@ -181,20 +179,17 @@ export default function PagamentosTab({
   async function saveCustomRows() {
     setCustomSaving(true);
     setCustomError(null);
-    try {
-      if (reconfigurando) {
-        await reconfigurarParcelasPendentes(servico.id, customRows);
-      } else {
-        await criarParcelasPersonalizadas(servico.id, customRows);
-      }
+    const resultado = reconfigurando
+      ? await reconfigurarParcelasPendentes(servico.id, customRows)
+      : await criarParcelasPersonalizadas(servico.id, customRows);
+    if (!resultado.ok) {
+      setCustomError(resultado.message);
+    } else {
       setCustomizando(false);
       setReconfigurando(false);
       onChanged();
-    } catch (err) {
-      setCustomError(err instanceof Error ? err.message : "Não foi possível salvar as parcelas.");
-    } finally {
-      setCustomSaving(false);
     }
+    setCustomSaving(false);
   }
 
   function startAdd() {
@@ -206,15 +201,14 @@ export default function PagamentosTab({
   async function saveNovaParcela() {
     setSavingAdd(true);
     setAddError(null);
-    try {
-      await addParcela(servico.id, novaParcela, parcelas.length);
+    const resultado = await addParcela(servico.id, novaParcela, parcelas.length);
+    if (!resultado.ok) {
+      setAddError(resultado.message);
+    } else {
       setAddingParcela(false);
       onChanged();
-    } catch (err) {
-      setAddError(err instanceof Error ? err.message : "Não foi possível adicionar a parcela.");
-    } finally {
-      setSavingAdd(false);
     }
+    setSavingAdd(false);
   }
 
   function startEdit(p: ServicoParcela) {
@@ -229,41 +223,46 @@ export default function PagamentosTab({
   async function saveEdit(parcelaId: string) {
     setSavingEdit(true);
     setEditError(null);
-    try {
-      await updateParcela(parcelaId, editForm);
+    const resultado = await updateParcela(parcelaId, editForm);
+    if (!resultado.ok) {
+      setEditError(resultado.message);
+      setSavingEdit(false);
+      return;
+    }
 
-      const outrasPendentes = parcelas.filter((p) => p.id !== parcelaId && p.valor_pago == null);
-      if (outrasPendentes.length > 0) {
-        const totalPago = parcelas
-          .filter((p) => p.valor_pago != null)
-          .reduce((sum, p) => sum + (p.valor_pago ?? 0), 0);
-        const restante = Math.max(0, servico.valor - totalPago - editForm.valor_previsto);
-        const valorCada = Math.round((restante / outrasPendentes.length) * 100) / 100;
-        for (const p of outrasPendentes) {
-          await updateParcela(p.id, {
-            descricao: p.descricao,
-            valor_previsto: valorCada,
-            data_prevista: p.data_prevista,
-          });
+    const outrasPendentes = parcelas.filter((p) => p.id !== parcelaId && p.valor_pago == null);
+    if (outrasPendentes.length > 0) {
+      const totalPago = parcelas
+        .filter((p) => p.valor_pago != null)
+        .reduce((sum, p) => sum + (p.valor_pago ?? 0), 0);
+      const restante = Math.max(0, servico.valor - totalPago - editForm.valor_previsto);
+      const valorCada = Math.round((restante / outrasPendentes.length) * 100) / 100;
+      for (const p of outrasPendentes) {
+        const r2 = await updateParcela(p.id, {
+          descricao: p.descricao,
+          valor_previsto: valorCada,
+          data_prevista: p.data_prevista,
+        });
+        if (!r2.ok) {
+          setEditError(r2.message);
+          setSavingEdit(false);
+          return;
         }
       }
-
-      setEditingId(null);
-      onChanged();
-    } catch (err) {
-      setEditError(err instanceof Error ? err.message : "Não foi possível salvar a parcela.");
-    } finally {
-      setSavingEdit(false);
     }
+
+    setEditingId(null);
+    onChanged();
+    setSavingEdit(false);
   }
 
   async function handleDelete(parcelaId: string) {
     if (!confirm("Excluir essa parcela?")) return;
-    try {
-      await deleteParcela(parcelaId, servico.id);
+    const resultado = await deleteParcela(parcelaId, servico.id);
+    if (!resultado.ok) {
+      alert(resultado.message);
+    } else {
       onChanged();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Não foi possível excluir a parcela.");
     }
   }
 
@@ -286,29 +285,28 @@ export default function PagamentosTab({
     }
     setPayingSaving(true);
     setPayError(null);
-    try {
-      await marcarParcelaPaga(p.id, servico.id, {
-        valorRecebidoAgora: valor,
-        dataPagamento: payData,
-        formaPagamento: payForma || null,
-      });
+    const resultado = await marcarParcelaPaga(p.id, servico.id, {
+      valorRecebidoAgora: valor,
+      dataPagamento: payData,
+      formaPagamento: payForma || null,
+    });
+    if (!resultado.ok) {
+      setPayError(resultado.message);
+    } else {
       setPayingId(null);
       onChanged();
-    } catch (err) {
-      setPayError(err instanceof Error ? err.message : "Não foi possível confirmar o pagamento.");
-    } finally {
-      setPayingSaving(false);
     }
+    setPayingSaving(false);
   }
 
   async function handleCancelar(p: ServicoParcela) {
     const motivo = prompt("Motivo do cancelamento (opcional):");
     if (motivo === null) return; // usuário cancelou o prompt
-    try {
-      await cancelarParcela(p.id, motivo || null);
+    const resultado = await cancelarParcela(p.id, motivo || null);
+    if (!resultado.ok) {
+      alert(resultado.message);
+    } else {
       onChanged();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Não foi possível cancelar essa parcela.");
     }
   }
 
@@ -336,16 +334,19 @@ export default function PagamentosTab({
     const motivo = prompt("Motivo do estorno (opcional):");
     if (motivo === null) return;
     setEstornandoId(recebimentoId);
-    try {
-      await estornarRecebimentoParcela(recebimentoId, servico.id, motivo || null);
-      const recebimentos = await listarRecebimentosDaParcela(historicoFor as string);
-      setHistoricoData(recebimentos as ParcelaRecebimento[]);
+    const resultado = await estornarRecebimentoParcela(recebimentoId, servico.id, motivo || null);
+    if (!resultado.ok) {
+      alert(resultado.message);
+    } else {
+      try {
+        const recebimentos = await listarRecebimentosDaParcela(historicoFor as string);
+        setHistoricoData(recebimentos as ParcelaRecebimento[]);
+      } catch {
+        // histórico não recarregou — não impede o estorno já confirmado, só não atualiza a lista aberta.
+      }
       onChanged();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Não foi possível estornar esse recebimento.");
-    } finally {
-      setEstornandoId(null);
     }
+    setEstornandoId(null);
   }
 
   /** Salva o valor/data ajustados sem marcar como pago ainda — pra quando o combinado mudou
@@ -353,19 +354,18 @@ export default function PagamentosTab({
   async function saveAjuste(p: ServicoParcela) {
     setPayingSaving(true);
     setPayError(null);
-    try {
-      await updateParcela(p.id, {
-        descricao: p.descricao,
-        valor_previsto: Number(payValor) || 0,
-        data_prevista: payData || null,
-      });
+    const resultado = await updateParcela(p.id, {
+      descricao: p.descricao,
+      valor_previsto: Number(payValor) || 0,
+      data_prevista: payData || null,
+    });
+    if (!resultado.ok) {
+      setPayError(resultado.message);
+    } else {
       setPayingId(null);
       onChanged();
-    } catch (err) {
-      setPayError(err instanceof Error ? err.message : "Não foi possível salvar a parcela.");
-    } finally {
-      setPayingSaving(false);
     }
+    setPayingSaving(false);
   }
 
   /** Confirmação rápida — clicou na caixinha, escolhe a forma de pagamento e marca como pago
@@ -374,19 +374,18 @@ export default function PagamentosTab({
   async function quickConfirm(p: ServicoParcela, forma: string | null) {
     setQuickPayingId(p.id);
     setQuickError(null);
-    try {
-      await marcarParcelaPaga(p.id, servico.id, {
-        valorRecebidoAgora: saldoDaParcela(p),
-        dataPagamento: todayISO(),
-        formaPagamento: forma,
-      });
+    const resultado = await marcarParcelaPaga(p.id, servico.id, {
+      valorRecebidoAgora: saldoDaParcela(p),
+      dataPagamento: todayISO(),
+      formaPagamento: forma,
+    });
+    if (!resultado.ok) {
+      setQuickError(resultado.message);
+    } else {
       setQuickFormaFor(null);
       onChanged();
-    } catch (err) {
-      setQuickError(err instanceof Error ? err.message : "Não foi possível confirmar o pagamento.");
-    } finally {
-      setQuickPayingId(null);
     }
+    setQuickPayingId(null);
   }
 
   async function saveStatus(status: string) {

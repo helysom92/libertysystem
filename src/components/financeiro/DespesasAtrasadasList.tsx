@@ -19,16 +19,14 @@ export default function DespesasAtrasadasList({ itens }: { itens: DespesaAtrasad
   function marcarPaga(item: DespesaAtrasadaItem) {
     setError(null);
     startTransition(async () => {
-      try {
-        if (item.tipo === "fixa") {
-          await registrarPagamentoDespesaFixaOcorrencia(item.despesaId, item.ano, item.mes, item.valor, todayISO());
-        } else {
-          await registrarPagamentoDespesaVariavelOcorrencia(item.despesaId, item.ano, item.mes, item.valor, todayISO());
-        }
+      const resultado =
+        item.tipo === "fixa"
+          ? await registrarPagamentoDespesaFixaOcorrencia(item.despesaId, item.ano, item.mes, item.valor, todayISO())
+          : await registrarPagamentoDespesaVariavelOcorrencia(item.despesaId, item.ano, item.mes, item.valor, todayISO());
+      if (!resultado.ok) {
+        setError(resultado.message);
+      } else {
         router.refresh();
-      } catch (err) {
-        console.error("Falha ao marcar despesa atrasada como paga", err);
-        setError(err instanceof Error ? err.message : "Não foi possível atualizar essa despesa.");
       }
     });
   }

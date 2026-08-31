@@ -25,31 +25,26 @@ export default function ComprovantesSection({ comprovantes }: { comprovantes: Co
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      try {
-        await registrarComprovante({
-          descricao: "Comprovante recebido",
-          banco,
-          valor: Number(valor) || 0,
-        });
-        setBanco("");
-        setValor("");
-        setOpen(false);
-      } catch (err) {
-        console.error("Falha ao registrar comprovante", err);
-        setError(err instanceof Error ? err.message : "Não foi possível registrar esse comprovante.");
+      const resultado = await registrarComprovante({
+        descricao: "Comprovante recebido",
+        banco,
+        valor: Number(valor) || 0,
+      });
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      setBanco("");
+      setValor("");
+      setOpen(false);
     });
   }
 
   function handleConfirmar(id: string) {
     setError(null);
     startTransition(async () => {
-      try {
-        await confirmarComprovante(id);
-      } catch (err) {
-        console.error("Falha ao confirmar comprovante", err);
-        setError(err instanceof Error ? err.message : "Não foi possível confirmar esse comprovante.");
-      }
+      const resultado = await confirmarComprovante(id);
+      if (!resultado.ok) setError(resultado.message);
     });
   }
 
@@ -57,15 +52,8 @@ export default function ComprovantesSection({ comprovantes }: { comprovantes: Co
     if (!confirm("Excluir esse comprovante? Essa ação não pode ser desfeita.")) return;
     setError(null);
     startTransition(async () => {
-      try {
-        const result = await deleteComprovante(id);
-        if (!result.ok) {
-          setError(result.reason ?? "Não foi possível excluir esse comprovante.");
-        }
-      } catch (err) {
-        console.error("Falha ao excluir comprovante", err);
-        setError(err instanceof Error ? err.message : "Não foi possível excluir esse comprovante.");
-      }
+      const resultado = await deleteComprovante(id);
+      if (!resultado.ok) setError(resultado.message);
     });
   }
 

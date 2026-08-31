@@ -153,22 +153,22 @@ export default function LancamentosLista({
   async function handleCancelar(l: Lancamento) {
     const motivo = prompt("Motivo do cancelamento (opcional):");
     if (motivo === null) return;
-    try {
-      await cancelarLancamento(l.id, motivo || null);
+    const resultado = await cancelarLancamento(l.id, motivo || null);
+    if (!resultado.ok) {
+      setError(resultado.message);
+    } else {
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível cancelar esse lançamento.");
     }
   }
 
   async function handleEstornar(l: Lancamento) {
     const motivo = prompt("Motivo do estorno (opcional):");
     if (motivo === null) return;
-    try {
-      await estornarLancamento(l.id, motivo || null);
+    const resultado = await estornarLancamento(l.id, motivo || null);
+    if (!resultado.ok) {
+      setError(resultado.message);
+    } else {
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível estornar esse lançamento.");
     }
   }
 
@@ -311,11 +311,11 @@ export default function LancamentosLista({
                             type="button"
                             onClick={() =>
                               startTransition(async () => {
-                                try {
-                                  await marcarLancamentoRealizado(l.id);
+                                const resultado = await marcarLancamentoRealizado(l.id);
+                                if (!resultado.ok) {
+                                  setError(resultado.message);
+                                } else {
                                   router.refresh();
-                                } catch (err) {
-                                  setError(err instanceof Error ? err.message : "Não foi possível atualizar esse lançamento.");
                                 }
                               })
                             }

@@ -26,39 +26,34 @@ export default function NovaDespesaFixaModal({
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      try {
-        const payload = {
-          descricao,
-          valor: Number(valor) || 0,
-          dia_vencimento: Number(diaVencimento) || 1,
-          categoria,
-          fornecedor_id: fornecedorId || null,
-        };
-        if (editing) {
-          await updateDespesaFixa(editing.id, payload);
-        } else {
-          await createDespesaFixa(payload);
-        }
-        onClose();
-      } catch (err) {
-        console.error("Falha ao salvar despesa fixa", err);
-        setError(err instanceof Error ? err.message : "Não foi possível salvar essa despesa fixa.");
+      const payload = {
+        descricao,
+        valor: Number(valor) || 0,
+        dia_vencimento: Number(diaVencimento) || 1,
+        categoria,
+        fornecedor_id: fornecedorId || null,
+      };
+      const resultado = editing ? await updateDespesaFixa(editing.id, payload) : await createDespesaFixa(payload);
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      onClose();
     });
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!editing) return;
     if (!confirm("Excluir essa despesa fixa? Essa ação não pode ser desfeita.")) return;
     setDeleting(true);
     setError(null);
-    deleteDespesaFixa(editing.id)
-      .then(onClose)
-      .catch((err) => {
-        console.error("Falha ao excluir despesa fixa", err);
-        setError(err instanceof Error ? err.message : "Não foi possível excluir essa despesa fixa.");
-        setDeleting(false);
-      });
+    const resultado = await deleteDespesaFixa(editing.id);
+    if (!resultado.ok) {
+      setError(resultado.message);
+      setDeleting(false);
+      return;
+    }
+    onClose();
   }
 
   return (

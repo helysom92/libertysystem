@@ -127,14 +127,13 @@ export default function OrcamentoModal({
 
   async function handleDelete() {
     if (!confirm("Excluir este orçamento? Esta ação não pode ser desfeita.")) return;
-    try {
-      await deleteServico(servicoId);
-      onClose();
-      router.refresh();
-    } catch (err) {
-      console.error("Falha ao excluir orçamento", err);
-      alert(err instanceof Error ? err.message : "Não foi possível excluir esse orçamento.");
+    const resultado = await deleteServico(servicoId);
+    if (!resultado.ok) {
+      alert(resultado.message);
+      return;
     }
+    onClose();
+    router.refresh();
   }
 
   return (

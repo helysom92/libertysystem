@@ -27,39 +27,34 @@ export default function NovaDespesaVariavelModal({
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      try {
-        const payload = {
-          descricao,
-          valor_provisionado: Number(valorProvisionado) || 0,
-          categoria,
-          fornecedor_id: fornecedorId || null,
-          data: data || null,
-        };
-        if (editing) {
-          await updateDespesaVariavel(editing.id, payload);
-        } else {
-          await createDespesaVariavel(payload);
-        }
-        onClose();
-      } catch (err) {
-        console.error("Falha ao salvar despesa variável", err);
-        setError(err instanceof Error ? err.message : "Não foi possível salvar essa despesa variável.");
+      const payload = {
+        descricao,
+        valor_provisionado: Number(valorProvisionado) || 0,
+        categoria,
+        fornecedor_id: fornecedorId || null,
+        data: data || null,
+      };
+      const resultado = editing ? await updateDespesaVariavel(editing.id, payload) : await createDespesaVariavel(payload);
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      onClose();
     });
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!editing) return;
     if (!confirm("Excluir essa despesa variável? Essa ação não pode ser desfeita.")) return;
     setDeleting(true);
     setError(null);
-    deleteDespesaVariavel(editing.id)
-      .then(onClose)
-      .catch((err) => {
-        console.error("Falha ao excluir despesa variável", err);
-        setError(err instanceof Error ? err.message : "Não foi possível excluir essa despesa variável.");
-        setDeleting(false);
-      });
+    const resultado = await deleteDespesaVariavel(editing.id);
+    if (!resultado.ok) {
+      setError(resultado.message);
+      setDeleting(false);
+      return;
+    }
+    onClose();
   }
 
   return (

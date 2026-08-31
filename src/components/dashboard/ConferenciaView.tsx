@@ -32,18 +32,18 @@ function AchadoFaltando({ achado, onLancado }: { achado: AchadoConciliacao; onLa
   function lancar() {
     setError(null);
     startTransition(async () => {
-      try {
-        await createLancamento({
-          tipo: linha.tipo,
-          descricao: linha.descricao,
-          categoria,
-          valor: linha.valor,
-          data: linha.data,
-          status: "realizado",
-        });
+      const resultado = await createLancamento({
+        tipo: linha.tipo,
+        descricao: linha.descricao,
+        categoria,
+        valor: linha.valor,
+        data: linha.data,
+        status: "realizado",
+      });
+      if (!resultado.ok) {
+        setError(resultado.message);
+      } else {
         onLancado();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Não foi possível lançar.");
       }
     });
   }
@@ -90,11 +90,11 @@ function AchadoDuplicata({ achado, onRemovido }: { achado: AchadoConciliacao; on
     if (!confirm(`Remover o lançamento duplicado "${sobrando.descricao}" (${fmtBRL(sobrando.valor)})?`)) return;
     setError(null);
     startTransition(async () => {
-      try {
-        await deleteLancamento(sobrando.id);
+      const resultado = await deleteLancamento(sobrando.id);
+      if (!resultado.ok) {
+        setError(resultado.message);
+      } else {
         onRemovido();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Não foi possível remover.");
       }
     });
   }
@@ -228,15 +228,19 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
     if (valor <= 0) return;
     setError(null);
     startRetirando(async () => {
+      const resultado = await createLancamento({
+        tipo: "Despesa",
+        descricao: `Retirada de lucro — ${MESES[mes - 1]}/${ano}`,
+        categoria: "Retirada de Lucro",
+        valor,
+        data: todayISO(),
+        status: "realizado",
+      });
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
+      }
       try {
-        await createLancamento({
-          tipo: "Despesa",
-          descricao: `Retirada de lucro — ${MESES[mes - 1]}/${ano}`,
-          categoria: "Retirada de Lucro",
-          valor,
-          data: todayISO(),
-          status: "realizado",
-        });
         const r = await retiradaDoMes(ano, mes);
         setRetirada(r);
         router.refresh();

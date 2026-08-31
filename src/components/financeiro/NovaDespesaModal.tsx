@@ -102,37 +102,36 @@ export default function NovaDespesaModal({
     }
     setSaving(true);
     setError(null);
-    try {
-      if (tipo === "parcelada") {
-        await lancarDespesaParcelada({
-          descricao,
-          categoria,
-          fornecedor_id: fornecedorId || null,
-          valorParcela: Number(valor) || 0,
-          totalParcelas: Number(totalParcelas) || 1,
-          primeiraData: data,
-          primeiraPaga,
-          servico_id: servicoVinculado?.id ?? null,
-        });
-      } else if (existente) {
-        await lancarDespesaExistente({ tipo, despesaId: existente.id, valor: Number(valor) || 0, data });
-      } else {
-        await lancarNovaDespesa({
-          tipo,
-          descricao,
-          categoria,
-          fornecedor_id: fornecedorId || null,
-          valor: Number(valor) || 0,
-          data,
-        });
-      }
-      router.refresh();
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível lançar essa despesa.");
-    } finally {
+    const resultado =
+      tipo === "parcelada"
+        ? await lancarDespesaParcelada({
+            descricao,
+            categoria,
+            fornecedor_id: fornecedorId || null,
+            valorParcela: Number(valor) || 0,
+            totalParcelas: Number(totalParcelas) || 1,
+            primeiraData: data,
+            primeiraPaga,
+            servico_id: servicoVinculado?.id ?? null,
+          })
+        : existente
+          ? await lancarDespesaExistente({ tipo, despesaId: existente.id, valor: Number(valor) || 0, data })
+          : await lancarNovaDespesa({
+              tipo,
+              descricao,
+              categoria,
+              fornecedor_id: fornecedorId || null,
+              valor: Number(valor) || 0,
+              data,
+            });
+    if (!resultado.ok) {
+      setError(resultado.message);
       setSaving(false);
+      return;
     }
+    router.refresh();
+    onClose();
+    setSaving(false);
   }
 
   return (

@@ -4,17 +4,9 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireHelysom } from "@/lib/domain/permissions";
 import type { RecorrenciaPessoal } from "@/lib/domain/types";
+import type { AcaoResultado, AcaoComSaldo } from "./resultado";
 
-/**
- * Next.js 16 mascara toda mensagem de `throw` numa Server Action em produção (vira um texto
- * genérico + digest, sem a mensagem real — comportamento diferente do que versões anteriores
- * do Next faziam, confirmado em teste manual e na doc oficial: "avoid using try/catch blocks
- * and throw errors. Instead, model expected errors as return values"). Por isso toda ação daqui
- * devolve `AcaoResultado` em vez de lançar — é a única forma confiável de uma mensagem de
- * bloqueio ("saldo insuficiente", "já tem histórico") chegar de verdade na tela.
- */
-export type AcaoResultado = { ok: true } | { ok: false; message: string };
-export type AcaoComSaldo = { ok: true; saldoRestante: number } | { ok: false; message: string };
+export type { AcaoResultado, AcaoComSaldo };
 
 function revalidateFinancasPessoaisPaths() {
   revalidatePath("/financas-pessoais");

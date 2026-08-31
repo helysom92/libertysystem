@@ -148,21 +148,19 @@ export default function ResumoTab({
   async function handleDelete() {
     if (!confirm("Excluir este serviço? Só é possível se ele não tiver nenhum recebimento/pagamento já realizado. Esta ação não pode ser desfeita.")) return;
     setMiscError(null);
-    try {
-      await deleteServico(servico.id);
+    const resultado = await deleteServico(servico.id);
+    if (resultado.ok) {
       onClose();
-    } catch (err) {
-      console.error("Falha ao excluir serviço", err);
-      // O banco bloqueia exclusão de serviço com histórico financeiro — nesse caso, oferece
-      // cancelar em vez de excluir (preserva parcelas/lançamentos, só marca como cancelado).
-      const msg = err instanceof Error ? err.message : "Não foi possível excluir esse serviço.";
-      if (msg.includes("histórico financeiro")) {
-        if (confirm(`${msg}\n\nQuer cancelar o serviço em vez de excluir? (mantém os registros financeiros, só marca como cancelado)`)) {
-          await handleCancelarServico();
-        }
-      } else {
-        setMiscError(msg);
+      return;
+    }
+    // O banco bloqueia exclusão de serviço com histórico financeiro — nesse caso, oferece
+    // cancelar em vez de excluir (preserva parcelas/lançamentos, só marca como cancelado).
+    if (resultado.message.includes("histórico financeiro")) {
+      if (confirm(`${resultado.message}\n\nQuer cancelar o serviço em vez de excluir? (mantém os registros financeiros, só marca como cancelado)`)) {
+        await handleCancelarServico();
       }
+    } else {
+      setMiscError(resultado.message);
     }
   }
 
@@ -170,12 +168,11 @@ export default function ResumoTab({
     const motivo = prompt("Motivo do cancelamento (opcional):");
     if (motivo === null) return;
     setMiscError(null);
-    try {
-      await cancelarServico(servico.id, motivo || null);
+    const resultado = await cancelarServico(servico.id, motivo || null);
+    if (!resultado.ok) {
+      setMiscError(resultado.message);
+    } else {
       onChanged();
-    } catch (err) {
-      console.error("Falha ao cancelar serviço", err);
-      setMiscError(err instanceof Error ? err.message : "Não foi possível cancelar esse serviço.");
     }
   }
 

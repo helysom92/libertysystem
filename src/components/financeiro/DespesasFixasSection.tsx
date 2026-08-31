@@ -81,25 +81,24 @@ export default function DespesasFixasSection({
     }
     setPayingSaving(true);
     setError(null);
-    try {
-      await registrarPagamentoDespesaFixaOcorrencia(d.id, ano, mes, valor, payData);
+    const resultado = await registrarPagamentoDespesaFixaOcorrencia(d.id, ano, mes, valor, payData);
+    if (!resultado.ok) {
+      setError(resultado.message);
+    } else {
       setPayingId(null);
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível registrar o pagamento.");
-    } finally {
-      setPayingSaving(false);
     }
+    setPayingSaving(false);
   }
 
   async function handleCancelar(despesaFixaId: string) {
     const motivo = prompt("Motivo do cancelamento desse mês (opcional):");
     if (motivo === null) return;
-    try {
-      await cancelarOcorrenciaDespesaFixa(despesaFixaId, ano, mes, motivo || null);
+    const resultado = await cancelarOcorrenciaDespesaFixa(despesaFixaId, ano, mes, motivo || null);
+    if (!resultado.ok) {
+      setError(resultado.message);
+    } else {
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível cancelar essa ocorrência.");
     }
   }
 
@@ -125,18 +124,21 @@ export default function DespesasFixasSection({
     const motivo = prompt("Motivo do estorno (opcional):");
     if (motivo === null) return;
     setEstornandoId(pagamentoId);
-    try {
-      await estornarPagamentoDespesaOcorrencia("despesa_fixa_ocorrencia", pagamentoId, motivo || null);
+    const resultado = await estornarPagamentoDespesaOcorrencia("despesa_fixa_ocorrencia", pagamentoId, motivo || null);
+    if (!resultado.ok) {
+      alert(resultado.message);
+    } else {
       if (historicoFor) {
-        const pagamentos = await listarPagamentosDespesaOcorrencia("despesa_fixa_ocorrencia", historicoFor);
-        setHistoricoData(pagamentos as DespesaOcorrenciaPagamento[]);
+        try {
+          const pagamentos = await listarPagamentosDespesaOcorrencia("despesa_fixa_ocorrencia", historicoFor);
+          setHistoricoData(pagamentos as DespesaOcorrenciaPagamento[]);
+        } catch {
+          // estorno já confirmado — só a lista aberta não recarregou.
+        }
       }
       router.refresh();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Não foi possível estornar esse pagamento.");
-    } finally {
-      setEstornandoId(null);
     }
+    setEstornandoId(null);
   }
 
   return (

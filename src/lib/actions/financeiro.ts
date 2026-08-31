@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateFinanceiroPaths } from "./revalidateFinanceiro";
 import { requireRole } from "@/lib/domain/permissions";
+import type { AcaoResultado, AcaoComSaldo } from "./resultado";
 
 export interface NovoLancamentoInput {
   tipo: "Receita" | "Despesa";
@@ -18,50 +19,54 @@ export interface NovoLancamentoInput {
   status?: "previsto" | "realizado" | "cancelado";
 }
 
-export async function createLancamento(input: NovoLancamentoInput) {
+export async function createLancamento(input: NovoLancamentoInput): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("lancamentos").insert(input);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }
 
-export async function marcarLancamentoRealizado(id: string) {
+export async function marcarLancamentoRealizado(id: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("lancamentos").update({ status: "realizado" }).eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }
 
-export async function updateLancamento(id: string, input: NovoLancamentoInput) {
+export async function updateLancamento(id: string, input: NovoLancamentoInput): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("lancamentos").update(input).eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }
 
-export async function deleteLancamento(id: string) {
+export async function deleteLancamento(id: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("lancamentos").delete().eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }
 
 /** Cancela um lançamento avulso sem apagar o registro (Etapa 3) — `recebido`/`despesasPagas`/
  * `aReceber`/`aPagar` (financas.ts) já filtram por status='realizado'/'previsto', então um
  * lançamento cancelado sai sozinho de todos os totais, sem precisar tocar em nenhuma fórmula. */
-export async function cancelarLancamento(id: string, motivo: string | null) {
+export async function cancelarLancamento(id: string, motivo: string | null): Promise<AcaoResultado> {
   const profile = await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("lancamentos").update({ status: "cancelado" }).eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   await supabase.from("financeiro_eventos").insert({
     entidade: "lancamento",
     entidade_id: id,
@@ -71,20 +76,21 @@ export async function cancelarLancamento(id: string, motivo: string | null) {
   });
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }
 
 /** Reverte um lançamento marcado como realizado por engano — volta a "previsto", preserva o
  * registro. Não usar pra reverter cancelamento (use `createLancamento`/edite o status na hora
  * de corrigir, já que cancelar é uma decisão de negócio diferente de "baixa errada"). */
-export async function estornarLancamento(id: string, motivo: string | null) {
+export async function estornarLancamento(id: string, motivo: string | null): Promise<AcaoResultado> {
   const profile = await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: atual } = await supabase.from("lancamentos").select("valor,status").eq("id", id).single();
   if (!atual || atual.status !== "realizado") {
-    throw new Error("Só é possível estornar um lançamento que já foi realizado.");
+    return { ok: false, message: "Só é possível estornar um lançamento que já foi realizado." };
   }
   const { error } = await supabase.from("lancamentos").update({ status: "previsto" }).eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   await supabase.from("financeiro_eventos").insert({
     entidade: "lancamento",
     entidade_id: id,
@@ -96,6 +102,7 @@ export async function estornarLancamento(id: string, motivo: string | null) {
   });
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }
 
 /** Histórico de eventos (pagamento/cancelamento/estorno) de um registro específico — alimenta
@@ -124,28 +131,31 @@ export interface NovaDespesaFixaInput {
   fornecedor_id?: string | null;
 }
 
-export async function createDespesaFixa(input: NovaDespesaFixaInput) {
+export async function createDespesaFixa(input: NovaDespesaFixaInput): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_fixas").insert(input);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
-export async function updateDespesaFixa(id: string, input: NovaDespesaFixaInput) {
+export async function updateDespesaFixa(id: string, input: NovaDespesaFixaInput): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_fixas").update(input).eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
-export async function deleteDespesaFixa(id: string) {
+export async function deleteDespesaFixa(id: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_fixas").delete().eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
 /**
@@ -159,7 +169,7 @@ export async function toggleDespesaOcorrencia(
   ano: number,
   mes: number,
   pago: boolean
-) {
+): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   // RPC atômica (migration 0035) — evita a corrida de 2 lançamentos quando "marcar paga" é
@@ -171,15 +181,21 @@ export async function toggleDespesaOcorrencia(
     p_mes: mes,
     p_pago: pago,
   });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }
 
 /** Cancela só a ocorrência deste mês (o cliente/fornecedor não vai cobrar/pagar esse mês
  * específico) — sem desativar a regra recorrente inteira, que continua gerando os meses
  * seguintes normalmente. */
-export async function cancelarOcorrenciaDespesaFixa(despesaFixaId: string, ano: number, mes: number, motivo: string | null) {
+export async function cancelarOcorrenciaDespesaFixa(
+  despesaFixaId: string,
+  ano: number,
+  mes: number,
+  motivo: string | null
+): Promise<AcaoResultado> {
   const profile = await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   await supabase
@@ -193,7 +209,7 @@ export async function cancelarOcorrenciaDespesaFixa(despesaFixaId: string, ano: 
     .eq("mes", mes)
     .select("id")
     .single();
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   await supabase.from("financeiro_eventos").insert({
     entidade: "despesa_fixa_ocorrencia",
     entidade_id: ocorrencia.id,
@@ -202,13 +218,19 @@ export async function cancelarOcorrenciaDespesaFixa(despesaFixaId: string, ano: 
     usuario_id: profile.id,
   });
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
 /** Estorna o pagamento de uma ocorrência de despesa fixa — reaproveita a RPC atômica já
  * existente (migration 0035, `pago=false`, que já reverte/apaga o lançamento vinculado com
  * segurança contra clique duplo) e só registra o evento de auditoria por cima, sem editar a
  * migration antiga. */
-export async function estornarPagamentoOcorrenciaDespesaFixa(despesaFixaId: string, ano: number, mes: number, motivo: string | null) {
+export async function estornarPagamentoOcorrenciaDespesaFixa(
+  despesaFixaId: string,
+  ano: number,
+  mes: number,
+  motivo: string | null
+): Promise<AcaoResultado> {
   const profile = await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: antes } = await supabase
@@ -218,7 +240,7 @@ export async function estornarPagamentoOcorrenciaDespesaFixa(despesaFixaId: stri
     .eq("ano", ano)
     .eq("mes", mes)
     .maybeSingle();
-  if (!antes?.lancamento_id) throw new Error("Essa ocorrência não tem pagamento pra estornar.");
+  if (!antes?.lancamento_id) return { ok: false, message: "Essa ocorrência não tem pagamento pra estornar." };
   const { data: lanc } = await supabase.from("lancamentos").select("valor").eq("id", antes.lancamento_id).single();
 
   const { error } = await supabase.rpc("toggle_despesa_fixa_ocorrencia", {
@@ -227,7 +249,7 @@ export async function estornarPagamentoOcorrenciaDespesaFixa(despesaFixaId: stri
     p_mes: mes,
     p_pago: false,
   });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
 
   await supabase.from("financeiro_eventos").insert({
     entidade: "despesa_fixa_ocorrencia",
@@ -240,6 +262,7 @@ export async function estornarPagamentoOcorrenciaDespesaFixa(despesaFixaId: stri
   });
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }
 
 /**
@@ -255,7 +278,7 @@ export async function registrarPagamentoDespesaFixaOcorrencia(
   mes: number,
   valor: number,
   data: string
-): Promise<{ ok: true; saldoRestante: number }> {
+): Promise<AcaoComSaldo> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: resultado, error } = await supabase.rpc("registrar_pagamento_despesa_fixa_ocorrencia", {
@@ -265,9 +288,9 @@ export async function registrarPagamentoDespesaFixaOcorrencia(
     p_valor: valor,
     p_data: data,
   });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   const r = resultado as { ok: boolean; reason?: string; saldoRestante?: number };
-  if (!r.ok) throw new Error(r.reason ?? "Não foi possível registrar esse pagamento.");
+  if (!r.ok) return { ok: false, message: r.reason ?? "Não foi possível registrar esse pagamento." };
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
   return { ok: true, saldoRestante: r.saldoRestante ?? 0 };
@@ -280,7 +303,7 @@ export async function registrarPagamentoDespesaVariavelOcorrencia(
   mes: number,
   valor: number,
   data: string
-): Promise<{ ok: true; saldoRestante: number }> {
+): Promise<AcaoComSaldo> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: resultado, error } = await supabase.rpc("registrar_pagamento_despesa_variavel_ocorrencia", {
@@ -290,9 +313,9 @@ export async function registrarPagamentoDespesaVariavelOcorrencia(
     p_valor: valor,
     p_data: data,
   });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   const r = resultado as { ok: boolean; reason?: string; saldoRestante?: number };
-  if (!r.ok) throw new Error(r.reason ?? "Não foi possível registrar esse pagamento.");
+  if (!r.ok) return { ok: false, message: r.reason ?? "Não foi possível registrar esse pagamento." };
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
   return { ok: true, saldoRestante: r.saldoRestante ?? 0 };
@@ -322,7 +345,7 @@ export async function estornarPagamentoDespesaOcorrencia(
   entidade: "despesa_fixa_ocorrencia" | "despesa_variavel_ocorrencia",
   pagamentoId: string,
   motivo: string | null
-) {
+): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const rpcName =
@@ -330,11 +353,12 @@ export async function estornarPagamentoDespesaOcorrencia(
       ? "estornar_pagamento_despesa_fixa_ocorrencia"
       : "estornar_pagamento_despesa_variavel_ocorrencia";
   const { data, error } = await supabase.rpc(rpcName, { p_pagamento_id: pagamentoId, p_motivo: motivo });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   const r = data as { ok: boolean; reason?: string };
-  if (!r.ok) throw new Error(r.reason ?? "Não foi possível estornar esse pagamento.");
+  if (!r.ok) return { ok: false, message: r.reason ?? "Não foi possível estornar esse pagamento." };
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }
 
 export interface NovaDespesaVariavelInput {
@@ -345,28 +369,31 @@ export interface NovaDespesaVariavelInput {
   data?: string | null;
 }
 
-export async function createDespesaVariavel(input: NovaDespesaVariavelInput) {
+export async function createDespesaVariavel(input: NovaDespesaVariavelInput): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_variaveis").insert(input);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
-export async function updateDespesaVariavel(id: string, input: NovaDespesaVariavelInput) {
+export async function updateDespesaVariavel(id: string, input: NovaDespesaVariavelInput): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_variaveis").update(input).eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
-export async function deleteDespesaVariavel(id: string) {
+export async function deleteDespesaVariavel(id: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("despesas_variaveis").delete().eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
 export async function updateDespesaVariavelValor(
@@ -374,7 +401,7 @@ export async function updateDespesaVariavelValor(
   ano: number,
   mes: number,
   valorReal: number
-) {
+): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: existente } = await supabase
@@ -389,7 +416,7 @@ export async function updateDespesaVariavelValor(
     { despesa_variavel_id: despesaVariavelId, ano, mes, valor_real: valorReal },
     { onConflict: "despesa_variavel_id,ano,mes" }
   );
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
 
   // Se essa ocorrência já estava paga (com lançamento vinculado), mantém o valor do
   // lançamento em sincronia com o valor real editado — evita duas fontes de verdade divergindo.
@@ -398,6 +425,7 @@ export async function updateDespesaVariavelValor(
   }
 
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
 /** Mesma sincronia de `toggleDespesaOcorrencia`, pro lado das despesas variáveis. */
@@ -406,7 +434,7 @@ export async function toggleDespesaVariavelPago(
   ano: number,
   mes: number,
   pago: boolean
-) {
+): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   // RPC atômica (migration 0035) — mesma correção de corrida do lado fixo.
@@ -416,13 +444,19 @@ export async function toggleDespesaVariavelPago(
     p_mes: mes,
     p_pago: pago,
   });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }
 
 /** Espelha `cancelarOcorrenciaDespesaFixa`, pro lado das despesas variáveis. */
-export async function cancelarOcorrenciaDespesaVariavel(despesaVariavelId: string, ano: number, mes: number, motivo: string | null) {
+export async function cancelarOcorrenciaDespesaVariavel(
+  despesaVariavelId: string,
+  ano: number,
+  mes: number,
+  motivo: string | null
+): Promise<AcaoResultado> {
   const profile = await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   await supabase
@@ -436,7 +470,7 @@ export async function cancelarOcorrenciaDespesaVariavel(despesaVariavelId: strin
     .eq("mes", mes)
     .select("id")
     .single();
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   await supabase.from("financeiro_eventos").insert({
     entidade: "despesa_variavel_ocorrencia",
     entidade_id: ocorrencia.id,
@@ -445,10 +479,16 @@ export async function cancelarOcorrenciaDespesaVariavel(despesaVariavelId: strin
     usuario_id: profile.id,
   });
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
 /** Espelha `estornarPagamentoOcorrenciaDespesaFixa`, pro lado das despesas variáveis. */
-export async function estornarPagamentoOcorrenciaDespesaVariavel(despesaVariavelId: string, ano: number, mes: number, motivo: string | null) {
+export async function estornarPagamentoOcorrenciaDespesaVariavel(
+  despesaVariavelId: string,
+  ano: number,
+  mes: number,
+  motivo: string | null
+): Promise<AcaoResultado> {
   const profile = await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: antes } = await supabase
@@ -458,7 +498,7 @@ export async function estornarPagamentoOcorrenciaDespesaVariavel(despesaVariavel
     .eq("ano", ano)
     .eq("mes", mes)
     .maybeSingle();
-  if (!antes?.lancamento_id) throw new Error("Essa ocorrência não tem pagamento pra estornar.");
+  if (!antes?.lancamento_id) return { ok: false, message: "Essa ocorrência não tem pagamento pra estornar." };
   const { data: lanc } = await supabase.from("lancamentos").select("valor").eq("id", antes.lancamento_id).single();
 
   const { error } = await supabase.rpc("toggle_despesa_variavel_ocorrencia", {
@@ -467,7 +507,7 @@ export async function estornarPagamentoOcorrenciaDespesaVariavel(despesaVariavel
     p_mes: mes,
     p_pago: false,
   });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
 
   await supabase.from("financeiro_eventos").insert({
     entidade: "despesa_variavel_ocorrencia",
@@ -480,6 +520,7 @@ export async function estornarPagamentoOcorrenciaDespesaVariavel(despesaVariavel
   });
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }
 
 /** Manual-entry equivalent of the prototype's "Simular Envio" (see plan §9 comprovante note). */
@@ -488,7 +529,7 @@ export async function registrarComprovante(input: {
   banco: string;
   valor: number;
   servico_id?: string | null;
-}) {
+}): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("comprovantes").insert({
@@ -498,12 +539,13 @@ export async function registrarComprovante(input: {
     servico_id: input.servico_id ?? null,
     status: "pendente",
   });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }
 
-export async function deleteComprovante(id: string): Promise<{ ok: boolean; reason?: string }> {
+export async function deleteComprovante(id: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: comprovante } = await supabase
@@ -512,15 +554,15 @@ export async function deleteComprovante(id: string): Promise<{ ok: boolean; reas
     .eq("id", id)
     .single();
   if (comprovante?.status !== "pendente") {
-    return { ok: false, reason: "Só é possível excluir comprovantes ainda pendentes." };
+    return { ok: false, message: "Só é possível excluir comprovantes ainda pendentes." };
   }
   const { error } = await supabase.from("comprovantes").delete().eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
   return { ok: true };
 }
 
-export async function confirmarComprovante(id: string) {
+export async function confirmarComprovante(id: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: comprovante, error: fetchErr } = await supabase
@@ -528,7 +570,7 @@ export async function confirmarComprovante(id: string) {
     .select("*")
     .eq("id", id)
     .single();
-  if (fetchErr || !comprovante) throw fetchErr;
+  if (fetchErr || !comprovante) return { ok: false, message: fetchErr?.message ?? "Comprovante não encontrado." };
 
   const { error: lancErr } = await supabase.from("lancamentos").insert({
     tipo: "Receita",
@@ -538,17 +580,18 @@ export async function confirmarComprovante(id: string) {
     data: comprovante.data,
     servico_id: comprovante.servico_id,
   });
-  if (lancErr) throw lancErr;
+  if (lancErr) return { ok: false, message: lancErr.message };
 
   const { error: updErr } = await supabase
     .from("comprovantes")
     .update({ status: "confirmado" })
     .eq("id", id);
-  if (updErr) throw updErr;
+  if (updErr) return { ok: false, message: updErr.message };
 
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
   revalidatePath("/gestao");
+  return { ok: true };
 }
 
 export interface NovaDespesaRapidaInput {
@@ -566,7 +609,7 @@ export interface NovaDespesaRapidaInput {
  * toggleDespesaVariavelPago (que já cuida de gerar o lançamento em Financeiro). O
  * gerenciamento recorrente dos meses seguintes continua em "Gerenciar despesas recorrentes".
  */
-export async function lancarNovaDespesa(input: NovaDespesaRapidaInput) {
+export async function lancarNovaDespesa(input: NovaDespesaRapidaInput): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const [anoStr, mesStr, diaStr] = input.data.split("-");
@@ -586,8 +629,9 @@ export async function lancarNovaDespesa(input: NovaDespesaRapidaInput) {
       })
       .select("id")
       .single();
-    if (error) throw error;
-    await registrarPagamentoDespesaFixaOcorrencia(df.id, ano, mes, input.valor, input.data);
+    if (error) return { ok: false, message: error.message };
+    const resultado = await registrarPagamentoDespesaFixaOcorrencia(df.id, ano, mes, input.valor, input.data);
+    if (!resultado.ok) return resultado;
   } else {
     const { data: dv, error } = await supabase
       .from("despesas_variaveis")
@@ -600,9 +644,11 @@ export async function lancarNovaDespesa(input: NovaDespesaRapidaInput) {
       })
       .select("id")
       .single();
-    if (error) throw error;
-    await registrarPagamentoDespesaVariavelOcorrencia(dv.id, ano, mes, input.valor, input.data);
+    if (error) return { ok: false, message: error.message };
+    const resultado = await registrarPagamentoDespesaVariavelOcorrencia(dv.id, ano, mes, input.valor, input.data);
+    if (!resultado.ok) return resultado;
   }
+  return { ok: true };
 }
 
 /**
@@ -616,18 +662,18 @@ export async function lancarDespesaExistente(input: {
   despesaId: string;
   valor: number;
   data: string;
-}) {
+}): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const [anoStr, mesStr] = input.data.split("-");
   const ano = Number(anoStr);
   const mes = Number(mesStr);
 
   if (input.tipo === "fixa") {
-    await registrarPagamentoDespesaFixaOcorrencia(input.despesaId, ano, mes, input.valor, input.data);
-  } else {
-    await updateDespesaVariavelValor(input.despesaId, ano, mes, input.valor);
-    await registrarPagamentoDespesaVariavelOcorrencia(input.despesaId, ano, mes, input.valor, input.data);
+    return registrarPagamentoDespesaFixaOcorrencia(input.despesaId, ano, mes, input.valor, input.data);
   }
+  const resultadoValor = await updateDespesaVariavelValor(input.despesaId, ano, mes, input.valor);
+  if (!resultadoValor.ok) return resultadoValor;
+  return registrarPagamentoDespesaVariavelOcorrencia(input.despesaId, ano, mes, input.valor, input.data);
 }
 
 export interface DespesaParceladaInput {
@@ -646,7 +692,7 @@ export interface DespesaParceladaInput {
  * partir da primeira data, cada uma como um lançamento próprio (previsto, exceto a 1ª se já
  * paga). Diferente de despesa fixa: tem fim certo, não repete pra sempre.
  */
-export async function lancarDespesaParcelada(input: DespesaParceladaInput) {
+export async function lancarDespesaParcelada(input: DespesaParceladaInput): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const [anoStr, mesStr, diaStr] = input.primeiraData.split("-");
@@ -670,7 +716,8 @@ export async function lancarDespesaParcelada(input: DespesaParceladaInput) {
   });
 
   const { error } = await supabase.from("lancamentos").insert(linhas);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }

@@ -6,6 +6,7 @@ import { todayISO } from "@/lib/domain/dates";
 import { revalidateServicoPaths } from "./revalidateServicos";
 import { revalidateFinanceiroPaths } from "./revalidateFinanceiro";
 import { requireRole } from "@/lib/domain/permissions";
+import type { AcaoResultado, AcaoComSaldo } from "./resultado";
 
 export interface ParcelaInput {
   descricao: string;
@@ -48,8 +49,8 @@ async function recomputeValorPago(supabase: SupabaseClientType, servicoId: strin
  * data própria) — dá visibilidade do plano de pagamento inteiro assim que ele é combinado,
  * não só da próxima parcela.
  */
-async function criarParcelasComLancamento(servicoId: string, itens: ParcelaInput[], ordemInicial = 0) {
-  if (itens.length === 0) return;
+async function criarParcelasComLancamento(servicoId: string, itens: ParcelaInput[], ordemInicial = 0): Promise<AcaoResultado> {
+  if (itens.length === 0) return { ok: true };
   const supabase = await createClient();
 
   const { data: sv, error: svErr } = await supabase
@@ -57,7 +58,7 @@ async function criarParcelasComLancamento(servicoId: string, itens: ParcelaInput
     .select("cliente, prazo")
     .eq("id", servicoId)
     .single();
-  if (svErr || !sv) throw svErr ?? new Error("Serviço não encontrado.");
+  if (svErr || !sv) return { ok: false, message: svErr?.message ?? "Serviço não encontrado." };
 
   const { data: inseridas, error: insErr } = await supabase
     .from("servico_parcelas")
@@ -71,7 +72,7 @@ async function criarParcelasComLancamento(servicoId: string, itens: ParcelaInput
       }))
     )
     .select("id, descricao, valor_previsto, data_prevista");
-  if (insErr) throw insErr;
+  if (insErr) return { ok: false, message: insErr.message };
 
   const hoje = new Date().toISOString().slice(0, 10);
   for (const p of inseridas ?? []) {
@@ -88,17 +89,18 @@ async function criarParcelasComLancamento(servicoId: string, itens: ParcelaInput
       })
       .select("id")
       .single();
-    if (lancErr) throw lancErr;
+    if (lancErr) return { ok: false, message: lancErr.message };
     await supabase.from("servico_parcelas").update({ lancamento_id: lanc.id }).eq("id", p.id);
   }
 
   revalidateServicoPaths();
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
 /** Semeia o par padrão Sinal (50%) + Restante (50%, na data do prazo) — ponto de partida rápido
  * pro caso mais comum; o usuário edita/adiciona parcelas depois se o combinado for diferente. */
-export async function criarParcelasPadrao(servicoId: string) {
+export async function criarParcelasPadrao(servicoId: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: sv, error: svErr } = await supabase
@@ -106,19 +108,19 @@ export async function criarParcelasPadrao(servicoId: string) {
     .select("valor, prazo")
     .eq("id", servicoId)
     .single();
-  if (svErr || !sv) throw svErr ?? new Error("Serviço não encontrado.");
+  if (svErr || !sv) return { ok: false, message: svErr?.message ?? "Serviço não encontrado." };
 
   const metade = Math.round((sv.valor / 2) * 100) / 100;
   const restante = Math.round((sv.valor - metade) * 100) / 100;
 
-  await criarParcelasComLancamento(servicoId, [
+  return criarParcelasComLancamento(servicoId, [
     { descricao: "Sinal (50%)", valor_previsto: metade, data_prevista: todayISO() },
     { descricao: "Restante (50%)", valor_previsto: restante, data_prevista: sv.prazo },
   ]);
 }
 
 /** Cliente pagou (ou vai pagar) tudo de uma vez — uma parcela só, no valor cheio do serviço. */
-export async function criarParcelaAvista(servicoId: string) {
+export async function criarParcelaAvista(servicoId: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: sv, error: svErr } = await supabase
@@ -126,35 +128,36 @@ export async function criarParcelaAvista(servicoId: string) {
     .select("valor, prazo")
     .eq("id", servicoId)
     .single();
-  if (svErr || !sv) throw svErr ?? new Error("Serviço não encontrado.");
+  if (svErr || !sv) return { ok: false, message: svErr?.message ?? "Serviço não encontrado." };
 
-  await criarParcelasComLancamento(servicoId, [
+  return criarParcelasComLancamento(servicoId, [
     { descricao: "Pagamento integral (à vista)", valor_previsto: sv.valor, data_prevista: sv.prazo },
   ]);
 }
 
 /** Cria várias parcelas de uma vez (fluxo "Personalizar") — usado quando o combinado não é o
  * padrão 50/50 nem um pagamento único: número de parcelas, valor e data de cada uma à mão. */
-export async function criarParcelasPersonalizadas(servicoId: string, itens: ParcelaInput[]) {
+export async function criarParcelasPersonalizadas(servicoId: string, itens: ParcelaInput[]): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
-  await criarParcelasComLancamento(servicoId, itens);
+  return criarParcelasComLancamento(servicoId, itens);
 }
 
 /** Adiciona uma parcela extra a um plano de pagamento que já existe. */
-export async function addParcela(servicoId: string, input: ParcelaInput, ordem: number) {
+export async function addParcela(servicoId: string, input: ParcelaInput, ordem: number): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
-  await criarParcelasComLancamento(servicoId, [input], ordem);
+  return criarParcelasComLancamento(servicoId, [input], ordem);
 }
 
-export async function updateParcela(parcelaId: string, input: ParcelaInput) {
+export async function updateParcela(parcelaId: string, input: ParcelaInput): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("servico_parcelas").update(input).eq("id", parcelaId);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
+  return { ok: true };
 }
 
-export async function deleteParcela(parcelaId: string, servicoId: string) {
+export async function deleteParcela(parcelaId: string, servicoId: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: parcela } = await supabase
@@ -164,7 +167,7 @@ export async function deleteParcela(parcelaId: string, servicoId: string) {
     .single();
 
   const { error } = await supabase.from("servico_parcelas").delete().eq("id", parcelaId);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
 
   // Sem isso, o "previsto" que essa parcela gerou no Financeiro ficava órfão — visível em
   // Lançamentos como se ainda fosse receber, mesmo depois de a parcela ter sido apagada aqui.
@@ -175,6 +178,7 @@ export async function deleteParcela(parcelaId: string, servicoId: string) {
   await recomputeValorPago(supabase, servicoId);
   revalidateServicoPaths();
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
 /**
@@ -182,7 +186,7 @@ export async function deleteParcela(parcelaId: string, servicoId: string) {
  * "previsto" que elas geraram no Financeiro) e recria com a configuração nova — sem mexer nas
  * que já foram pagas, pra não perder histórico de recebimento.
  */
-export async function reconfigurarParcelasPendentes(servicoId: string, itens: ParcelaInput[]) {
+export async function reconfigurarParcelasPendentes(servicoId: string, itens: ParcelaInput[]): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
 
@@ -202,7 +206,7 @@ export async function reconfigurarParcelasPendentes(servicoId: string, itens: Pa
         "id",
         lista.map((p) => p.id)
       );
-    if (delErr) throw delErr;
+    if (delErr) return { ok: false, message: delErr.message };
 
     const lancamentoIds = lista.map((p) => p.lancamento_id).filter((id): id is string => !!id);
     if (lancamentoIds.length > 0) {
@@ -218,8 +222,10 @@ export async function reconfigurarParcelasPendentes(servicoId: string, itens: Pa
     .limit(1);
   const ordemInicial = (restantes?.[0]?.ordem ?? -1) + 1;
 
-  await criarParcelasComLancamento(servicoId, itens, ordemInicial);
+  const resultado = await criarParcelasComLancamento(servicoId, itens, ordemInicial);
+  if (!resultado.ok) return resultado;
   await recomputeValorPago(supabase, servicoId);
+  return { ok: true };
 }
 
 /**
@@ -235,7 +241,7 @@ export async function marcarParcelaPaga(
   parcelaId: string,
   servicoId: string,
   fields: { valorRecebidoAgora: number; dataPagamento: string; formaPagamento: string | null }
-): Promise<{ ok: true; saldoRestante: number }> {
+): Promise<AcaoComSaldo> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
 
@@ -245,9 +251,9 @@ export async function marcarParcelaPaga(
     p_data: fields.dataPagamento,
     p_forma_pagamento: fields.formaPagamento,
   });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   const resultado = data as { ok: boolean; reason?: string; saldoRestante?: number };
-  if (!resultado.ok) throw new Error(resultado.reason ?? "Não foi possível registrar esse recebimento.");
+  if (!resultado.ok) return { ok: false, message: resultado.reason ?? "Não foi possível registrar esse recebimento." };
 
   await recomputeValorPago(supabase, servicoId);
   revalidateServicoPaths();
@@ -275,20 +281,20 @@ export async function listarRecebimentosDaParcela(parcelaId: string) {
  * registro — sai de "A Receber" dali pra frente, mas continua visível na aba Cancelados.
  * Bloqueia cancelar uma parcela que já tem recebimento — estorne o recebimento primeiro, pra
  * não deixar dinheiro já recebido "escondido" atrás de uma parcela marcada como cancelada. */
-export async function cancelarParcela(parcelaId: string, motivo: string | null) {
+export async function cancelarParcela(parcelaId: string, motivo: string | null): Promise<AcaoResultado> {
   const profile = await requireRole("administrador", "secretaria");
   const supabase = await createClient();
 
   const { data: parcela } = await supabase.from("servico_parcelas").select("valor_pago").eq("id", parcelaId).single();
   if (parcela?.valor_pago != null && parcela.valor_pago > 0) {
-    throw new Error("Essa parcela já tem recebimento — estorne o recebimento antes de cancelar.");
+    return { ok: false, message: "Essa parcela já tem recebimento — estorne o recebimento antes de cancelar." };
   }
 
   const { error } = await supabase
     .from("servico_parcelas")
     .update({ cancelada_em: new Date().toISOString(), cancelada_por: profile.id, motivo_cancelamento: motivo })
     .eq("id", parcelaId);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
 
   await supabase.from("financeiro_eventos").insert({
     entidade: "parcela",
@@ -300,6 +306,7 @@ export async function cancelarParcela(parcelaId: string, motivo: string | null) 
 
   revalidateServicoPaths();
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
 /** Estorna UM recebimento específico (não a parcela inteira) — os demais recebimentos da mesma
@@ -307,19 +314,20 @@ export async function cancelarParcela(parcelaId: string, motivo: string | null) 
  * marca a linha do ledger como estornada, cancela (não reabre como "previsto") o lançamento
  * daquele recebimento específico, e recalcula `valor_pago` da parcela a partir da soma dos
  * recebimentos ainda válidos. Impede estornar o mesmo recebimento duas vezes. */
-export async function estornarRecebimentoParcela(recebimentoId: string, servicoId: string, motivo: string | null) {
+export async function estornarRecebimentoParcela(recebimentoId: string, servicoId: string, motivo: string | null): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("estornar_recebimento_parcela", {
     p_recebimento_id: recebimentoId,
     p_motivo: motivo,
   });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   const resultado = data as { ok: boolean; reason?: string };
-  if (!resultado.ok) throw new Error(resultado.reason ?? "Não foi possível estornar esse recebimento.");
+  if (!resultado.ok) return { ok: false, message: resultado.reason ?? "Não foi possível estornar esse recebimento." };
 
   await recomputeValorPago(supabase, servicoId);
   revalidateServicoPaths();
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }

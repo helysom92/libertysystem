@@ -9,6 +9,7 @@ import type { LinhaOrcamento } from "@/lib/domain/orcamento";
 import { calcularPrazoFim, type PrazoTipo } from "@/lib/domain/kanban";
 import { todayISO } from "@/lib/domain/dates";
 import { requireRole } from "@/lib/domain/permissions";
+import type { AcaoResultado } from "./resultado";
 
 export interface NovoServicoInput {
   cliente: string;
@@ -275,13 +276,14 @@ export async function ensureShareToken(servicoId: string): Promise<string> {
  * ser consequência de excluir uma OS. Pra uma OS com dinheiro já movimentado, a ação certa é
  * `cancelarServico`, não excluir.
  */
-export async function deleteServico(servicoId: string) {
+export async function deleteServico(servicoId: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").delete().eq("id", servicoId);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
 /** Cancela um serviço sem apagar nada — parcelas/lançamentos continuam intactos (dinheiro já
@@ -289,15 +291,16 @@ export async function deleteServico(servicoId: string) {
  * sai dos totais futuros (vendas/a receber/a pagar) automaticamente por já estar com
  * `financeiro_status='Cancelado'`. Use isso em vez de `deleteServico` quando a OS já tem
  * histórico financeiro (o banco bloqueia a exclusão nesse caso). */
-export async function cancelarServico(servicoId: string, motivo: string | null) {
+export async function cancelarServico(servicoId: string, motivo: string | null): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("cancelar_servico", { p_servico_id: servicoId, p_motivo: motivo });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   const r = data as { ok: boolean; reason?: string };
-  if (!r.ok) throw new Error(r.reason ?? "Não foi possível cancelar esse serviço.");
+  if (!r.ok) return { ok: false, message: r.reason ?? "Não foi possível cancelar esse serviço." };
   revalidateServicoPaths();
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
 export async function updateClienteInline(

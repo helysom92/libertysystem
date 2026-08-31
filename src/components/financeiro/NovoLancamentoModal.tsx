@@ -35,43 +35,38 @@ export default function NovoLancamentoModal({
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      try {
-        const payload = {
-          tipo,
-          descricao,
-          categoria,
-          valor: Number(valor) || 0,
-          data,
-          fornecedor_id: fornecedorId || null,
-          banco: banco || null,
-          forma_pagamento: formaPagamento,
-          status,
-        };
-        if (editing) {
-          await updateLancamento(editing.id, payload);
-        } else {
-          await createLancamento(payload);
-        }
-        onClose();
-      } catch (err) {
-        console.error("Falha ao salvar lançamento", err);
-        setError(err instanceof Error ? err.message : "Não foi possível salvar esse lançamento.");
+      const payload = {
+        tipo,
+        descricao,
+        categoria,
+        valor: Number(valor) || 0,
+        data,
+        fornecedor_id: fornecedorId || null,
+        banco: banco || null,
+        forma_pagamento: formaPagamento,
+        status,
+      };
+      const resultado = editing ? await updateLancamento(editing.id, payload) : await createLancamento(payload);
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      onClose();
     });
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!editing) return;
     if (!confirm("Excluir esse lançamento? Essa ação não pode ser desfeita.")) return;
     setDeleting(true);
     setError(null);
-    deleteLancamento(editing.id)
-      .then(onClose)
-      .catch((err) => {
-        console.error("Falha ao excluir lançamento", err);
-        setError(err instanceof Error ? err.message : "Não foi possível excluir esse lançamento.");
-        setDeleting(false);
-      });
+    const resultado = await deleteLancamento(editing.id);
+    if (!resultado.ok) {
+      setError(resultado.message);
+      setDeleting(false);
+      return;
+    }
+    onClose();
   }
 
   return (

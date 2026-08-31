@@ -54,11 +54,11 @@ function LinhaDespesaVariavel({
 
   async function salvarValorEsperado() {
     setError(null);
-    try {
-      await updateDespesaVariavelValor(despesa.id, ano, mes, Number(valorEsperado) || 0);
+    const resultado = await updateDespesaVariavelValor(despesa.id, ano, mes, Number(valorEsperado) || 0);
+    if (!resultado.ok) {
+      setError(resultado.message);
+    } else {
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível salvar esse valor.");
     }
   }
 
@@ -77,25 +77,24 @@ function LinhaDespesaVariavel({
     }
     setPayingSaving(true);
     setError(null);
-    try {
-      await registrarPagamentoDespesaVariavelOcorrencia(despesa.id, ano, mes, valor, payData);
+    const resultado = await registrarPagamentoDespesaVariavelOcorrencia(despesa.id, ano, mes, valor, payData);
+    if (!resultado.ok) {
+      setError(resultado.message);
+    } else {
       setPayingOpen(false);
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível registrar o pagamento.");
-    } finally {
-      setPayingSaving(false);
     }
+    setPayingSaving(false);
   }
 
   async function handleCancelar() {
     const motivo = prompt("Motivo do cancelamento desse mês (opcional):");
     if (motivo === null) return;
-    try {
-      await cancelarOcorrenciaDespesaVariavel(despesa.id, ano, mes, motivo || null);
+    const resultado = await cancelarOcorrenciaDespesaVariavel(despesa.id, ano, mes, motivo || null);
+    if (!resultado.ok) {
+      setError(resultado.message);
+    } else {
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível cancelar essa ocorrência.");
     }
   }
 
@@ -121,18 +120,21 @@ function LinhaDespesaVariavel({
     const motivo = prompt("Motivo do estorno (opcional):");
     if (motivo === null) return;
     setEstornandoId(pagamentoId);
-    try {
-      await estornarPagamentoDespesaOcorrencia("despesa_variavel_ocorrencia", pagamentoId, motivo || null);
+    const resultado = await estornarPagamentoDespesaOcorrencia("despesa_variavel_ocorrencia", pagamentoId, motivo || null);
+    if (!resultado.ok) {
+      alert(resultado.message);
+    } else {
       if (ocorrencia) {
-        const pagamentos = await listarPagamentosDespesaOcorrencia("despesa_variavel_ocorrencia", ocorrencia.id);
-        setHistoricoData(pagamentos as DespesaOcorrenciaPagamento[]);
+        try {
+          const pagamentos = await listarPagamentosDespesaOcorrencia("despesa_variavel_ocorrencia", ocorrencia.id);
+          setHistoricoData(pagamentos as DespesaOcorrenciaPagamento[]);
+        } catch {
+          // estorno já confirmado — só a lista aberta não recarregou.
+        }
       }
       router.refresh();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Não foi possível estornar esse pagamento.");
-    } finally {
-      setEstornandoId(null);
     }
+    setEstornandoId(null);
   }
 
   return (
