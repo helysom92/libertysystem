@@ -10,6 +10,7 @@ import {
   updatePrioridade,
   updateResponsavel,
   deleteServico,
+  cancelarServico,
 } from "@/lib/actions/servicos";
 import { moveCardParaColuna } from "@/lib/actions/kanban";
 import { whatsappAppUrl } from "@/lib/domain/whatsapp";
@@ -66,14 +67,36 @@ export default function StatusTab({
   }
 
   async function handleDelete() {
-    if (!confirm("Excluir este serviço? Isso também apaga os lançamentos financeiros vinculados a ele. Esta ação não pode ser desfeita.")) return;
+    if (!confirm("Excluir este serviço? Só é possível se ele não tiver nenhum recebimento/pagamento já realizado. Esta ação não pode ser desfeita.")) return;
     setMiscError(null);
     try {
       await deleteServico(servico.id);
       onClose();
     } catch (err) {
       console.error("Falha ao excluir serviço", err);
-      setMiscError(err instanceof Error ? err.message : "Não foi possível excluir esse serviço.");
+      // O banco bloqueia exclusão de serviço com histórico financeiro — nesse caso, oferece
+      // cancelar em vez de excluir (preserva parcelas/lançamentos, só marca como cancelado).
+      const msg = err instanceof Error ? err.message : "Não foi possível excluir esse serviço.";
+      if (msg.includes("histórico financeiro")) {
+        if (confirm(`${msg}\n\nQuer cancelar o serviço em vez de excluir? (mantém os registros financeiros, só marca como cancelado)`)) {
+          await handleCancelarServico();
+        }
+      } else {
+        setMiscError(msg);
+      }
+    }
+  }
+
+  async function handleCancelarServico() {
+    const motivo = prompt("Motivo do cancelamento (opcional):");
+    if (motivo === null) return;
+    setMiscError(null);
+    try {
+      await cancelarServico(servico.id, motivo || null);
+      onChanged();
+    } catch (err) {
+      console.error("Falha ao cancelar serviço", err);
+      setMiscError(err instanceof Error ? err.message : "Não foi possível cancelar esse serviço.");
     }
   }
 
@@ -190,13 +213,25 @@ export default function StatusTab({
         <p className="text-center text-[12.5px] font-semibold text-success">✓ Serviço concluído</p>
       )}
 
-      <button
-        type="button"
-        onClick={handleDelete}
-        className="ml-auto w-fit rounded-btn border border-danger-border px-3 py-1.5 text-[12.5px] text-danger"
-      >
-        Excluir Serviço
-      </button>
+      <div className="ml-auto flex items-center gap-2">
+        {servico.financeiro_status !== "Cancelado" && (
+          <button
+            type="button"
+            onClick={handleCancelarServico}
+            className="w-fit rounded-btn border border-border-neutral px-3 py-1.5 text-[12.5px] text-text-secondary hover:text-text"
+            title="Mantém parcelas e lançamentos — só marca o serviço como cancelado"
+          >
+            Cancelar Serviço
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={handleDelete}
+          className="w-fit rounded-btn border border-danger-border px-3 py-1.5 text-[12.5px] text-danger"
+        >
+          Excluir Serviço
+        </button>
+      </div>
     </div>
   );
 }

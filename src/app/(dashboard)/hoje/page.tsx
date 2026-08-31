@@ -5,7 +5,7 @@ import { computeIaAlerts } from "@/lib/domain/alerts";
 import { ROLE_LABELS } from "@/lib/domain/flows";
 import { fmtBRL } from "@/lib/domain/types";
 import type { Comprovante, Lancamento, Servico } from "@/lib/domain/types";
-import { CAMPOS_SERVICO_PRODUCAO, toServicoProducaoSafe } from "@/lib/domain/servicoProducao";
+import { toServicoProducaoSafe } from "@/lib/domain/servicoProducao";
 import KpiCard from "@/components/hoje/KpiCard";
 import MeuTrabalho from "@/components/hoje/MeuTrabalho";
 import AlertasIA from "@/components/hoje/AlertasIA";
@@ -17,10 +17,10 @@ export default async function HojePage() {
 
   const supabase = await createClient();
 
+  // Correção pontual: RLS de `servicos` só libera SELECT pra admin/secretaria agora — Produção
+  // busca pela função segura (`listar_servicos_producao`, migration 0037).
   const [{ data: servicos }, { data: comprovantes }, { data: lancamentos }] = await Promise.all([
-    role === "producao"
-      ? supabase.from("servicos").select(CAMPOS_SERVICO_PRODUCAO)
-      : supabase.from("servicos").select("*"),
+    role === "producao" ? supabase.rpc("listar_servicos_producao") : supabase.from("servicos").select("*"),
     role !== "producao" ? supabase.from("comprovantes").select("*") : Promise.resolve({ data: [] }),
     role !== "producao" ? supabase.from("lancamentos").select("*") : Promise.resolve({ data: [] }),
   ]);

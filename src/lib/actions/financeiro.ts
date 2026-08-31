@@ -242,6 +242,101 @@ export async function estornarPagamentoOcorrenciaDespesaFixa(despesaFixaId: stri
   revalidatePath("/hoje");
 }
 
+/**
+ * Registra um pagamento (total ou parcial) de uma ocorrência de despesa fixa. Correção pontual
+ * pós-Etapa-3: antes `pago` era binário (sem forma de pagar só uma parte da conta); agora é
+ * uma RPC atômica (`registrar_pagamento_despesa_fixa_ocorrencia`, migration 0037) que trava a
+ * linha, soma a partir do ledger `despesa_ocorrencia_pagamentos` (não mais um valor único) e
+ * **bloqueia de verdade** um valor maior que o saldo em aberto.
+ */
+export async function registrarPagamentoDespesaFixaOcorrencia(
+  despesaFixaId: string,
+  ano: number,
+  mes: number,
+  valor: number,
+  data: string
+): Promise<{ ok: true; saldoRestante: number }> {
+  await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const { data: resultado, error } = await supabase.rpc("registrar_pagamento_despesa_fixa_ocorrencia", {
+    p_despesa_fixa_id: despesaFixaId,
+    p_ano: ano,
+    p_mes: mes,
+    p_valor: valor,
+    p_data: data,
+  });
+  if (error) throw error;
+  const r = resultado as { ok: boolean; reason?: string; saldoRestante?: number };
+  if (!r.ok) throw new Error(r.reason ?? "Não foi possível registrar esse pagamento.");
+  revalidateFinanceiroPaths();
+  revalidatePath("/hoje");
+  return { ok: true, saldoRestante: r.saldoRestante ?? 0 };
+}
+
+/** Espelha `registrarPagamentoDespesaFixaOcorrencia`, pro lado das despesas variáveis. */
+export async function registrarPagamentoDespesaVariavelOcorrencia(
+  despesaVariavelId: string,
+  ano: number,
+  mes: number,
+  valor: number,
+  data: string
+): Promise<{ ok: true; saldoRestante: number }> {
+  await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const { data: resultado, error } = await supabase.rpc("registrar_pagamento_despesa_variavel_ocorrencia", {
+    p_despesa_variavel_id: despesaVariavelId,
+    p_ano: ano,
+    p_mes: mes,
+    p_valor: valor,
+    p_data: data,
+  });
+  if (error) throw error;
+  const r = resultado as { ok: boolean; reason?: string; saldoRestante?: number };
+  if (!r.ok) throw new Error(r.reason ?? "Não foi possível registrar esse pagamento.");
+  revalidateFinanceiroPaths();
+  revalidatePath("/hoje");
+  return { ok: true, saldoRestante: r.saldoRestante ?? 0 };
+}
+
+/** Lista cada pagamento individual de uma ocorrência de despesa (fixa ou variável), mais
+ * recente primeiro — alimenta o histórico com estorno por linha. */
+export async function listarPagamentosDespesaOcorrencia(
+  entidade: "despesa_fixa_ocorrencia" | "despesa_variavel_ocorrencia",
+  ocorrenciaId: string
+) {
+  await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("despesa_ocorrencia_pagamentos")
+    .select("*")
+    .eq("entidade", entidade)
+    .eq("ocorrencia_id", ocorrenciaId)
+    .order("criado_em", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+/** Estorna UM pagamento específico de uma ocorrência de despesa — os demais pagamentos da
+ * mesma ocorrência (se houver) continuam intactos. Espelha `estornarRecebimentoParcela`. */
+export async function estornarPagamentoDespesaOcorrencia(
+  entidade: "despesa_fixa_ocorrencia" | "despesa_variavel_ocorrencia",
+  pagamentoId: string,
+  motivo: string | null
+) {
+  await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const rpcName =
+    entidade === "despesa_fixa_ocorrencia"
+      ? "estornar_pagamento_despesa_fixa_ocorrencia"
+      : "estornar_pagamento_despesa_variavel_ocorrencia";
+  const { data, error } = await supabase.rpc(rpcName, { p_pagamento_id: pagamentoId, p_motivo: motivo });
+  if (error) throw error;
+  const r = data as { ok: boolean; reason?: string };
+  if (!r.ok) throw new Error(r.reason ?? "Não foi possível estornar esse pagamento.");
+  revalidateFinanceiroPaths();
+  revalidatePath("/hoje");
+}
+
 export interface NovaDespesaVariavelInput {
   descricao: string;
   valor_provisionado: number;
@@ -492,7 +587,7 @@ export async function lancarNovaDespesa(input: NovaDespesaRapidaInput) {
       .select("id")
       .single();
     if (error) throw error;
-    await toggleDespesaOcorrencia(df.id, ano, mes, true);
+    await registrarPagamentoDespesaFixaOcorrencia(df.id, ano, mes, input.valor, input.data);
   } else {
     const { data: dv, error } = await supabase
       .from("despesas_variaveis")
@@ -506,7 +601,7 @@ export async function lancarNovaDespesa(input: NovaDespesaRapidaInput) {
       .select("id")
       .single();
     if (error) throw error;
-    await toggleDespesaVariavelPago(dv.id, ano, mes, true);
+    await registrarPagamentoDespesaVariavelOcorrencia(dv.id, ano, mes, input.valor, input.data);
   }
 }
 
@@ -528,10 +623,10 @@ export async function lancarDespesaExistente(input: {
   const mes = Number(mesStr);
 
   if (input.tipo === "fixa") {
-    await toggleDespesaOcorrencia(input.despesaId, ano, mes, true);
+    await registrarPagamentoDespesaFixaOcorrencia(input.despesaId, ano, mes, input.valor, input.data);
   } else {
     await updateDespesaVariavelValor(input.despesaId, ano, mes, input.valor);
-    await toggleDespesaVariavelPago(input.despesaId, ano, mes, true);
+    await registrarPagamentoDespesaVariavelOcorrencia(input.despesaId, ano, mes, input.valor, input.data);
   }
 }
 

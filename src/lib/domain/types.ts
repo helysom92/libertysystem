@@ -246,6 +246,7 @@ export interface DespesaFixaOcorrencia {
   cancelada_em: string | null;
   cancelada_por: string | null;
   motivo_cancelamento: string | null;
+  valor_pago: number | null;
 }
 
 /** Água, energia, comissão etc. — sem valor fixo nem dia certo; valor_provisionado é só a
@@ -272,6 +273,7 @@ export interface DespesaVariavelOcorrencia {
   cancelada_em: string | null;
   cancelada_por: string | null;
   motivo_cancelamento: string | null;
+  valor_pago: number | null;
 }
 
 export interface Evento {
@@ -305,10 +307,17 @@ export interface ServicoParcela {
 }
 
 /** Log único de auditoria (Etapa 3) — todo pagamento/cancelamento/estorno de uma entidade
- * financeira gera uma linha aqui, nunca editada/apagada. */
+ * financeira gera uma linha aqui. Append-only de verdade desde a correção pontual (sem policy
+ * de update/delete — antes era "for all", dava pra editar/apagar um evento já gravado). */
 export interface FinanceiroEvento {
   id: string;
-  entidade: "lancamento" | "parcela" | "despesa_fixa_ocorrencia" | "despesa_variavel_ocorrencia";
+  entidade:
+    | "lancamento"
+    | "parcela"
+    | "despesa_fixa_ocorrencia"
+    | "despesa_variavel_ocorrencia"
+    | "servico"
+    | "parcela_recebimento";
   entidade_id: string;
   evento: "pagamento_total" | "pagamento_parcial" | "cancelamento" | "estorno";
   valor_anterior: number | null;
@@ -316,6 +325,38 @@ export interface FinanceiroEvento {
   motivo: string | null;
   usuario_id: string | null;
   criado_em: string;
+}
+
+/** Um recebimento individual de uma parcela (correção pontual pós-Etapa-3) — antes só existia
+ * `servico_parcelas.valor_pago` como total acumulado, sem jeito de identificar/estornar um
+ * recebimento específico quando há mais de um. */
+export interface ParcelaRecebimento {
+  id: string;
+  parcela_id: string;
+  lancamento_id: string | null;
+  valor: number;
+  data: string;
+  forma_pagamento: string | null;
+  usuario_id: string | null;
+  criado_em: string;
+  estornado_em: string | null;
+  estornado_por: string | null;
+  motivo_estorno: string | null;
+}
+
+/** Mesmo conceito de `ParcelaRecebimento`, pro lado das ocorrências de despesa (fixa/variável). */
+export interface DespesaOcorrenciaPagamento {
+  id: string;
+  entidade: "despesa_fixa_ocorrencia" | "despesa_variavel_ocorrencia";
+  ocorrencia_id: string;
+  lancamento_id: string | null;
+  valor: number;
+  data: string;
+  usuario_id: string | null;
+  criado_em: string;
+  estornado_em: string | null;
+  estornado_por: string | null;
+  motivo_estorno: string | null;
 }
 
 export interface ServicoDetail {

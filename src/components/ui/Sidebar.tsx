@@ -79,13 +79,18 @@ export default function Sidebar({
         </div>
       </aside>
 
-      {/* Mobile/tablet: barra superior enxuta + navegação fixa embaixo */}
-      <header className="no-print flex items-center justify-between border-b border-border-neutral bg-card-secondary px-4 py-3 md:hidden">
+      {/* Mobile/tablet: barra superior enxuta + navegação fixa embaixo. Fixa no topo (antes
+       * rolava junto com a página) — numa tela com lista longa, o cabeçalho (e o botão "Sair")
+       * sumia da vista ao rolar pra baixo, sem jeito óbvio de voltar pro topo pra sair. */}
+      <header className="no-print sticky top-0 z-30 flex items-center justify-between border-b border-border-neutral bg-card-secondary px-4 py-3 md:hidden">
         <Image src="/liberty-logo.png" alt="Liberty" width={128} height={35} priority className="h-6 w-auto object-contain" />
         <div className="flex items-center gap-3">
           <p className="text-[11px] font-semibold text-gold">{roleLabel}</p>
           <form action={signOut}>
-            <button type="submit" className="text-[11px] text-text-muted underline-offset-2 hover:text-text">
+            <button
+              type="submit"
+              className="rounded-btn border border-border-neutral px-2.5 py-1.5 text-[11px] font-semibold text-text-secondary active:bg-card"
+            >
               Sair
             </button>
           </form>

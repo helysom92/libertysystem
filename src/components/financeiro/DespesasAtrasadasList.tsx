@@ -4,7 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import type { DespesaAtrasadaItem } from "@/lib/domain/dashboardMetrics";
 import { fmtBRL } from "@/lib/domain/types";
-import { toggleDespesaOcorrencia, toggleDespesaVariavelPago } from "@/lib/actions/financeiro";
+import { todayISO } from "@/lib/domain/dates";
+import { registrarPagamentoDespesaFixaOcorrencia, registrarPagamentoDespesaVariavelOcorrencia } from "@/lib/actions/financeiro";
 
 const MESES_ABREV = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
@@ -20,9 +21,9 @@ export default function DespesasAtrasadasList({ itens }: { itens: DespesaAtrasad
     startTransition(async () => {
       try {
         if (item.tipo === "fixa") {
-          await toggleDespesaOcorrencia(item.despesaId, item.ano, item.mes, true);
+          await registrarPagamentoDespesaFixaOcorrencia(item.despesaId, item.ano, item.mes, item.valor, todayISO());
         } else {
-          await toggleDespesaVariavelPago(item.despesaId, item.ano, item.mes, true);
+          await registrarPagamentoDespesaVariavelOcorrencia(item.despesaId, item.ano, item.mes, item.valor, todayISO());
         }
         router.refresh();
       } catch (err) {

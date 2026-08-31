@@ -1,25 +1,37 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { DespesaFixa, DespesaFixaOcorrencia, Fornecedor } from "@/lib/domain/types";
+import type { DespesaFixa, DespesaFixaOcorrencia, DespesaOcorrenciaPagamento, Fornecedor } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
-import { toggleDespesaOcorrencia, cancelarOcorrenciaDespesaFixa, estornarPagamentoOcorrenciaDespesaFixa } from "@/lib/actions/financeiro";
-import { hojeISOOperacao } from "@/lib/domain/dates";
+import { fmtDatePtBR, hojeISOOperacao, todayISO } from "@/lib/domain/dates";
+import {
+  cancelarOcorrenciaDespesaFixa,
+  estornarPagamentoDespesaOcorrencia,
+  listarPagamentosDespesaOcorrencia,
+  registrarPagamentoDespesaFixaOcorrencia,
+} from "@/lib/actions/financeiro";
 import NovaDespesaFixaModal from "./NovaDespesaFixaModal";
+
+function saldoDaOcorrencia(despesa: DespesaFixa, ocorrencia: DespesaFixaOcorrencia | undefined): number {
+  const pago = ocorrencia?.valor_pago ?? 0;
+  return Math.max(0, despesa.valor - pago);
+}
 
 /** Vencimento como data completa (ano/mes já vêm do mês selecionado, não "hoje") — antes essa
  * função só comparava o dia do mês, ignorando ano/mês, divergindo do critério usado no resto
  * do app (`dashboardMetrics.ts`). */
-function computeStatus(ocorrencia: DespesaFixaOcorrencia | undefined, diaVencimento: number, ano: number, mes: number) {
+function computeStatus(despesa: DespesaFixa, ocorrencia: DespesaFixaOcorrencia | undefined, ano: number, mes: number) {
   if (ocorrencia?.cancelada_em) return "Cancelada";
-  if (ocorrencia?.pago) return "Pago";
-  const vencimento = `${ano}-${String(mes).padStart(2, "0")}-${String(diaVencimento).padStart(2, "0")}`;
+  if (saldoDaOcorrencia(despesa, ocorrencia) <= 0 && (ocorrencia?.valor_pago ?? 0) > 0) return "Pago";
+  if ((ocorrencia?.valor_pago ?? 0) > 0) return "Parcial";
+  const vencimento = `${ano}-${String(mes).padStart(2, "0")}-${String(despesa.dia_vencimento).padStart(2, "0")}`;
   return vencimento < hojeISOOperacao() ? "Vencido" : "A Pagar";
 }
 
 const STATUS_COLOR: Record<string, string> = {
   Pago: "#25D366",
+  Parcial: "#E0A64E",
   "A Pagar": "rgba(244,242,236,0.6)",
   Vencido: "#E07A7A",
   Cancelada: "#8a8378",
@@ -41,8 +53,44 @@ export default function DespesasFixasSection({
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<DespesaFixa | null>(null);
-  const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+
+  const [payingId, setPayingId] = useState<string | null>(null);
+  const [payValor, setPayValor] = useState("");
+  const [payData, setPayData] = useState(todayISO());
+  const [payingSaving, setPayingSaving] = useState(false);
+
+  const [historicoFor, setHistoricoFor] = useState<string | null>(null);
+  const [historicoData, setHistoricoData] = useState<DespesaOcorrenciaPagamento[]>([]);
+  const [historicoLoading, setHistoricoLoading] = useState(false);
+  const [estornandoId, setEstornandoId] = useState<string | null>(null);
+
+  function startPay(d: DespesaFixa, ocorrencia: DespesaFixaOcorrencia | undefined) {
+    setPayingId(d.id);
+    setPayValor(String(saldoDaOcorrencia(d, ocorrencia)));
+    setPayData(todayISO());
+    setError(null);
+  }
+
+  async function confirmPay(d: DespesaFixa, ocorrencia: DespesaFixaOcorrencia | undefined) {
+    const valor = Number(payValor) || 0;
+    const saldo = saldoDaOcorrencia(d, ocorrencia);
+    if (valor > saldo) {
+      setError(`O valor informado (${fmtBRL(valor)}) é maior que o saldo em aberto (${fmtBRL(saldo)}). Ajuste antes de confirmar.`);
+      return;
+    }
+    setPayingSaving(true);
+    setError(null);
+    try {
+      await registrarPagamentoDespesaFixaOcorrencia(d.id, ano, mes, valor, payData);
+      setPayingId(null);
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível registrar o pagamento.");
+    } finally {
+      setPayingSaving(false);
+    }
+  }
 
   async function handleCancelar(despesaFixaId: string) {
     const motivo = prompt("Motivo do cancelamento desse mês (opcional):");
@@ -55,14 +103,39 @@ export default function DespesasFixasSection({
     }
   }
 
-  async function handleEstornar(despesaFixaId: string) {
+  async function toggleHistorico(ocorrencia: DespesaFixaOcorrencia | undefined) {
+    if (!ocorrencia) return;
+    if (historicoFor === ocorrencia.id) {
+      setHistoricoFor(null);
+      return;
+    }
+    setHistoricoFor(ocorrencia.id);
+    setHistoricoLoading(true);
+    try {
+      const pagamentos = await listarPagamentosDespesaOcorrencia("despesa_fixa_ocorrencia", ocorrencia.id);
+      setHistoricoData(pagamentos as DespesaOcorrenciaPagamento[]);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível carregar o histórico.");
+    } finally {
+      setHistoricoLoading(false);
+    }
+  }
+
+  async function handleEstornarPagamento(pagamentoId: string) {
     const motivo = prompt("Motivo do estorno (opcional):");
     if (motivo === null) return;
+    setEstornandoId(pagamentoId);
     try {
-      await estornarPagamentoOcorrenciaDespesaFixa(despesaFixaId, ano, mes, motivo || null);
+      await estornarPagamentoDespesaOcorrencia("despesa_fixa_ocorrencia", pagamentoId, motivo || null);
+      if (historicoFor) {
+        const pagamentos = await listarPagamentosDespesaOcorrencia("despesa_fixa_ocorrencia", historicoFor);
+        setHistoricoData(pagamentos as DespesaOcorrenciaPagamento[]);
+      }
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível estornar esse pagamento.");
+      alert(err instanceof Error ? err.message : "Não foi possível estornar esse pagamento.");
+    } finally {
+      setEstornandoId(null);
     }
   }
 
@@ -87,68 +160,113 @@ export default function DespesasFixasSection({
       <div className="flex flex-col gap-2">
         {despesas.map((d) => {
           const ocorrencia = ocorrencias.find((o) => o.despesa_fixa_id === d.id);
-          const status = computeStatus(ocorrencia, d.dia_vencimento, ano, mes);
+          const status = computeStatus(d, ocorrencia, ano, mes);
           return (
-            <div
-              key={d.id}
-              className="flex flex-col gap-2 rounded-btn bg-card-secondary px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
-            >
-              <button
-                type="button"
-                onClick={() => setEditing(d)}
-                className="text-left hover:underline"
-              >
-                <p className="font-medium">{d.descricao}</p>
-                <p className="text-[11.5px] text-text-muted">
-                  {d.categoria} · vence dia {d.dia_vencimento} · {fmtBRL(d.valor)}
-                </p>
-              </button>
-              <div className="flex flex-wrap items-center gap-3">
-                <span
-                  className="rounded-pill px-2 py-0.5 text-[10.5px] font-semibold"
-                  style={{ color: STATUS_COLOR[status] }}
-                >
-                  {status}
-                </span>
-                {status !== "Cancelada" && (
-                  <label className="flex items-center gap-1.5 text-[12px]">
-                    <input
-                      type="checkbox"
-                      checked={ocorrencia?.pago ?? false}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setError(null);
-                        startTransition(async () => {
-                          try {
-                            await toggleDespesaOcorrencia(d.id, ano, mes, checked);
-                            router.refresh();
-                          } catch (err) {
-                            console.error("Falha ao atualizar despesa fixa", err);
-                            setError(err instanceof Error ? err.message : "Não foi possível atualizar essa despesa.");
-                          }
-                        });
-                      }}
-                    />
-                    Pago
-                  </label>
-                )}
-                {status === "Pago" && (
-                  <button type="button" onClick={() => handleEstornar(d.id)} className="text-[11px] text-danger">
-                    Estornar
-                  </button>
-                )}
-                {status !== "Cancelada" && status !== "Pago" && (
-                  <button type="button" onClick={() => handleCancelar(d.id)} className="text-[11px] text-danger">
-                    Cancelar mês
-                  </button>
-                )}
+            <div key={d.id} className="rounded-btn bg-card-secondary px-3 py-2 text-sm">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <button type="button" onClick={() => setEditing(d)} className="text-left hover:underline">
+                  <p className="font-medium">{d.descricao}</p>
+                  <p className="text-[11.5px] text-text-muted">
+                    {d.categoria} · vence dia {d.dia_vencimento} · {fmtBRL(d.valor)}
+                    {status === "Parcial" && ` · pago ${fmtBRL(ocorrencia?.valor_pago ?? 0)} · saldo ${fmtBRL(saldoDaOcorrencia(d, ocorrencia))}`}
+                  </p>
+                </button>
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="rounded-pill px-2 py-0.5 text-[10.5px] font-semibold" style={{ color: STATUS_COLOR[status] }}>
+                    {status}
+                  </span>
+                  {(status === "A Pagar" || status === "Vencido" || status === "Parcial") && payingId !== d.id && (
+                    <button type="button" onClick={() => startPay(d, ocorrencia)} className="text-[11px] text-gold">
+                      {status === "Parcial" ? "Quitar / pagar mais" : "Registrar pagamento"}
+                    </button>
+                  )}
+                  {(status === "Pago" || status === "Parcial") && (
+                    <button type="button" onClick={() => toggleHistorico(ocorrencia)} className="text-[11px] text-text-secondary hover:text-text">
+                      {historicoFor === ocorrencia?.id ? "Fechar histórico" : "Histórico / Estornar"}
+                    </button>
+                  )}
+                  {(status === "A Pagar" || status === "Vencido") && (
+                    <button type="button" onClick={() => handleCancelar(d.id)} className="text-[11px] text-danger">
+                      Cancelar mês
+                    </button>
+                  )}
+                </div>
               </div>
+
+              {payingId === d.id && (
+                <div className="mt-2 flex flex-wrap items-end gap-2 rounded-btn border border-border-neutral bg-card p-2.5">
+                  <div>
+                    <label className="mb-1 block text-[11px] text-text-secondary">Valor a pagar agora</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={payValor}
+                      onChange={(e) => setPayValor(e.target.value)}
+                      className="w-32 rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[11px] text-text-secondary">Data</label>
+                    <input
+                      type="date"
+                      value={payData}
+                      onChange={(e) => setPayData(e.target.value)}
+                      className="w-36 rounded-btn border border-border-neutral bg-card-secondary px-2 py-1.5 text-sm"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => confirmPay(d, ocorrencia)}
+                    disabled={payingSaving}
+                    className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg disabled:opacity-40"
+                  >
+                    {payingSaving ? "Confirmando..." : "Confirmar pagamento"}
+                  </button>
+                  <button type="button" onClick={() => setPayingId(null)} className="rounded-btn px-3 py-1.5 text-[12.5px] text-text-secondary">
+                    Cancelar
+                  </button>
+                </div>
+              )}
+
+              {historicoFor === ocorrencia?.id && (
+                <div className="mt-2 flex flex-col gap-1.5 rounded-btn border border-border-neutral bg-card p-2.5">
+                  <p className="text-[10.5px] tracking-wide text-text-muted uppercase">Pagamentos desta ocorrência</p>
+                  {historicoLoading && <p className="text-[11.5px] text-text-muted">Carregando...</p>}
+                  {!historicoLoading &&
+                    historicoData.map((pg) => (
+                      <div key={pg.id} className="flex items-center justify-between gap-2 rounded-btn bg-card-secondary px-2.5 py-1.5">
+                        <div>
+                          <p className={pg.estornado_em ? "text-text-muted line-through" : ""}>
+                            {fmtBRL(pg.valor)} · {fmtDatePtBR(pg.data)}
+                          </p>
+                          {pg.estornado_em && (
+                            <p className="text-[11px] text-text-muted">
+                              Estornado em {fmtDatePtBR(pg.estornado_em.slice(0, 10))}
+                              {pg.motivo_estorno && ` — ${pg.motivo_estorno}`}
+                            </p>
+                          )}
+                        </div>
+                        {!pg.estornado_em && (
+                          <button
+                            type="button"
+                            disabled={estornandoId === pg.id}
+                            onClick={() => handleEstornarPagamento(pg.id)}
+                            className="text-[11px] text-danger disabled:opacity-40"
+                          >
+                            {estornandoId === pg.id ? "Estornando..." : "Estornar"}
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  {!historicoLoading && historicoData.length === 0 && (
+                    <p className="text-[11.5px] text-text-muted">Nenhum pagamento registrado ainda.</p>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}
-        {despesas.length === 0 && (
-          <p className="text-sm text-text-muted">Nenhuma despesa fixa cadastrada.</p>
-        )}
+        {despesas.length === 0 && <p className="text-sm text-text-muted">Nenhuma despesa fixa cadastrada.</p>}
       </div>
 
       {open && (

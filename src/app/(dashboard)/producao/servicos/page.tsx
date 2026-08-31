@@ -4,7 +4,7 @@ import { requireTab } from "@/lib/domain/permissions";
 import KanbanBoard from "@/components/kanban/KanbanBoard";
 import type { ItemOrcamento, Servico } from "@/lib/domain/types";
 import type { Coluna } from "@/lib/domain/kanban";
-import { CAMPOS_SERVICO_PRODUCAO, toServicoProducaoSafe } from "@/lib/domain/servicoProducao";
+import { toServicoProducaoSafe } from "@/lib/domain/servicoProducao";
 
 const CAMPOS_SERVICO_KANBAN =
   "id, numero, cliente, descricao, valor, financeiro_status, prazo, prazo_tipo, coluna_id, capa_foto_id";
@@ -18,20 +18,16 @@ export default async function ServicosPage({
   const profile = await requireTab("producao");
   const supabase = await createClient();
 
-  // Só os campos que o card/coluna do Kanban de fato renderizam — o modal (CentralDoServico)
-  // busca o registro completo por conta própria quando um card é aberto. Pra Produção, nem
-  // esses campos financeiros são buscados (ver CAMPOS_SERVICO_PRODUCAO). Duas queries
-  // separadas (em vez de uma só com o nome da coluna condicional) porque o cliente do
-  // Supabase tenta tipar o retorno a partir da string do `.select()` em tempo de compilação —
-  // uma string condicional confunde esse parser de tipos.
-  const servicosQuery =
-    profile.role === "producao"
-      ? supabase.from("servicos").select(CAMPOS_SERVICO_PRODUCAO).order("criado_em", { ascending: false })
-      : supabase.from("servicos").select(CAMPOS_SERVICO_KANBAN).order("criado_em", { ascending: false });
-
-  const [{ data: servicos }, { data: itensOrcamento }, clientes, { data: colunas }, { data: checklistRows }] =
+  // Correção pontual: a RLS de `servicos` agora só libera SELECT pra admin/secretaria (antes
+  // era `auth.role() = 'authenticated'`, um vazamento — Produção lia valor/financeiro_status
+  // direto). Produção passa a buscar pela função seleção segura (`listar_servicos_producao`,
+  // migration 0037, security definer, já devolve só os campos de CAMPOS_SERVICO_PRODUCAO);
+  // Admin/Secretaria continuam com a query direta de sempre.
+  const [{ data: servicosRaw }, { data: itensOrcamento }, clientes, { data: colunas }, { data: checklistRows }] =
     await Promise.all([
-      servicosQuery,
+      profile.role === "producao"
+        ? supabase.rpc("listar_servicos_producao")
+        : supabase.from("servicos").select(CAMPOS_SERVICO_KANBAN).order("criado_em", { ascending: false }),
       supabase.from("itens_orcamento").select("*").eq("ativo", true).order("nome"),
       fetchAllClientes(supabase),
       supabase.from("colunas").select("*").order("ordem"),
@@ -40,8 +36,8 @@ export default async function ServicosPage({
 
   const svs =
     profile.role === "producao"
-      ? ((servicos ?? []) as unknown as Parameters<typeof toServicoProducaoSafe>[0][]).map(toServicoProducaoSafe)
-      : ((servicos as unknown as Servico[]) ?? []);
+      ? ((servicosRaw ?? []) as unknown as Parameters<typeof toServicoProducaoSafe>[0][]).map(toServicoProducaoSafe)
+      : ((servicosRaw as unknown as Servico[]) ?? []);
 
   // Card cover images: resolve capa_foto_id -> storage_path -> signed URL, batched.
   const capaUrls: Record<string, string> = {};

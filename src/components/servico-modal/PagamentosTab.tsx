@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { ServicoDetail, ServicoParcela } from "@/lib/domain/types";
+import type { ParcelaRecebimento, ServicoDetail, ServicoParcela } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { fmtDatePtBR, todayISO } from "@/lib/domain/dates";
 import { FINANCEIRO_STATUSES, type Role } from "@/lib/domain/flows";
@@ -13,7 +13,8 @@ import {
   criarParcelasPadrao,
   criarParcelasPersonalizadas,
   deleteParcela,
-  estornarPagamentoParcela,
+  estornarRecebimentoParcela,
+  listarRecebimentosDaParcela,
   marcarParcelaPaga,
   reconfigurarParcelasPendentes,
   updateParcela,
@@ -76,6 +77,12 @@ export default function PagamentosTab({
   const [quickError, setQuickError] = useState<string | null>(null);
 
   const [statusError, setStatusError] = useState<string | null>(null);
+
+  const [historicoFor, setHistoricoFor] = useState<string | null>(null);
+  const [historicoData, setHistoricoData] = useState<ParcelaRecebimento[]>([]);
+  const [historicoLoading, setHistoricoLoading] = useState(false);
+  const [historicoError, setHistoricoError] = useState<string | null>(null);
+  const [estornandoId, setEstornandoId] = useState<string | null>(null);
 
   async function handleSeed(tipo: "sinal" | "avista") {
     setSeeding(true);
@@ -271,7 +278,10 @@ export default function PagamentosTab({
   async function confirmPay(p: ServicoParcela) {
     const valor = Number(payValor) || 0;
     const saldo = saldoDaParcela(p);
-    if (valor > saldo && !confirm(`O valor informado (${fmtBRL(valor)}) é maior que o saldo em aberto (${fmtBRL(saldo)}). Confirmar mesmo assim?`)) {
+    // Bloqueia de verdade — o valor não pode passar do saldo em aberto (a RPC também bloqueia
+    // do lado do banco; isso aqui só evita o round-trip pra dar o mesmo erro).
+    if (valor > saldo) {
+      setPayError(`O valor informado (${fmtBRL(valor)}) é maior que o saldo em aberto (${fmtBRL(saldo)}). Ajuste o valor antes de confirmar.`);
       return;
     }
     setPayingSaving(true);
@@ -302,14 +312,39 @@ export default function PagamentosTab({
     }
   }
 
-  async function handleEstornar(p: ServicoParcela) {
+  /** Abre/fecha a lista de recebimentos individuais dessa parcela — cada um com seu próprio
+   * botão de estornar (correção pontual: antes só existia estornar a parcela inteira). */
+  async function toggleHistorico(p: ServicoParcela) {
+    if (historicoFor === p.id) {
+      setHistoricoFor(null);
+      return;
+    }
+    setHistoricoFor(p.id);
+    setHistoricoLoading(true);
+    setHistoricoError(null);
+    try {
+      const recebimentos = await listarRecebimentosDaParcela(p.id);
+      setHistoricoData(recebimentos as ParcelaRecebimento[]);
+    } catch (err) {
+      setHistoricoError(err instanceof Error ? err.message : "Não foi possível carregar o histórico.");
+    } finally {
+      setHistoricoLoading(false);
+    }
+  }
+
+  async function handleEstornarRecebimento(recebimentoId: string) {
     const motivo = prompt("Motivo do estorno (opcional):");
     if (motivo === null) return;
+    setEstornandoId(recebimentoId);
     try {
-      await estornarPagamentoParcela(p.id, servico.id, motivo || null);
+      await estornarRecebimentoParcela(recebimentoId, servico.id, motivo || null);
+      const recebimentos = await listarRecebimentosDaParcela(historicoFor as string);
+      setHistoricoData(recebimentos as ParcelaRecebimento[]);
       onChanged();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Não foi possível estornar esse pagamento.");
+      alert(err instanceof Error ? err.message : "Não foi possível estornar esse recebimento.");
+    } finally {
+      setEstornandoId(null);
     }
   }
 
@@ -762,8 +797,8 @@ export default function PagamentosTab({
                         🧾 Emitir recibo
                       </a>
                       {canEdit && (
-                        <button type="button" onClick={() => handleEstornar(p)} className="text-[11.5px] text-danger">
-                          Estornar
+                        <button type="button" onClick={() => toggleHistorico(p)} className="text-[11.5px] text-text-secondary hover:text-text">
+                          {historicoFor === p.id ? "Fechar histórico" : "Histórico / Estornar"}
                         </button>
                       )}
                     </>
@@ -804,10 +839,10 @@ export default function PagamentosTab({
                         {parcial && (
                           <button
                             type="button"
-                            onClick={() => handleEstornar(p)}
+                            onClick={() => toggleHistorico(p)}
                             className="text-[11.5px] text-text-secondary hover:text-text"
                           >
-                            Estornar
+                            {historicoFor === p.id ? "Fechar histórico" : "Histórico / Estornar"}
                           </button>
                         )}
                         <label className="flex items-center gap-1.5 text-[12.5px]">
@@ -830,9 +865,11 @@ export default function PagamentosTab({
                             Editar
                           </button>
                         )}
-                        <button type="button" onClick={() => handleCancelar(p)} className="text-[11.5px] text-danger">
-                          Cancelar
-                        </button>
+                        {!parcial && (
+                          <button type="button" onClick={() => handleCancelar(p)} className="text-[11.5px] text-danger">
+                            Cancelar
+                          </button>
+                        )}
                         {!parcial && (
                           <button
                             type="button"
@@ -846,6 +883,45 @@ export default function PagamentosTab({
                     )
                   )}
                 </div>
+              </div>
+            )}
+
+            {historicoFor === p.id && (
+              <div className="mt-2 flex flex-col gap-1.5 rounded-btn border border-border-neutral bg-card p-2.5">
+                <p className="text-[10.5px] tracking-wide text-text-muted uppercase">Recebimentos desta parcela</p>
+                {historicoLoading && <p className="text-[11.5px] text-text-muted">Carregando...</p>}
+                {historicoError && <p className="text-[11.5px] text-danger">{historicoError}</p>}
+                {!historicoLoading &&
+                  !historicoError &&
+                  historicoData.map((r) => (
+                    <div key={r.id} className="flex items-center justify-between gap-2 rounded-btn bg-card-secondary px-2.5 py-1.5">
+                      <div>
+                        <p className={r.estornado_em ? "text-text-muted line-through" : ""}>
+                          {fmtBRL(r.valor)} · {fmtDatePtBR(r.data)}
+                          {r.forma_pagamento && ` · ${r.forma_pagamento}`}
+                        </p>
+                        {r.estornado_em && (
+                          <p className="text-[11px] text-text-muted">
+                            Estornado em {fmtDatePtBR(r.estornado_em.slice(0, 10))}
+                            {r.motivo_estorno && ` — ${r.motivo_estorno}`}
+                          </p>
+                        )}
+                      </div>
+                      {!r.estornado_em && canEdit && (
+                        <button
+                          type="button"
+                          disabled={estornandoId === r.id}
+                          onClick={() => handleEstornarRecebimento(r.id)}
+                          className="text-[11px] text-danger disabled:opacity-40"
+                        >
+                          {estornandoId === r.id ? "Estornando..." : "Estornar"}
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                {!historicoLoading && !historicoError && historicoData.length === 0 && (
+                  <p className="text-[11.5px] text-text-muted">Nenhum recebimento registrado ainda.</p>
+                )}
               </div>
             )}
           </div>

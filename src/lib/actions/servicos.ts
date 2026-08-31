@@ -263,19 +263,39 @@ export async function ensureShareToken(servicoId: string): Promise<string> {
   return data as string;
 }
 
-/** Exclusão definitiva de um serviço — ação já irreversível e explícita (exige confirmação na
- * tela). `servico_parcelas` já cai sozinha via `on delete cascade`, mas `lancamentos.servico_id`
- * é `on delete set null` (pra não apagar histórico financeiro só por cancelamento de OS) — sem
- * isso, excluir a OS deixava lançamentos "órfãos" (sem OS, mas ainda contando nos totais do
- * Financeiro) que só dava pra achar manualmente. Já que apagar a OS já é uma decisão explícita
- * e definitiva do usuário, apaga junto os lançamentos vinculados a ela. */
+/**
+ * Exclusão definitiva de um serviço — só permitida quando ele NÃO tem histórico financeiro
+ * real (nenhum lançamento realizado, nenhuma parcela com recebimento). Um trigger no banco
+ * (`servicos_bloqueia_exclusao`, migration 0037) garante isso mesmo se alguém tentar apagar
+ * direto pela API do Supabase, sem passar por aqui — não é só uma checagem de tela.
+ *
+ * Correção pontual: uma versão anterior desta função apagava os `lancamentos` vinculados junto
+ * com a OS, pra "limpar" o lançamento órfão que sobrava quando `lancamentos.servico_id` virava
+ * null (`on delete set null`). Isso estava errado — apagar histórico financeiro nunca deveria
+ * ser consequência de excluir uma OS. Pra uma OS com dinheiro já movimentado, a ação certa é
+ * `cancelarServico`, não excluir.
+ */
 export async function deleteServico(servicoId: string) {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
-  const { error: lancErr } = await supabase.from("lancamentos").delete().eq("servico_id", servicoId);
-  if (lancErr) throw lancErr;
   const { error } = await supabase.from("servicos").delete().eq("id", servicoId);
   if (error) throw error;
+  revalidateServicoPaths();
+  revalidateFinanceiroPaths();
+}
+
+/** Cancela um serviço sem apagar nada — parcelas/lançamentos continuam intactos (dinheiro já
+ * realizado antes do cancelamento continua contando, regra confirmada na Etapa 2), e o serviço
+ * sai dos totais futuros (vendas/a receber/a pagar) automaticamente por já estar com
+ * `financeiro_status='Cancelado'`. Use isso em vez de `deleteServico` quando a OS já tem
+ * histórico financeiro (o banco bloqueia a exclusão nesse caso). */
+export async function cancelarServico(servicoId: string, motivo: string | null) {
+  await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("cancelar_servico", { p_servico_id: servicoId, p_motivo: motivo });
+  if (error) throw error;
+  const r = data as { ok: boolean; reason?: string };
+  if (!r.ok) throw new Error(r.reason ?? "Não foi possível cancelar esse serviço.");
   revalidateServicoPaths();
   revalidateFinanceiroPaths();
 }

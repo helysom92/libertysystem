@@ -224,113 +224,66 @@ export async function reconfigurarParcelasPendentes(servicoId: string, itens: Pa
 
 /**
  * Confirma um recebimento (total ou parcial) de uma parcela. `valorRecebidoAgora` é o valor
- * que está entrando NESTA confirmação — não o total acumulado (Etapa 3: antes o valor
- * informado sobrescrevia `valor_pago`, então uma segunda confirmação perdia o que já tinha sido
- * recebido antes; agora soma). No primeiro recebimento, atualiza o lançamento "previsto" que já
- * existia pra essa parcela; num recebimento seguinte (completando o saldo), cria um lançamento
- * novo pro complemento — cada entrada de dinheiro é um lançamento próprio, nunca um valor
- * reescrito por cima do anterior.
+ * que está entrando NESTA confirmação — não o total acumulado. Correção pontual pós-Etapa-3:
+ * agora é uma RPC atômica (`registrar_recebimento_parcela`, migration 0037) que trava a linha
+ * da parcela, recalcula o saldo a partir do ledger `parcela_recebimentos` (não mais um único
+ * `valor_pago` acumulado — isso é o que permite depois estornar UM recebimento específico sem
+ * mexer nos outros) e **bloqueia de verdade** um valor maior que o saldo em aberto — antes só
+ * avisava e deixava passar, o que contraria a regra de nunca permitir saldo negativo.
  */
 export async function marcarParcelaPaga(
   parcelaId: string,
   servicoId: string,
   fields: { valorRecebidoAgora: number; dataPagamento: string; formaPagamento: string | null }
-): Promise<{ ok: true; saldoRestante: number; aviso: string | null }> {
-  const profile = await requireRole("administrador", "secretaria");
+): Promise<{ ok: true; saldoRestante: number }> {
+  await requireRole("administrador", "secretaria");
   const supabase = await createClient();
 
-  const { data: parcela, error: pErr } = await supabase
-    .from("servico_parcelas")
-    .select("*")
-    .eq("id", parcelaId)
-    .single();
-  if (pErr || !parcela) throw pErr ?? new Error("Parcela não encontrada.");
-  if (fields.valorRecebidoAgora <= 0) throw new Error("O valor recebido precisa ser maior que zero.");
-
-  const pagoAntes = parcela.valor_pago ?? 0;
-  const novoPago = pagoAntes + fields.valorRecebidoAgora;
-  const saldoRestante = Math.max(0, parcela.valor_previsto - novoPago);
-  const aviso =
-    novoPago > parcela.valor_previsto
-      ? `O total recebido (${novoPago.toFixed(2)}) ficou maior que o valor previsto (${parcela.valor_previsto.toFixed(2)}).`
-      : null;
-
-  let lancamentoId: string | null = parcela.lancamento_id;
-  if (pagoAntes === 0 && lancamentoId) {
-    // Primeiro recebimento — confirma o lançamento "previsto" que já existia pra essa parcela.
-    const { error: updLancErr } = await supabase
-      .from("lancamentos")
-      .update({
-        valor: fields.valorRecebidoAgora,
-        data: fields.dataPagamento,
-        forma_pagamento: fields.formaPagamento,
-        status: "realizado",
-      })
-      .eq("id", lancamentoId);
-    if (updLancErr) throw updLancErr;
-  } else {
-    // Parcela antiga sem lançamento vinculado, OU um complemento de um recebimento parcial
-    // anterior — cria um lançamento novo em vez de reescrever o que já foi confirmado antes.
-    const { data: servico, error: sErr } = await supabase
-      .from("servicos")
-      .select("cliente")
-      .eq("id", servicoId)
-      .single();
-    if (sErr || !servico) throw sErr ?? new Error("Serviço não encontrado.");
-
-    const descricaoComplemento = pagoAntes > 0 ? `${parcela.descricao} (complemento)` : parcela.descricao;
-    const { data: lanc, error: lancErr } = await supabase
-      .from("lancamentos")
-      .insert({
-        tipo: "Receita",
-        descricao: `${servico.cliente} — ${descricaoComplemento}`,
-        categoria: "Recebimento de serviço",
-        valor: fields.valorRecebidoAgora,
-        data: fields.dataPagamento,
-        servico_id: servicoId,
-        forma_pagamento: fields.formaPagamento,
-        status: "realizado",
-      })
-      .select("id")
-      .single();
-    if (lancErr) throw lancErr;
-    if (pagoAntes === 0) lancamentoId = lanc.id; // parcela antiga: agora passa a ter vínculo
-  }
-
-  const { error: updErr } = await supabase
-    .from("servico_parcelas")
-    .update({
-      valor_pago: novoPago,
-      pago_em: new Date().toISOString(),
-      forma_pagamento: fields.formaPagamento,
-      lancamento_id: lancamentoId,
-    })
-    .eq("id", parcelaId);
-  if (updErr) throw updErr;
-
-  await supabase.from("financeiro_eventos").insert({
-    entidade: "parcela",
-    entidade_id: parcelaId,
-    evento: saldoRestante <= 0 ? "pagamento_total" : "pagamento_parcial",
-    valor_anterior: pagoAntes,
-    valor_novo: novoPago,
-    usuario_id: profile.id,
+  const { data, error } = await supabase.rpc("registrar_recebimento_parcela", {
+    p_parcela_id: parcelaId,
+    p_valor: fields.valorRecebidoAgora,
+    p_data: fields.dataPagamento,
+    p_forma_pagamento: fields.formaPagamento,
   });
+  if (error) throw error;
+  const resultado = data as { ok: boolean; reason?: string; saldoRestante?: number };
+  if (!resultado.ok) throw new Error(resultado.reason ?? "Não foi possível registrar esse recebimento.");
 
   await recomputeValorPago(supabase, servicoId);
-
   revalidateServicoPaths();
   revalidateFinanceiroPaths();
   revalidatePath("/hoje");
 
-  return { ok: true, saldoRestante, aviso };
+  return { ok: true, saldoRestante: resultado.saldoRestante ?? 0 };
+}
+
+/** Lista cada recebimento individual de uma parcela (ledger `parcela_recebimentos`), mais
+ * recente primeiro — alimenta o histórico com estorno por linha na tela de pagamentos. */
+export async function listarRecebimentosDaParcela(parcelaId: string) {
+  await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("parcela_recebimentos")
+    .select("*")
+    .eq("parcela_id", parcelaId)
+    .order("criado_em", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
 }
 
 /** Cancela uma parcela específica (o cliente não vai mais pagar essa parte) sem apagar o
- * registro — sai de "A Receber" dali pra frente, mas continua visível na aba Cancelados. */
+ * registro — sai de "A Receber" dali pra frente, mas continua visível na aba Cancelados.
+ * Bloqueia cancelar uma parcela que já tem recebimento — estorne o recebimento primeiro, pra
+ * não deixar dinheiro já recebido "escondido" atrás de uma parcela marcada como cancelada. */
 export async function cancelarParcela(parcelaId: string, motivo: string | null) {
   const profile = await requireRole("administrador", "secretaria");
   const supabase = await createClient();
+
+  const { data: parcela } = await supabase.from("servico_parcelas").select("valor_pago").eq("id", parcelaId).single();
+  if (parcela?.valor_pago != null && parcela.valor_pago > 0) {
+    throw new Error("Essa parcela já tem recebimento — estorne o recebimento antes de cancelar.");
+  }
+
   const { error } = await supabase
     .from("servico_parcelas")
     .update({ cancelada_em: new Date().toISOString(), cancelada_por: profile.id, motivo_cancelamento: motivo })
@@ -349,20 +302,21 @@ export async function cancelarParcela(parcelaId: string, motivo: string | null) 
   revalidateFinanceiroPaths();
 }
 
-/** Reverte um recebimento incorreto — a parcela volta a ficar em aberto, o lançamento vinculado
- * volta a "previsto", e o evento fica registrado em `financeiro_eventos` (nunca apaga o
- * registro original). Atômico via RPC (migration 0036) pra não deixar parcela e lançamento
- * dessincronizados se algo falhar no meio. */
-export async function estornarPagamentoParcela(parcelaId: string, servicoId: string, motivo: string | null) {
+/** Estorna UM recebimento específico (não a parcela inteira) — os demais recebimentos da mesma
+ * parcela continuam intactos. Atômico via RPC `estornar_recebimento_parcela` (migration 0037):
+ * marca a linha do ledger como estornada, cancela (não reabre como "previsto") o lançamento
+ * daquele recebimento específico, e recalcula `valor_pago` da parcela a partir da soma dos
+ * recebimentos ainda válidos. Impede estornar o mesmo recebimento duas vezes. */
+export async function estornarRecebimentoParcela(recebimentoId: string, servicoId: string, motivo: string | null) {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
-  const { data, error } = await supabase.rpc("estornar_pagamento_parcela", {
-    p_parcela_id: parcelaId,
+  const { data, error } = await supabase.rpc("estornar_recebimento_parcela", {
+    p_recebimento_id: recebimentoId,
     p_motivo: motivo,
   });
   if (error) throw error;
   const resultado = data as { ok: boolean; reason?: string };
-  if (!resultado.ok) throw new Error(resultado.reason ?? "Não foi possível estornar esse pagamento.");
+  if (!resultado.ok) throw new Error(resultado.reason ?? "Não foi possível estornar esse recebimento.");
 
   await recomputeValorPago(supabase, servicoId);
   revalidateServicoPaths();
