@@ -6,6 +6,11 @@ import type {
   TransferenciaPessoal,
   SituacaoReceitaPessoal,
   SituacaoDespesaPessoal,
+  CartaoPessoal,
+  CompraCartaoPessoal,
+  DividaPessoal,
+  PagamentoDividaPessoal,
+  SituacaoDividaPessoal,
 } from "./types";
 
 /**
@@ -176,3 +181,164 @@ export function situacaoObrigacaoPessoal(
   if (!dataReferencia) return "a_vencer";
   return dataReferencia < hojeISO ? "vencida" : "a_vencer";
 }
+
+// ── Bloco C: cartões, faturas e dívidas ──────────────────────────────────────────────────────
+
+export interface FaturaChave {
+  ano: number;
+  mes: number; // 1-12
+}
+
+/** Em qual fatura (ano/mês) a PRIMEIRA parcela de uma compra cai, dado o dia de fechamento do
+ * cartão — compra até o fechamento entra na fatura do mesmo mês, depois do fechamento rola pra
+ * fatura do mês seguinte. Regra simplificada (informativa, não replica exatamente o cronograma
+ * de cada banco). */
+export function calcularFaturaDaCompra(dataCompraISO: string, diaFechamento: number): FaturaChave {
+  const [anoStr, mesStr, diaStr] = dataCompraISO.split("-");
+  let ano = Number(anoStr);
+  let mes = Number(mesStr); // 1-12
+  const dia = Number(diaStr);
+  if (dia > diaFechamento) {
+    mes += 1;
+    if (mes > 12) {
+      mes = 1;
+      ano += 1;
+    }
+  }
+  return { ano, mes };
+}
+
+export interface ParcelaCompraGerada {
+  numero: number;
+  valor: number;
+  ano: number;
+  mes: number;
+}
+
+/** Divide uma compra em N parcelas iguais (resto de centavos vai pra última, pra soma bater
+ * exatamente com o valor total) — cada uma na fatura sucessiva a partir da primeira. */
+export function gerarParcelasCompra(
+  dataCompraISO: string,
+  diaFechamento: number,
+  valorTotal: number,
+  parcelasTotal: number
+): ParcelaCompraGerada[] {
+  const primeira = calcularFaturaDaCompra(dataCompraISO, diaFechamento);
+  const valorBase = Math.floor((valorTotal / parcelasTotal) * 100) / 100;
+  const resto = Math.round((valorTotal - valorBase * parcelasTotal) * 100) / 100;
+
+  const parcelas: ParcelaCompraGerada[] = [];
+  let { ano, mes } = primeira;
+  for (let i = 1; i <= parcelasTotal; i++) {
+    const valor = i === parcelasTotal ? Math.round((valorBase + resto) * 100) / 100 : valorBase;
+    parcelas.push({ numero: i, valor, ano, mes });
+    mes += 1;
+    if (mes > 12) {
+      mes = 1;
+      ano += 1;
+    }
+  }
+  return parcelas;
+}
+
+/** Soma das parcelas não canceladas de um cartão numa fatura (ano/mês) — é o valor "a lançar"
+ * como despesa quando a fatura for paga. */
+export function totalFaturaAberta(compras: CompraCartaoPessoal[], cartaoId: string, ano: number, mes: number): number {
+  return compras
+    .filter((c) => c.cartao_id === cartaoId && c.fatura_ano === ano && c.fatura_mes === mes && !c.cancelada_em)
+    .reduce((s, c) => s + c.valor_parcela, 0);
+}
+
+function faturaKey(ano: number, mes: number): string {
+  return `${ano}-${String(mes).padStart(2, "0")}`;
+}
+
+/** Data de vencimento da fatura de um cartão num ano/mês — se o dia de vencimento é ANTES do
+ * dia de fechamento (padrão mais comum: fecha no fim do mês, vence no começo do seguinte), a
+ * data de vencimento cai no mês SEGUINTE ao mês da fatura; senão, no mesmo mês. */
+export function vencimentoDaFatura(ano: number, mes: number, diaFechamento: number, diaVencimento: number): string {
+  let anoVenc = ano;
+  let mesVenc = mes;
+  if (diaVencimento < diaFechamento) {
+    mesVenc += 1;
+    if (mesVenc > 12) {
+      mesVenc = 1;
+      anoVenc += 1;
+    }
+  }
+  return `${anoVenc}-${String(mesVenc).padStart(2, "0")}-${String(diaVencimento).padStart(2, "0")}`;
+}
+
+/** Limite consumido: soma das parcelas não canceladas cuja fatura ainda não foi paga — uma vez
+ * que a fatura é paga (despesa vinculada com situação "paga"), o limite dela é liberado, mesmo
+ * que a compra continue no histórico. `faturasPagas` é o conjunto de "ano-mês" já quitados. */
+export function limiteUsado(
+  cartaoId: string,
+  compras: CompraCartaoPessoal[],
+  faturasPagas: Set<string>
+): number {
+  return compras
+    .filter((c) => c.cartao_id === cartaoId && !c.cancelada_em && !faturasPagas.has(faturaKey(c.fatura_ano, c.fatura_mes)))
+    .reduce((s, c) => s + c.valor_parcela, 0);
+}
+
+export function limiteDisponivel(cartao: CartaoPessoal, valorUsado: number): number | null {
+  if (cartao.limite == null) return null;
+  return cartao.limite - valorUsado;
+}
+
+export type SituacaoFaturaPessoal = "sem_compras" | "nao_lancada" | SituacaoDespesaPessoal;
+
+/** Situação de exibição de UMA fatura (cartão + ano/mês): sem nenhuma compra, com compras mas
+ * ainda não lançada como despesa, ou a situação da despesa já lançada (prevista/parcial/paga/
+ * cancelada) — nunca inventa um segundo status paralelo ao da despesa. */
+export function situacaoFatura(despesaVinculada: DespesaPessoal | null, totalCompras: number): SituacaoFaturaPessoal {
+  if (despesaVinculada) return despesaVinculada.situacao;
+  return totalCompras > 0 ? "nao_lancada" : "sem_compras";
+}
+
+// ── Dívidas — saldo sempre derivado do ledger (mesmo padrão de `saldoConta`), nunca uma coluna
+// mutável recalculada na mão. `saldo_inicial` é o saldo devedor no momento do CADASTRO, não o
+// valor original do empréstimo (pedido explícito: não reconstrói o passado inteiro). ──
+
+export function saldoDivida(divida: DividaPessoal, pagamentosDaDivida: PagamentoDividaPessoal[]): number {
+  const pago = pagamentosDaDivida
+    .filter((p) => p.divida_id === divida.id && !p.estornado_em)
+    .reduce((s, p) => s + p.valor, 0);
+  return Math.max(0, divida.saldo_inicial - pago);
+}
+
+export function parcelasRestantesAtual(divida: DividaPessoal, pagamentosDaDivida: PagamentoDividaPessoal[]): number | null {
+  if (divida.parcelas_restantes_inicial == null) return null;
+  const quantidadePaga = pagamentosDaDivida.filter((p) => p.divida_id === divida.id && !p.estornado_em).length;
+  return Math.max(0, divida.parcelas_restantes_inicial - quantidadePaga);
+}
+
+/** Soma o saldo devedor de todas as dívidas ativas — "Total em dívidas" da Visão Geral (Bloco
+ * futuro, F) e da própria tela de Dívidas. */
+export function saldoDevedorTotal(dividas: DividaPessoal[], pagamentos: PagamentoDividaPessoal[]): number {
+  return dividas
+    .filter((d) => d.situacao === "ativa")
+    .reduce((soma, d) => soma + saldoDivida(d, pagamentos), 0);
+}
+
+/** Situação da parcela do MÊS CORRENTE: sem `dia_vencimento` cadastrado não dá pra avaliar
+ * ("sem_vencimento"); já paga esse mês (existe pagamento não estornado com `data` no mês/ano de
+ * `hojeISO`) é "em_dia"; sem pagamento esse mês e o dia já passou é "vencida"; senão "a_vencer". */
+export function situacaoDividaVencimento(
+  divida: DividaPessoal,
+  pagamentosDaDivida: PagamentoDividaPessoal[],
+  hojeISO: string
+): "quitada" | "sem_vencimento" | "vencida" | "a_vencer" | "em_dia" {
+  if (divida.situacao === "quitada") return "quitada";
+  if (divida.dia_vencimento == null) return "sem_vencimento";
+  const mesAtualKey = hojeISO.slice(0, 7); // "YYYY-MM"
+  const diaHoje = Number(hojeISO.slice(8, 10));
+  const pagouEsseMes = pagamentosDaDivida.some(
+    (p) => p.divida_id === divida.id && !p.estornado_em && p.data.slice(0, 7) === mesAtualKey
+  );
+  if (pagouEsseMes) return "em_dia";
+  return diaHoje > divida.dia_vencimento ? "vencida" : "a_vencer";
+}
+
+export type { SituacaoDividaPessoal };

@@ -479,6 +479,11 @@ export interface DespesaPessoal {
   observacoes: string | null;
   cancelada_em: string | null;
   motivo_cancelamento: string | null;
+  // Preenchidos só quando esta despesa É o pagamento da fatura de um cartão (Bloco C) — a
+  // compra em si nunca vira uma segunda despesa, só o lançamento da fatura consolidada.
+  cartao_id: string | null;
+  fatura_ano: number | null;
+  fatura_mes: number | null;
 }
 
 export interface PagamentoPessoal {
@@ -501,4 +506,77 @@ export interface TransferenciaPessoal {
   tarifa: number;
   data: string;
   descricao: string | null;
+}
+
+// ── Finanças Pessoais — Bloco C (cartões, faturas, dívidas) ──
+
+export interface CartaoPessoal {
+  id: string;
+  owner_id: string;
+  nome: string;
+  banco: string | null;
+  dia_fechamento: number;
+  dia_vencimento: number;
+  limite: number | null;
+  ativo: boolean;
+  criado_em: string;
+}
+
+/** Uma linha por parcela (mesmo padrão de `ServicoParcela`) — `compra_grupo_id` amarra todas
+ * as parcelas da mesma compra pra exibição/cancelamento em conjunto. A compra em si nunca é
+ * uma despesa: só a fatura consolidada (soma das parcelas de um cartão num ano/mês), lançada
+ * como `DespesaPessoal` com `cartao_id`/`fatura_ano`/`fatura_mes` preenchidos, entra no ledger
+ * de pagamento — "compra gera compromisso, pagamento da fatura gera a baixa". */
+export interface CompraCartaoPessoal {
+  id: string;
+  owner_id: string;
+  cartao_id: string;
+  compra_grupo_id: string;
+  descricao: string;
+  categoria: string | null;
+  valor_parcela: number;
+  numero_parcela: number;
+  parcelas_total: number;
+  data_compra: string;
+  fatura_ano: number;
+  fatura_mes: number;
+  criado_em: string;
+  cancelada_em: string | null;
+  cancelada_por: string | null;
+  motivo_cancelamento: string | null;
+}
+
+export type SituacaoDividaPessoal = "ativa" | "quitada";
+
+/** Não reconstrói o histórico da dívida — só o saldo atual e as parcelas restantes, como
+ * pedido ("dívida cadastrada não precisa reconstruir o passado inteiro"). */
+export interface DividaPessoal {
+  id: string;
+  owner_id: string;
+  credor: string;
+  descricao: string | null;
+  // Saldo devedor no momento do CADASTRO (não o valor original do empréstimo) — o saldo atual
+  // é sempre derivado por ledger via `saldoDivida()`, nunca lido direto daqui.
+  saldo_inicial: number;
+  valor_parcela: number | null;
+  parcelas_restantes_inicial: number | null;
+  dia_vencimento: number | null;
+  taxa_juros_mensal: number | null;
+  situacao: SituacaoDividaPessoal;
+  observacoes: string | null;
+  quitada_em: string | null;
+  criado_em: string;
+}
+
+export interface PagamentoDividaPessoal {
+  id: string;
+  owner_id: string;
+  divida_id: string;
+  valor: number;
+  data: string;
+  conta_id: string | null;
+  criado_em: string;
+  estornado_em: string | null;
+  estornado_por: string | null;
+  motivo_estorno: string | null;
 }
