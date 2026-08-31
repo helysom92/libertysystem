@@ -34,22 +34,21 @@ export default function NovoEventoModal({
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      try {
-        await createEvento({
-          data: dataEvento,
-          hora,
-          tipo,
-          servico_id: defaultServicoId ?? null,
-          cliente,
-          endereco,
-          responsavel,
-          whatsapp,
-        });
-        onClose();
-      } catch (err) {
-        console.error("Falha ao criar evento", err);
-        setError(err instanceof Error ? err.message : "Não foi possível criar o evento.");
+      const resultado = await createEvento({
+        data: dataEvento,
+        hora,
+        tipo,
+        servico_id: defaultServicoId ?? null,
+        cliente,
+        endereco,
+        responsavel,
+        whatsapp,
+      });
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      onClose();
     });
   }
 

@@ -24,12 +24,11 @@ export default function PrazoTab({
   function setTipo(t: PrazoTipo) {
     setError(null);
     startTransition(async () => {
-      try {
-        await updatePrazoServico(servico.id, t);
+      const resultado = await updatePrazoServico(servico.id, t);
+      if (!resultado.ok) {
+        setError(resultado.message);
+      } else {
         onChanged();
-      } catch (err) {
-        console.error("Falha ao atualizar prazo", err);
-        setError(err instanceof Error ? err.message : "Não foi possível atualizar o prazo.");
       }
     });
   }

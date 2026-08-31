@@ -19,11 +19,11 @@ function LinhaUsuario({ usuario }: { usuario: Profile }) {
   function salvar() {
     setError(null);
     startTransition(async () => {
-      try {
-        await updateUserRole(usuario.id, role);
+      const resultado = await updateUserRole(usuario.id, role);
+      if (!resultado.ok) {
+        setError(resultado.message);
+      } else {
         router.refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Não foi possível alterar a função.");
       }
     });
   }

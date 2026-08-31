@@ -53,7 +53,11 @@ export default function FotosTab({
         .from("fotos")
         .upload(path, file, { upsert: true });
       if (uploadError) throw uploadError;
-      await upsertFoto(detail.servico.id, slot, path);
+      const resultado = await upsertFoto(detail.servico.id, slot, path);
+      if (!resultado.ok) {
+        showError(null, resultado.message);
+        return;
+      }
       const url = await getSignedUrl("fotos", path);
       setUrls((u) => ({ ...u, [fotoId]: url }));
       onChanged();
@@ -66,34 +70,33 @@ export default function FotosTab({
 
   async function handleSetCapa(fotoId: string) {
     setError(null);
-    try {
-      await setCapaFoto(detail.servico.id, fotoId);
+    const resultado = await setCapaFoto(detail.servico.id, fotoId);
+    if (!resultado.ok) {
+      showError(null, resultado.message);
+    } else {
       onChanged();
-    } catch (err) {
-      showError(err, "Não foi possível definir essa foto como capa.");
     }
   }
 
   async function handleAddSlot() {
     setAddingSlot(true);
     setError(null);
-    try {
-      await addFotoSlot(detail.servico.id);
+    const resultado = await addFotoSlot(detail.servico.id);
+    if (!resultado.ok) {
+      showError(null, resultado.message);
+    } else {
       onChanged();
-    } catch (err) {
-      showError(err, "Não foi possível adicionar um espaço de foto.");
-    } finally {
-      setAddingSlot(false);
     }
+    setAddingSlot(false);
   }
 
   async function handleRemove(fotoId: string, storagePath: string | null) {
     setError(null);
-    try {
-      await removeFoto(fotoId, storagePath);
+    const resultado = await removeFoto(fotoId, storagePath);
+    if (!resultado.ok) {
+      showError(null, resultado.message);
+    } else {
       onChanged();
-    } catch (err) {
-      showError(err, "Não foi possível remover essa foto.");
     }
   }
 

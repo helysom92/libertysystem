@@ -108,20 +108,19 @@ export default function OrcamentoItensTab({
   async function salvarProposta() {
     setPropostaSaving(true);
     setPropostaError(null);
-    try {
-      await updatePropostaOrcamento(servico.id, {
-        linha_orcamento: linha,
-        validade_proposta_dias: Number(validadeDias) || 7,
-        forma_pagamento_texto: formaPagamento || null,
-        durabilidade_texto: durabilidade || null,
-      });
+    const resultado = await updatePropostaOrcamento(servico.id, {
+      linha_orcamento: linha,
+      validade_proposta_dias: Number(validadeDias) || 7,
+      forma_pagamento_texto: formaPagamento || null,
+      durabilidade_texto: durabilidade || null,
+    });
+    if (!resultado.ok) {
+      setPropostaError(resultado.message);
+    } else {
       setPropostaDirty(false);
       onChanged();
-    } catch (err) {
-      setPropostaError(err instanceof Error ? err.message : "Erro desconhecido ao salvar.");
-    } finally {
-      setPropostaSaving(false);
     }
+    setPropostaSaving(false);
   }
 
   function startEditingItens() {
@@ -145,32 +144,30 @@ export default function OrcamentoItensTab({
   async function salvarItens() {
     setItensSaving(true);
     setItensError(null);
-    try {
-      await replaceOrcamentoItens(
-        servico.id,
-        itensDraft.map((item, ordem) => ({
-          ordem,
-          descricao: item.descricao,
-          categoriaPrazo: item.categoriaPrazo,
-          modoCalculo: item.modoCalculo,
-          itemOrcamentoId: item.itemOrcamentoId,
-          larguraCm: item.larguraCm || null,
-          alturaCm: item.alturaCm || null,
-          quantidade: item.quantidade,
-          custoDireto: item.custoDireto || null,
-          precoM2Manual: item.precoM2Manual || null,
-          valorFinal: valorFinalDoItem(item, itensOrcamento),
-          mostrarMedidaCliente: item.mostrarMedidaCliente,
-        }))
-      );
+    const resultado = await replaceOrcamentoItens(
+      servico.id,
+      itensDraft.map((item, ordem) => ({
+        ordem,
+        descricao: item.descricao,
+        categoriaPrazo: item.categoriaPrazo,
+        modoCalculo: item.modoCalculo,
+        itemOrcamentoId: item.itemOrcamentoId,
+        larguraCm: item.larguraCm || null,
+        alturaCm: item.alturaCm || null,
+        quantidade: item.quantidade,
+        custoDireto: item.custoDireto || null,
+        precoM2Manual: item.precoM2Manual || null,
+        valorFinal: valorFinalDoItem(item, itensOrcamento),
+        mostrarMedidaCliente: item.mostrarMedidaCliente,
+      }))
+    );
+    if (!resultado.ok) {
+      setItensError(resultado.message);
+    } else {
       setEditingItens(false);
       onChanged();
-    } catch (err) {
-      console.error("Falha ao salvar itens do orçamento", err);
-      setItensError(err instanceof Error ? err.message : "Não foi possível salvar os itens.");
-    } finally {
-      setItensSaving(false);
     }
+    setItensSaving(false);
   }
 
   async function copiarOrcamento() {

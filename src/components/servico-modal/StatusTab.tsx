@@ -33,15 +33,14 @@ export default function StatusTab({
   const [moveError, setMoveError] = useState<string | null>(null);
   const [miscError, setMiscError] = useState<string | null>(null);
 
-  function runAction(fn: () => Promise<unknown>, fallback: string) {
+  function runAction(fn: () => Promise<{ ok: boolean; message?: string }>, fallback: string) {
     setMiscError(null);
     startTransition(async () => {
-      try {
-        await fn();
+      const resultado = await fn();
+      if (!resultado.ok) {
+        setMiscError(resultado.message ?? fallback);
+      } else {
         onChanged();
-      } catch (err) {
-        console.error(fallback, err);
-        setMiscError(err instanceof Error ? err.message : fallback);
       }
     });
   }
@@ -53,16 +52,11 @@ export default function StatusTab({
   async function handleMover() {
     if (!moverPara) return;
     setMoveError(null);
-    try {
-      const result = await moveCardParaColuna(servico.id, moverPara);
-      if (!result.ok) {
-        setMoveError(result.reason ?? "Não foi possível mover.");
-        return;
-      }
+    const resultado = await moveCardParaColuna(servico.id, moverPara);
+    if (!resultado.ok) {
+      setMoveError(resultado.message ?? "Não foi possível mover.");
+    } else {
       onChanged();
-    } catch (err) {
-      console.error("Falha ao mover serviço", err);
-      setMoveError(err instanceof Error ? err.message : "Não foi possível mover.");
     }
   }
 

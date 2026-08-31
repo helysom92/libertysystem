@@ -5,10 +5,11 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidateServicoPaths } from "./revalidateServicos";
 import type { KanbanBoardKey } from "@/lib/domain/kanban";
 import { requireRole } from "@/lib/domain/permissions";
+import type { AcaoResultado } from "./resultado";
 
 export interface MoveResult {
   ok: boolean;
-  reason?: string;
+  message?: string;
   numero?: string;
 }
 
@@ -17,7 +18,7 @@ export interface MoveResult {
  * coluna nova entra no lugar que era o fim da lista, e a de conclusão é empurrada pra depois
  * dela, em vez de simplesmente colar tudo no fim.
  */
-export async function createColuna(board: KanbanBoardKey, label: string) {
+export async function createColuna(board: KanbanBoardKey, label: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data: existentes } = await supabase
@@ -32,33 +33,36 @@ export async function createColuna(board: KanbanBoardKey, label: string) {
 
   if (conclusao) {
     const { error: insErr } = await supabase.from("colunas").insert({ board, label, ordem: conclusao.ordem });
-    if (insErr) throw insErr;
+    if (insErr) return { ok: false, message: insErr.message };
     const { error: updErr } = await supabase
       .from("colunas")
       .update({ ordem: maxOrdem + 1 })
       .eq("id", conclusao.id);
-    if (updErr) throw updErr;
+    if (updErr) return { ok: false, message: updErr.message };
   } else {
     const { error } = await supabase.from("colunas").insert({ board, label, ordem: maxOrdem + 1 });
-    if (error) throw error;
+    if (error) return { ok: false, message: error.message };
   }
   revalidateServicoPaths();
+  return { ok: true };
 }
 
-export async function renameColuna(id: string, label: string) {
+export async function renameColuna(id: string, label: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("colunas").update({ label }).eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
+  return { ok: true };
 }
 
-export async function toggleConclusaoColuna(id: string, value: boolean) {
+export async function toggleConclusaoColuna(id: string, value: boolean): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("colunas").update({ is_conclusao: value }).eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
+  return { ok: true };
 }
 
 export async function deleteColuna(id: string): Promise<MoveResult> {
@@ -69,10 +73,10 @@ export async function deleteColuna(id: string): Promise<MoveResult> {
     .select("id", { count: "exact", head: true })
     .eq("coluna_id", id);
   if (count && count > 0) {
-    return { ok: false, reason: `Essa coluna ainda tem ${count} card(s) — mova ou apague eles antes.` };
+    return { ok: false, message: `Essa coluna ainda tem ${count} card(s) — mova ou apague eles antes.` };
   }
   const { error } = await supabase.from("colunas").delete().eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
   return { ok: true };
 }
@@ -84,19 +88,21 @@ export async function moveCardParaColuna(servicoId: string, colunaId: string): P
     p_servico_id: servicoId,
     p_coluna_id: colunaId,
   });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
   revalidatePath("/hoje");
   revalidatePath("/gestao");
-  return data as MoveResult;
+  const r = data as { ok: boolean; reason?: string };
+  return { ok: r.ok, message: r.reason };
 }
 
 export async function aprovarOrcamento(servicoId: string): Promise<MoveResult> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("aprova_orcamento", { p_servico_id: servicoId });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
   revalidatePath("/hoje");
-  return data as MoveResult;
+  const r = data as { ok: boolean; reason?: string; numero?: string };
+  return { ok: r.ok, message: r.reason, numero: r.numero };
 }

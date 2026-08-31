@@ -71,12 +71,11 @@ export default function FornecedoresList({ fornecedores }: { fornecedores: Forne
                     type="button"
                     onClick={() =>
                       startTransition(async () => {
-                        try {
-                          await updateFornecedor(f.id, { ativo: !f.ativo });
+                        const resultado = await updateFornecedor(f.id, { ativo: !f.ativo });
+                        if (!resultado.ok) {
+                          setError(resultado.message);
+                        } else {
                           router.refresh();
-                        } catch (err) {
-                          console.error("Falha ao atualizar fornecedor", err);
-                          setError(err instanceof Error ? err.message : "Não foi possível atualizar esse fornecedor.");
                         }
                       })
                     }

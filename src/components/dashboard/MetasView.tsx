@@ -31,16 +31,14 @@ function GoalCard({ meta, atual, onSaved }: { meta: Meta; atual: number; onSaved
   async function salvar() {
     setSaving(true);
     setError(null);
-    try {
-      await updateMeta(meta.tipo, Number(valor) || 0);
+    const resultado = await updateMeta(meta.tipo, Number(valor) || 0);
+    if (!resultado.ok) {
+      setError(resultado.message);
+    } else {
       setEditing(false);
       onSaved();
-    } catch (err) {
-      console.error("Falha ao salvar meta", err);
-      setError(err instanceof Error ? err.message : "Não foi possível salvar essa meta.");
-    } finally {
-      setSaving(false);
     }
+    setSaving(false);
   }
 
   return (

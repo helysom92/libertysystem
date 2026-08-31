@@ -63,29 +63,25 @@ export default function GerenciarAtalhosModal({
     }
     setSaving(true);
     setError(null);
-    try {
-      if (editingId) {
-        await updateLancamentoAtalho(editingId, form);
-      } else {
-        await createLancamentoAtalho(form);
-      }
-      cancelForm();
-      router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível salvar esse atalho.");
-    } finally {
+    const resultado = editingId ? await updateLancamentoAtalho(editingId, form) : await createLancamentoAtalho(form);
+    if (!resultado.ok) {
+      setError(resultado.message);
       setSaving(false);
+      return;
     }
+    cancelForm();
+    router.refresh();
+    setSaving(false);
   }
 
   async function excluir(id: string) {
     if (!confirm("Excluir esse atalho? Os lançamentos já feitos com ele não são afetados.")) return;
-    try {
-      await deleteLancamentoAtalho(id);
-      router.refresh();
-    } catch (err) {
-      alert(err instanceof Error ? err.message : "Não foi possível excluir esse atalho.");
+    const resultado = await deleteLancamentoAtalho(id);
+    if (!resultado.ok) {
+      alert(resultado.message);
+      return;
     }
+    router.refresh();
   }
 
   return (

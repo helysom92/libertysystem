@@ -54,44 +54,48 @@ export default function PropostaInterativaTab({
   async function salvar() {
     setSaving(true);
     setError(null);
-    try {
-      // Só persiste linhas realmente preenchidas — evita expor rascunho (ex: R$0,00) pra
-      // quem já tem o link (o token é o mesmo do documento estático) antes de terminar.
-      const payload: PropostaOpcaoInput[] = LINHAS.filter(
-        (linha) => opcoes[linha].titulo.trim() && Number(opcoes[linha].valor) > 0
-      ).map((linha, ordem) => ({
-        linha,
-        titulo: opcoes[linha].titulo.trim(),
-        descricao: opcoes[linha].descricao.trim() || null,
-        valor: Number(opcoes[linha].valor),
-        ordem,
-      }));
-      await salvarPropostaOpcoes(servico.id, payload);
-      setDirty(false);
-      onChanged();
-    } catch (err) {
-      console.error("Falha ao salvar proposta interativa", err);
-      setError(err instanceof Error ? err.message : "Não foi possível salvar as opções.");
-    } finally {
-      setSaving(false);
+    // Só persiste linhas realmente preenchidas — evita expor rascunho (ex: R$0,00) pra
+    // quem já tem o link (o token é o mesmo do documento estático) antes de terminar.
+    const payload: PropostaOpcaoInput[] = LINHAS.filter(
+      (linha) => opcoes[linha].titulo.trim() && Number(opcoes[linha].valor) > 0
+    ).map((linha, ordem) => ({
+      linha,
+      titulo: opcoes[linha].titulo.trim(),
+      descricao: opcoes[linha].descricao.trim() || null,
+      valor: Number(opcoes[linha].valor),
+      ordem,
+    }));
+    const resultado = await salvarPropostaOpcoes(servico.id, payload);
+    setSaving(false);
+    if (!resultado.ok) {
+      setError(resultado.message);
+      return false;
     }
+    setDirty(false);
+    onChanged();
+    return true;
   }
 
   async function enviar() {
     setEnviando(true);
     setEnviarError(null);
-    try {
-      if (dirty) await salvar();
-      const token = await ensureShareToken(servico.id);
-      const link = `${window.location.origin}/proposta-interativa/${token}`;
-      const texto = `Olá ${detail.cliente.nome.split(" ")[0]}! Preparei 3 opções pra você escolher na proposta da Liberty Visual e Marketing: ${link}`;
-      window.open(whatsappAppUrl(detail.cliente.whatsapp, texto), "_blank");
-    } catch (err) {
-      console.error("Falha ao enviar proposta interativa", err);
-      setEnviarError(err instanceof Error ? err.message : "Não foi possível gerar o link da proposta.");
-    } finally {
-      setEnviando(false);
+    if (dirty) {
+      const salvou = await salvar();
+      if (!salvou) {
+        setEnviando(false);
+        return;
+      }
     }
+    const resultado = await ensureShareToken(servico.id);
+    if (!resultado.ok) {
+      setEnviarError(resultado.message);
+      setEnviando(false);
+      return;
+    }
+    const link = `${window.location.origin}/proposta-interativa/${resultado.data}`;
+    const texto = `Olá ${detail.cliente.nome.split(" ")[0]}! Preparei 3 opções pra você escolher na proposta da Liberty Visual e Marketing: ${link}`;
+    window.open(whatsappAppUrl(detail.cliente.whatsapp, texto), "_blank");
+    setEnviando(false);
   }
 
   const escolhida = servico.proposta_opcao_escolhida;

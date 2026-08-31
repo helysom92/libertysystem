@@ -20,12 +20,12 @@ export default function NovoFornecedorModal({ onClose }: { onClose: () => void }
       return;
     }
     startTransition(async () => {
-      try {
-        await createFornecedor({ nome, categoria, telefone: telefone || null, email: email || null });
-        onClose();
-      } catch {
-        setError("Não foi possível criar o fornecedor.");
+      const resultado = await createFornecedor({ nome, categoria, telefone: telefone || null, email: email || null });
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      onClose();
     });
   }
 

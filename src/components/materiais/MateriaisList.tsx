@@ -69,12 +69,11 @@ export default function MateriaisList({ materiais }: { materiais: Material[] }) 
                     type="button"
                     onClick={() =>
                       startTransition(async () => {
-                        try {
-                          await updateMaterial(m.id, { ativo: !m.ativo });
+                        const resultado = await updateMaterial(m.id, { ativo: !m.ativo });
+                        if (!resultado.ok) {
+                          setError(resultado.message);
+                        } else {
                           router.refresh();
-                        } catch (err) {
-                          console.error("Falha ao atualizar material", err);
-                          setError(err instanceof Error ? err.message : "Não foi possível atualizar esse material.");
                         }
                       })
                     }

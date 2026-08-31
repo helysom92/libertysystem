@@ -80,49 +80,41 @@ export default function OrcamentoModal({
   async function salvarBasico() {
     setBasicoSaving(true);
     setBasicoError(null);
-    try {
-      await updateServicoOrcamento(servicoId, { tipo, descricao, prazo: prazo || null });
+    const resultado = await updateServicoOrcamento(servicoId, { tipo, descricao, prazo: prazo || null });
+    if (!resultado.ok) {
+      setBasicoError(resultado.message);
+    } else {
       setBasicoDirty(false);
       await reload();
-    } catch (err) {
-      setBasicoError(err instanceof Error ? err.message : "Erro desconhecido ao salvar.");
-    } finally {
-      setBasicoSaving(false);
     }
+    setBasicoSaving(false);
   }
 
   async function handleAprovar() {
     setAprovando(true);
     setAprovarError(null);
-    try {
-      const result = await aprovarOrcamento(servicoId);
-      if (!result.ok) {
-        setAprovarError(result.reason ?? "Não foi possível aprovar.");
-        return;
-      }
-      onClose();
-      router.refresh();
-    } catch (err) {
-      console.error("Falha ao aprovar orçamento", err);
-      setAprovarError(err instanceof Error ? err.message : "Não foi possível aprovar.");
-    } finally {
+    const resultado = await aprovarOrcamento(servicoId);
+    if (!resultado.ok) {
+      setAprovarError(resultado.message ?? "Não foi possível aprovar.");
       setAprovando(false);
+      return;
     }
+    onClose();
+    router.refresh();
+    setAprovando(false);
   }
 
   async function handleDuplicar() {
     setDuplicando(true);
     setDuplicarError(null);
-    try {
-      await duplicarOrcamento(servicoId);
+    const resultado = await duplicarOrcamento(servicoId);
+    if (!resultado.ok) {
+      setDuplicarError(resultado.message);
+    } else {
       onClose();
       router.refresh();
-    } catch (err) {
-      console.error("Falha ao duplicar orçamento", err);
-      setDuplicarError(err instanceof Error ? err.message : "Não foi possível duplicar esse orçamento.");
-    } finally {
-      setDuplicando(false);
     }
+    setDuplicando(false);
   }
 
   async function handleDelete() {

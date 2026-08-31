@@ -26,22 +26,18 @@ export default function NovoItemOrcamentoModal({
       return;
     }
     startTransition(async () => {
-      try {
-        const fields = {
-          nome,
-          tipo_cobranca: tipoCobranca,
-          preco: semPreco ? null : Number(preco) || 0,
-          categoria: categoria || null,
-        };
-        if (item) {
-          await updateItemOrcamento(item.id, fields);
-        } else {
-          await createItemOrcamento(fields);
-        }
-        onClose();
-      } catch {
-        setError(item ? "Não foi possível salvar o item." : "Não foi possível criar o item.");
+      const fields = {
+        nome,
+        tipo_cobranca: tipoCobranca,
+        preco: semPreco ? null : Number(preco) || 0,
+        categoria: categoria || null,
+      };
+      const resultado = item ? await updateItemOrcamento(item.id, fields) : await createItemOrcamento(fields);
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      onClose();
     });
   }
 

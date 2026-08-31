@@ -45,21 +45,21 @@ export default function NovoClienteModal({ onClose }: { onClose: () => void }) {
       return;
     }
     startTransition(async () => {
-      try {
-        await createCliente({
-          nome,
-          empresa: empresa || null,
-          cpf_cnpj: cpfCnpj || null,
-          whatsapp: whatsapp || null,
-          whatsapp_2: whatsapp2 || null,
-          email: email || null,
-          cidade: cidade || null,
-          endereco: endereco || null,
-        });
-        onClose();
-      } catch {
-        setError("Não foi possível criar o cliente.");
+      const resultado = await createCliente({
+        nome,
+        empresa: empresa || null,
+        cpf_cnpj: cpfCnpj || null,
+        whatsapp: whatsapp || null,
+        whatsapp_2: whatsapp2 || null,
+        email: email || null,
+        cidade: cidade || null,
+        endereco: endereco || null,
+      });
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      onClose();
     });
   }
 

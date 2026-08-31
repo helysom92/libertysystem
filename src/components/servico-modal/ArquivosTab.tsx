@@ -26,7 +26,11 @@ export default function ArquivosTab({
         const path = `${detail.servico.id}/${crypto.randomUUID()}-${file.name}`;
         const { error: uploadErr } = await supabase.storage.from("arquivos").upload(path, file);
         if (uploadErr) throw uploadErr;
-        await addArquivo(detail.servico.id, file.name, path, file.size, file.type);
+        const resultado = await addArquivo(detail.servico.id, file.name, path, file.size, file.type);
+        if (!resultado.ok) {
+          setError(resultado.message);
+          return;
+        }
         onChanged();
       } catch {
         setError("Falha ao enviar arquivo.");
@@ -44,12 +48,11 @@ export default function ArquivosTab({
   function handleRemove(id: string, path: string) {
     setError(null);
     startTransition(async () => {
-      try {
-        await removeArquivo(id, path);
+      const resultado = await removeArquivo(id, path);
+      if (!resultado.ok) {
+        setError(resultado.message);
+      } else {
         onChanged();
-      } catch (err) {
-        console.error("Falha ao remover arquivo", err);
-        setError("Não foi possível remover esse arquivo.");
       }
     });
   }

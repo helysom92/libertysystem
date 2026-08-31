@@ -33,15 +33,14 @@ export default function AtalhosLancamento({
     if (!abrindoId) return;
     setLancando(true);
     setError(null);
-    try {
-      await lancarAtalho(abrindoId, { valor: Number(valor) || 0, data });
+    const resultado = await lancarAtalho(abrindoId, { valor: Number(valor) || 0, data });
+    if (!resultado.ok) {
+      setError(resultado.message);
+    } else {
       setAbrindoId(null);
       router.refresh();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Não foi possível lançar essa despesa.");
-    } finally {
-      setLancando(false);
     }
+    setLancando(false);
   }
 
   return (

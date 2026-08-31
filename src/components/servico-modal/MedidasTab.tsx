@@ -30,13 +30,12 @@ export default function MedidasTab({
     e.preventDefault();
     setError(null);
     startTransition(async () => {
-      try {
-        await addMedida(detail.servico.id, form);
+      const resultado = await addMedida(detail.servico.id, form);
+      if (!resultado.ok) {
+        setError(resultado.message);
+      } else {
         setForm(EMPTY);
         onChanged();
-      } catch (err) {
-        console.error("Falha ao adicionar medição", err);
-        setError(err instanceof Error ? err.message : "Não foi possível adicionar essa medição.");
       }
     });
   }

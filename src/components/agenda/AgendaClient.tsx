@@ -22,12 +22,11 @@ export default function AgendaClient({ data, eventos }: { data: string; eventos:
     if (!confirm("Excluir este evento?")) return;
     setError(null);
     startTransition(async () => {
-      try {
-        await deleteEvento(id);
+      const resultado = await deleteEvento(id);
+      if (!resultado.ok) {
+        setError(resultado.message);
+      } else {
         router.refresh();
-      } catch (err) {
-        console.error("Falha ao excluir evento", err);
-        setError(err instanceof Error ? err.message : "Não foi possível excluir esse evento.");
       }
     });
   }

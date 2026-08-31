@@ -8,3 +8,5 @@
  */
 export type AcaoResultado = { ok: true } | { ok: false; message: string };
 export type AcaoComSaldo = { ok: true; saldoRestante: number } | { ok: false; message: string };
+/** Pra ações que devolvem um valor no sucesso (ex: o id do registro recém-criado). */
+export type AcaoComDado<T> = { ok: true; data: T } | { ok: false; message: string };

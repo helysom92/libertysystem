@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidateServicoPaths } from "./revalidateServicos";
 import type { CategoriaPrazo, ModoCalculoItem } from "@/lib/domain/orcamento";
 import { requireRole } from "@/lib/domain/permissions";
+import type { AcaoResultado } from "./resultado";
 
 export interface OrcamentoItemInput {
   ordem: number;
@@ -21,8 +22,8 @@ export interface OrcamentoItemInput {
   mostrarMedidaCliente: boolean;
 }
 
-export async function createOrcamentoItens(servicoId: string, itens: OrcamentoItemInput[]) {
-  if (itens.length === 0) return;
+export async function createOrcamentoItens(servicoId: string, itens: OrcamentoItemInput[]): Promise<AcaoResultado> {
+  if (itens.length === 0) return { ok: true };
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("orcamento_itens").insert(
@@ -42,8 +43,9 @@ export async function createOrcamentoItens(servicoId: string, itens: OrcamentoIt
       mostrar_medida_cliente: item.mostrarMedidaCliente ?? true,
     }))
   );
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
+  return { ok: true };
 }
 
 /**
@@ -52,13 +54,13 @@ export async function createOrcamentoItens(servicoId: string, itens: OrcamentoIt
  * Também sobe financeiro_status de "Não orçado" pra "Orçado" quando passa a ter valor,
  * sem mexer num status mais avançado (Pago, Cortesia etc.) que já estava definido.
  */
-export async function replaceOrcamentoItens(servicoId: string, itens: OrcamentoItemInput[]) {
+export async function replaceOrcamentoItens(servicoId: string, itens: OrcamentoItemInput[]): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const total = itens.reduce((sum, item) => sum + item.valorFinal, 0);
 
   const { error: delErr } = await supabase.from("orcamento_itens").delete().eq("servico_id", servicoId);
-  if (delErr) throw delErr;
+  if (delErr) return { ok: false, message: delErr.message };
 
   if (itens.length > 0) {
     const { error: insErr } = await supabase.from("orcamento_itens").insert(
@@ -78,7 +80,7 @@ export async function replaceOrcamentoItens(servicoId: string, itens: OrcamentoI
         mostrar_medida_cliente: item.mostrarMedidaCliente ?? true,
       }))
     );
-    if (insErr) throw insErr;
+    if (insErr) return { ok: false, message: insErr.message };
   }
 
   const { data: sv, error: fetchErr } = await supabase
@@ -86,7 +88,7 @@ export async function replaceOrcamentoItens(servicoId: string, itens: OrcamentoI
     .select("financeiro_status")
     .eq("id", servicoId)
     .single();
-  if (fetchErr) throw fetchErr;
+  if (fetchErr) return { ok: false, message: fetchErr.message };
 
   const fields: { valor: number; financeiro_status?: string } = { valor: total };
   if (sv.financeiro_status === "Não orçado" && total > 0) {
@@ -94,8 +96,9 @@ export async function replaceOrcamentoItens(servicoId: string, itens: OrcamentoI
   }
 
   const { error: updErr } = await supabase.from("servicos").update(fields).eq("id", servicoId);
-  if (updErr) throw updErr;
+  if (updErr) return { ok: false, message: updErr.message };
 
   revalidateServicoPaths();
   revalidatePath("/hoje");
+  return { ok: true };
 }

@@ -390,11 +390,11 @@ export default function PagamentosTab({
 
   async function saveStatus(status: string) {
     setStatusError(null);
-    try {
-      await updateFinanceiro(servico.id, { financeiro_status: status });
+    const resultado = await updateFinanceiro(servico.id, { financeiro_status: status });
+    if (!resultado.ok) {
+      setStatusError(resultado.message);
+    } else {
       onChanged();
-    } catch (err) {
-      setStatusError(err instanceof Error ? err.message : "Erro desconhecido ao salvar.");
     }
   }
 

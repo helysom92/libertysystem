@@ -110,41 +110,45 @@ export default function NovoServicoModal({
       return;
     }
     startTransition(async () => {
-      try {
-        const servicoId = await createServico({
-          cliente,
-          clienteWhatsapp: whatsappCliente || null,
-          descricao,
-          valor: total,
-          prazo: prazo || null,
-          tipo,
-          linha_orcamento: linha,
-          validade_proposta_dias: Number(validadeDias) || 7,
-          forma_pagamento_texto: formaPagamento || null,
-          durabilidade_texto: durabilidade || null,
-          local_instalacao: local || null,
-        });
-        await createOrcamentoItens(
-          servicoId,
-          itens.map((item, ordem) => ({
-            ordem,
-            descricao: item.descricao,
-            categoriaPrazo: item.categoriaPrazo,
-            modoCalculo: item.modoCalculo,
-            itemOrcamentoId: item.itemOrcamentoId,
-            larguraCm: item.larguraCm || null,
-            alturaCm: item.alturaCm || null,
-            quantidade: item.quantidade,
-            custoDireto: item.custoDireto || null,
-            precoM2Manual: item.precoM2Manual || null,
-            valorFinal: valorFinalDoItem(item, itensOrcamento),
-            mostrarMedidaCliente: item.mostrarMedidaCliente,
-          }))
-        );
-        onClose();
-      } catch {
-        setError("Não foi possível criar o serviço.");
+      const resultado = await createServico({
+        cliente,
+        clienteWhatsapp: whatsappCliente || null,
+        descricao,
+        valor: total,
+        prazo: prazo || null,
+        tipo,
+        linha_orcamento: linha,
+        validade_proposta_dias: Number(validadeDias) || 7,
+        forma_pagamento_texto: formaPagamento || null,
+        durabilidade_texto: durabilidade || null,
+        local_instalacao: local || null,
+      });
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      const resultadoItens = await createOrcamentoItens(
+        resultado.data,
+        itens.map((item, ordem) => ({
+          ordem,
+          descricao: item.descricao,
+          categoriaPrazo: item.categoriaPrazo,
+          modoCalculo: item.modoCalculo,
+          itemOrcamentoId: item.itemOrcamentoId,
+          larguraCm: item.larguraCm || null,
+          alturaCm: item.alturaCm || null,
+          quantidade: item.quantidade,
+          custoDireto: item.custoDireto || null,
+          precoM2Manual: item.precoM2Manual || null,
+          valorFinal: valorFinalDoItem(item, itensOrcamento),
+          mostrarMedidaCliente: item.mostrarMedidaCliente,
+        }))
+      );
+      if (!resultadoItens.ok) {
+        setError(resultadoItens.message);
+        return;
+      }
+      onClose();
     });
   }
 

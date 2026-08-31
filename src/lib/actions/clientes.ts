@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import type { ClienteStatus } from "@/lib/domain/types";
 import { revalidateServicoPaths } from "./revalidateServicos";
 import { requireRole } from "@/lib/domain/permissions";
+import type { AcaoResultado, AcaoComDado } from "./resultado";
 
 export interface NovoClienteInput {
   nome: string;
@@ -19,7 +20,7 @@ export interface NovoClienteInput {
   status?: ClienteStatus;
 }
 
-export async function createCliente(input: NovoClienteInput) {
+export async function createCliente(input: NovoClienteInput): Promise<AcaoComDado<string>> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   // Nome + WhatsApp já são obrigatórios pra criar um cliente — com os dois preenchidos, o
@@ -30,27 +31,23 @@ export async function createCliente(input: NovoClienteInput) {
     .insert({ status: defaultStatus, ...input })
     .select("id")
     .single();
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidatePath("/secretaria/clientes");
   revalidateServicoPaths();
-  return data.id as string;
+  return { ok: true, data: data.id as string };
 }
 
-export async function updateClienteStatus(clienteId: string, status: ClienteStatus) {
+export async function updateClienteStatus(clienteId: string, status: ClienteStatus): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("clientes").update({ status }).eq("id", clienteId);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidatePath("/secretaria/clientes");
   revalidateServicoPaths();
+  return { ok: true };
 }
 
-export interface DeleteResult {
-  ok: boolean;
-  reason?: string;
-}
-
-export async function deleteCliente(clienteId: string): Promise<DeleteResult> {
+export async function deleteCliente(clienteId: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { count } = await supabase
@@ -60,11 +57,11 @@ export async function deleteCliente(clienteId: string): Promise<DeleteResult> {
   if (count && count > 0) {
     return {
       ok: false,
-      reason: `Esse cliente tem ${count} serviço(s) vinculado(s) — não é possível excluir.`,
+      message: `Esse cliente tem ${count} serviço(s) vinculado(s) — não é possível excluir.`,
     };
   }
   const { error } = await supabase.from("clientes").delete().eq("id", clienteId);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidatePath("/secretaria/clientes");
   revalidateServicoPaths();
   return { ok: true };

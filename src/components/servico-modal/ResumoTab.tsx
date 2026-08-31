@@ -59,15 +59,14 @@ export default function ResumoTab({
   const [aprovando, setAprovando] = useState(false);
   const [miscError, setMiscError] = useState<string | null>(null);
 
-  function runAction(fn: () => Promise<unknown>, fallback: string) {
+  function runAction(fn: () => Promise<{ ok: boolean; message?: string }>, fallback: string) {
     setMiscError(null);
     startTransition(async () => {
-      try {
-        await fn();
+      const resultado = await fn();
+      if (!resultado.ok) {
+        setMiscError(resultado.message ?? fallback);
+      } else {
         onChanged();
-      } catch (err) {
-        console.error(fallback, err);
-        setMiscError(err instanceof Error ? err.message : fallback);
       }
     });
   }
@@ -80,68 +79,54 @@ export default function ResumoTab({
   async function saveProximaAcao() {
     setAcaoSaving(true);
     setAcaoError(null);
-    try {
-      await updateProximaAcao(servico.id, {
-        proxima_acao_texto: acaoTexto,
-        proxima_responsavel: acaoResp,
-        proxima_prazo: acaoPrazo,
-        motivo_espera: motivoEspera,
-      });
+    const resultado = await updateProximaAcao(servico.id, {
+      proxima_acao_texto: acaoTexto,
+      proxima_responsavel: acaoResp,
+      proxima_prazo: acaoPrazo,
+      motivo_espera: motivoEspera,
+    });
+    if (!resultado.ok) {
+      setAcaoError(resultado.message);
+    } else {
       setAcaoDirty(false);
       onChanged();
-    } catch (err) {
-      setAcaoError(err instanceof Error ? err.message : "Erro desconhecido ao salvar.");
-    } finally {
-      setAcaoSaving(false);
     }
+    setAcaoSaving(false);
   }
 
   async function saveInformacoes() {
     setInfoSaving(true);
     setInfoError(null);
-    try {
-      await updateInformacoesAdicionais(servico.id, infoTexto);
+    const resultado = await updateInformacoesAdicionais(servico.id, infoTexto);
+    if (!resultado.ok) {
+      setInfoError(resultado.message);
+    } else {
       setInfoDirty(false);
       onChanged();
-    } catch (err) {
-      console.error("Falha ao salvar informações adicionais", err);
-      setInfoError(err instanceof Error ? err.message : "Não foi possível salvar.");
-    } finally {
-      setInfoSaving(false);
     }
+    setInfoSaving(false);
   }
 
   async function handleAprovar() {
     setAprovando(true);
     setMoveError(null);
-    try {
-      const result = await aprovarOrcamento(servico.id);
-      if (!result.ok) {
-        setMoveError(result.reason ?? "Não foi possível aprovar.");
-        return;
-      }
+    const resultado = await aprovarOrcamento(servico.id);
+    if (!resultado.ok) {
+      setMoveError(resultado.message ?? "Não foi possível aprovar.");
+    } else {
       onChanged();
-    } catch (err) {
-      console.error("Falha ao aprovar orçamento", err);
-      setMoveError(err instanceof Error ? err.message : "Não foi possível aprovar.");
-    } finally {
-      setAprovando(false);
     }
+    setAprovando(false);
   }
 
   async function handleMover() {
     if (!moverPara) return;
     setMoveError(null);
-    try {
-      const result = await moveCardParaColuna(servico.id, moverPara);
-      if (!result.ok) {
-        setMoveError(result.reason ?? "Não foi possível mover.");
-        return;
-      }
+    const resultado = await moveCardParaColuna(servico.id, moverPara);
+    if (!resultado.ok) {
+      setMoveError(resultado.message ?? "Não foi possível mover.");
+    } else {
       onChanged();
-    } catch (err) {
-      console.error("Falha ao mover serviço", err);
-      setMoveError(err instanceof Error ? err.message : "Não foi possível mover.");
     }
   }
 

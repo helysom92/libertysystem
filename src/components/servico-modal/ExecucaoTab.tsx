@@ -13,7 +13,7 @@ function CampoTexto({
   label: string;
   placeholder: string;
   valorInicial: string;
-  onSave: (texto: string) => Promise<void>;
+  onSave: (texto: string) => Promise<{ ok: boolean; message?: string }>;
 }) {
   const [valor, setValor] = useState(valorInicial);
   const [dirty, setDirty] = useState(false);
@@ -23,15 +23,13 @@ function CampoTexto({
   async function salvar() {
     setSaving(true);
     setError(null);
-    try {
-      await onSave(valor);
+    const resultado = await onSave(valor);
+    if (!resultado.ok) {
+      setError(resultado.message ?? "Não foi possível salvar.");
+    } else {
       setDirty(false);
-    } catch (err) {
-      console.error(`Falha ao salvar ${label}`, err);
-      setError(err instanceof Error ? err.message : "Não foi possível salvar.");
-    } finally {
-      setSaving(false);
     }
+    setSaving(false);
   }
 
   return (
@@ -76,8 +74,9 @@ export default function ExecucaoTab({
         placeholder="Endereço, ponto de referência, condições de acesso..."
         valorInicial={servico.local_instalacao ?? ""}
         onSave={async (texto) => {
-          await updateLocalInstalacao(servico.id, texto);
-          onChanged();
+          const resultado = await updateLocalInstalacao(servico.id, texto);
+          if (resultado.ok) onChanged();
+          return resultado;
         }}
       />
       <CampoTexto
@@ -85,8 +84,9 @@ export default function ExecucaoTab({
         placeholder="Anote medidas, materiais, ferramentas, observações do local..."
         valorInicial={servico.informacoes_adicionais ?? ""}
         onSave={async (texto) => {
-          await updateInformacoesAdicionais(servico.id, texto);
-          onChanged();
+          const resultado = await updateInformacoesAdicionais(servico.id, texto);
+          if (resultado.ok) onChanged();
+          return resultado;
         }}
       />
     </div>

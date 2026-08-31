@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidateServicoPaths } from "./revalidateServicos";
 import { requireRole } from "@/lib/domain/permissions";
+import type { AcaoResultado, AcaoComDado } from "./resultado";
 
 export interface NovaMedidaInput {
   largura: number;
@@ -15,15 +16,22 @@ export interface NovaMedidaInput {
   observacoes: string;
 }
 
-export async function addMedida(servicoId: string, input: NovaMedidaInput) {
+export async function addMedida(servicoId: string, input: NovaMedidaInput): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase.from("medicoes").insert({ servico_id: servicoId, ...input });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
+  return { ok: true };
 }
 
-export async function addArquivo(servicoId: string, nome: string, storagePath: string, sizeBytes: number, contentType: string) {
+export async function addArquivo(
+  servicoId: string,
+  nome: string,
+  storagePath: string,
+  sizeBytes: number,
+  contentType: string
+): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const {
@@ -37,20 +45,22 @@ export async function addArquivo(servicoId: string, nome: string, storagePath: s
     content_type: contentType,
     uploaded_by: user?.id ?? null,
   });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
+  return { ok: true };
 }
 
-export async function removeArquivo(id: string, storagePath: string) {
+export async function removeArquivo(id: string, storagePath: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   await supabase.storage.from("arquivos").remove([storagePath]);
   const { error } = await supabase.from("arquivos").delete().eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
+  return { ok: true };
 }
 
-export async function upsertFoto(servicoId: string, slot: number, storagePath: string) {
+export async function upsertFoto(servicoId: string, slot: number, storagePath: string): Promise<AcaoComDado<string>> {
   await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -58,21 +68,22 @@ export async function upsertFoto(servicoId: string, slot: number, storagePath: s
     .upsert({ servico_id: servicoId, slot, storage_path: storagePath }, { onConflict: "servico_id,slot" })
     .select("id")
     .single();
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
-  return data.id as string;
+  return { ok: true, data: data.id as string };
 }
 
-export async function setCapaFoto(servicoId: string, fotoId: string) {
+export async function setCapaFoto(servicoId: string, fotoId: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase.from("servicos").update({ capa_foto_id: fotoId }).eq("id", servicoId);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
+  return { ok: true };
 }
 
 /** Cria um espaço de foto vazio (sem limite fixo) — próximo slot livre pra esse serviço. */
-export async function addFotoSlot(servicoId: string): Promise<number> {
+export async function addFotoSlot(servicoId: string): Promise<AcaoComDado<number>> {
   await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { data: existentes } = await supabase
@@ -83,12 +94,12 @@ export async function addFotoSlot(servicoId: string): Promise<number> {
     .limit(1);
   const proximoSlot = (existentes?.[0]?.slot ?? 0) + 1;
   const { error } = await supabase.from("fotos").insert({ servico_id: servicoId, slot: proximoSlot });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
-  return proximoSlot;
+  return { ok: true, data: proximoSlot };
 }
 
-export async function removeFoto(fotoId: string, storagePath: string | null) {
+export async function removeFoto(fotoId: string, storagePath: string | null): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   if (storagePath) {
@@ -96,32 +107,36 @@ export async function removeFoto(fotoId: string, storagePath: string | null) {
   }
   // capa_foto_id tem "on delete set null" — se essa era a capa, a referência já limpa sozinha.
   const { error } = await supabase.from("fotos").delete().eq("id", fotoId);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
+  return { ok: true };
 }
 
-export async function addChecklistItem(servicoId: string, texto: string) {
+export async function addChecklistItem(servicoId: string, texto: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase.from("checklist_items").insert({ servico_id: servicoId, texto });
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
+  return { ok: true };
 }
 
-export async function toggleChecklistItem(id: string, done: boolean) {
+export async function toggleChecklistItem(id: string, done: boolean): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase.from("checklist_items").update({ done }).eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
+  return { ok: true };
 }
 
-export async function removeChecklistItem(id: string) {
+export async function removeChecklistItem(id: string): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria", "producao");
   const supabase = await createClient();
   const { error } = await supabase.from("checklist_items").delete().eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidateServicoPaths();
+  return { ok: true };
 }
 
 export async function getSignedUrl(bucket: "arquivos" | "fotos", path: string) {

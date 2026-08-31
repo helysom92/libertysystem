@@ -22,6 +22,7 @@ import type {
 } from "@/lib/domain/types";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/domain/permissions";
+import type { AcaoComDado } from "./resultado";
 
 export interface AnaliseExtratoResultado {
   resultado: ConciliacaoResultado;
@@ -38,16 +39,16 @@ export async function analisarExtrato(
   ano: number,
   mes: number,
   meuNome: string
-): Promise<AnaliseExtratoResultado> {
+): Promise<AcaoComDado<AnaliseExtratoResultado>> {
   await requireRole("administrador");
   if (!process.env.ANTHROPIC_API_KEY) {
-    throw new Error("Leitura de extrato por IA não configurada (falta ANTHROPIC_API_KEY).");
+    return { ok: false, message: "Leitura de extrato por IA não configurada (falta ANTHROPIC_API_KEY)." };
   }
 
   const supabase = await createClient();
 
   const { data: arquivo, error: downloadErr } = await supabase.storage.from("arquivos").download(storagePath);
-  if (downloadErr || !arquivo) throw downloadErr ?? new Error("Não foi possível baixar o extrato enviado.");
+  if (downloadErr || !arquivo) return { ok: false, message: downloadErr?.message ?? "Não foi possível baixar o extrato enviado." };
   const base64 = Buffer.from(await arquivo.arrayBuffer()).toString("base64");
 
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
@@ -76,13 +77,13 @@ Formato exato de cada item:
   const textBlock = message.content.find((b) => b.type === "text");
   const texto = textBlock && textBlock.type === "text" ? textBlock.text : "";
   const jsonMatch = texto.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) throw new Error("A IA não conseguiu ler esse extrato. Tente outro arquivo.");
+  if (!jsonMatch) return { ok: false, message: "A IA não conseguiu ler esse extrato. Tente outro arquivo." };
 
   let linhas: LinhaExtrato[];
   try {
     linhas = JSON.parse(jsonMatch[0]);
   } catch {
-    throw new Error("A IA devolveu um formato inválido ao ler o extrato. Tente novamente.");
+    return { ok: false, message: "A IA devolveu um formato inválido ao ler o extrato. Tente novamente." };
   }
 
   const inicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
@@ -94,7 +95,7 @@ Formato exato de cada item:
     .lte("data", fim);
 
   const resultado = conciliarExtrato(linhas, (lancamentos as Lancamento[]) ?? [], meuNome);
-  return { resultado, totalLinhas: linhas.length };
+  return { ok: true, data: { resultado, totalLinhas: linhas.length } };
 }
 
 export async function pendenciasDoMes(ano: number, mes: number): Promise<PendenciasDoMes> {
@@ -154,7 +155,13 @@ export async function retiradaDoMes(ano: number, mes: number): Promise<RetiradaD
   return (data as RetiradaDoMes) ?? null;
 }
 
-export async function fecharMes(ano: number, mes: number) {
+export interface FechamentoResultado {
+  entrou: number;
+  saiu: number;
+  lucro: number;
+}
+
+export async function fecharMes(ano: number, mes: number): Promise<AcaoComDado<FechamentoResultado>> {
   await requireRole("administrador");
   const supabase = await createClient();
   const profile = await getCurrentProfile();
@@ -180,8 +187,8 @@ export async function fecharMes(ano: number, mes: number) {
       { ano, mes, entrou, saiu, lucro, fechado_em: new Date().toISOString(), fechado_por: profile?.id ?? null },
       { onConflict: "ano,mes" }
     );
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
 
   revalidatePath("/gestao");
-  return { entrou, saiu, lucro };
+  return { ok: true, data: { entrou, saiu, lucro } };
 }

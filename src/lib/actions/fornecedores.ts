@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateFinanceiroPaths } from "./revalidateFinanceiro";
 import { requireRole } from "@/lib/domain/permissions";
+import type { AcaoResultado } from "./resultado";
 
 export interface NovoFornecedorInput {
   nome: string;
@@ -12,13 +13,14 @@ export interface NovoFornecedorInput {
   email?: string | null;
 }
 
-export async function createFornecedor(input: NovoFornecedorInput) {
+export async function createFornecedor(input: NovoFornecedorInput): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("fornecedores").insert(input);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidatePath("/secretaria/fornecedores");
   revalidateFinanceiroPaths();
+  return { ok: true };
 }
 
 export async function updateFornecedor(
@@ -30,11 +32,12 @@ export async function updateFornecedor(
     email: string | null;
     ativo: boolean;
   }>
-) {
+): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("fornecedores").update(fields).eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidatePath("/secretaria/fornecedores");
   revalidateFinanceiroPaths();
+  return { ok: true };
 }

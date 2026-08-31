@@ -24,12 +24,11 @@ export default function AgendaTab({
     if (!confirm("Excluir esse evento?")) return;
     setError(null);
     startTransition(async () => {
-      try {
-        await deleteEvento(id);
+      const resultado = await deleteEvento(id);
+      if (!resultado.ok) {
+        setError(resultado.message);
+      } else {
         onChanged();
-      } catch (err) {
-        console.error("Falha ao excluir evento", err);
-        setError(err instanceof Error ? err.message : "Não foi possível excluir esse evento.");
       }
     });
   }

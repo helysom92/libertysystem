@@ -41,26 +41,26 @@ export default function ClienteTab({
   async function handleSave() {
     setSaveState("saving");
     setErrorMsg(null);
-    try {
-      // Lista explícita, não "resto do objeto" — `values` vem de um `select("*")` que também
-      // traz `nome_lower` (coluna gerada pelo Postgres a partir de `nome`, só pra evitar nomes
-      // duplicados); mandar ela de volta no UPDATE quebra com "generated column" no Postgres.
-      await updateClienteInline(cliente.id, {
-        nome: values.nome,
-        empresa: values.empresa,
-        cpf_cnpj: values.cpf_cnpj,
-        cidade: values.cidade,
-        endereco: values.endereco,
-        whatsapp: values.whatsapp,
-        whatsapp_2: values.whatsapp_2,
-        email: values.email,
-        observacoes: values.observacoes,
-      });
+    // Lista explícita, não "resto do objeto" — `values` vem de um `select("*")` que também
+    // traz `nome_lower` (coluna gerada pelo Postgres a partir de `nome`, só pra evitar nomes
+    // duplicados); mandar ela de volta no UPDATE quebra com "generated column" no Postgres.
+    const resultado = await updateClienteInline(cliente.id, {
+      nome: values.nome,
+      empresa: values.empresa,
+      cpf_cnpj: values.cpf_cnpj,
+      cidade: values.cidade,
+      endereco: values.endereco,
+      whatsapp: values.whatsapp,
+      whatsapp_2: values.whatsapp_2,
+      email: values.email,
+      observacoes: values.observacoes,
+    });
+    if (!resultado.ok) {
+      setSaveState("error");
+      setErrorMsg(resultado.message);
+    } else {
       setSaveState("saved");
       onChanged();
-    } catch (err) {
-      setSaveState("error");
-      setErrorMsg(err instanceof Error ? err.message : "Erro desconhecido ao salvar.");
     }
   }
 

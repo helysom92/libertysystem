@@ -63,12 +63,11 @@ export default function ItensOrcamentoList({ itens }: { itens: ItemOrcamento[] }
                     type="button"
                     onClick={() =>
                       startTransition(async () => {
-                        try {
-                          await updateItemOrcamento(i.id, { ativo: !i.ativo });
+                        const resultado = await updateItemOrcamento(i.id, { ativo: !i.ativo });
+                        if (!resultado.ok) {
+                          setError(resultado.message);
+                        } else {
                           router.refresh();
-                        } catch (err) {
-                          console.error("Falha ao atualizar item", err);
-                          setError(err instanceof Error ? err.message : "Não foi possível atualizar esse item.");
                         }
                       })
                     }

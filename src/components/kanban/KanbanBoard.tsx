@@ -76,33 +76,27 @@ export default function KanbanBoard({
     const targetColunaId = String(over.id);
     if (!servico || servico.coluna_id === targetColunaId) return;
 
-    moveCardParaColuna(servico.id, targetColunaId)
-      .then((result) => {
-        if (!result.ok) {
-          showDragError(result.reason ?? "Não foi possível mover esse card.");
-          return;
-        }
-        router.refresh();
-      })
-      .catch((err) => {
-        console.error("Falha ao mover card", err);
-        showDragError(err instanceof Error ? err.message : "Não foi possível mover esse card.");
-      });
+    moveCardParaColuna(servico.id, targetColunaId).then((result) => {
+      if (!result.ok) {
+        showDragError(result.message ?? "Não foi possível mover esse card.");
+        return;
+      }
+      router.refresh();
+    });
   }
 
   function submitNewColumn() {
     const text = newColText.trim();
     if (!text) return;
-    createColuna(board, text)
-      .then(() => {
-        setAddingColumn(false);
-        setNewColText("");
-        router.refresh();
-      })
-      .catch((err) => {
-        console.error("Falha ao criar coluna", err);
-        showDragError(err instanceof Error ? err.message : "Não foi possível criar a coluna.");
-      });
+    createColuna(board, text).then((resultado) => {
+      if (!resultado.ok) {
+        showDragError(resultado.message);
+        return;
+      }
+      setAddingColumn(false);
+      setNewColText("");
+      router.refresh();
+    });
   }
 
   return (

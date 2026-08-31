@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireRole } from "@/lib/domain/permissions";
+import type { AcaoResultado } from "./resultado";
 
 export interface NovoMaterialInput {
   nome: string;
@@ -11,12 +12,13 @@ export interface NovoMaterialInput {
   categoria?: string | null;
 }
 
-export async function createMaterial(input: NovoMaterialInput) {
+export async function createMaterial(input: NovoMaterialInput): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("materiais").insert(input);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidatePath("/secretaria/produtos");
+  return { ok: true };
 }
 
 export async function updateMaterial(
@@ -28,10 +30,11 @@ export async function updateMaterial(
     categoria: string | null;
     ativo: boolean;
   }>
-) {
+): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();
   const { error } = await supabase.from("materiais").update(fields).eq("id", id);
-  if (error) throw error;
+  if (error) return { ok: false, message: error.message };
   revalidatePath("/secretaria/produtos");
+  return { ok: true };
 }

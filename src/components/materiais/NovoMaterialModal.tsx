@@ -31,22 +31,18 @@ export default function NovoMaterialModal({
       return;
     }
     startTransition(async () => {
-      try {
-        const fields = {
-          nome,
-          unidade,
-          preco_unitario: Number(preco) || 0,
-          categoria: categoria || null,
-        };
-        if (material) {
-          await updateMaterial(material.id, fields);
-        } else {
-          await createMaterial(fields);
-        }
-        onClose();
-      } catch {
-        setError(material ? "Não foi possível salvar o material." : "Não foi possível criar o material.");
+      const fields = {
+        nome,
+        unidade,
+        preco_unitario: Number(preco) || 0,
+        categoria: categoria || null,
+      };
+      const resultado = material ? await updateMaterial(material.id, fields) : await createMaterial(fields);
+      if (!resultado.ok) {
+        setError(resultado.message);
+        return;
       }
+      onClose();
     });
   }
 

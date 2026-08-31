@@ -45,12 +45,12 @@ export default function KanbanColumn({
     setEditing(false);
     if (label.trim() && label !== coluna.label) {
       startTransition(async () => {
-        try {
-          await renameColuna(coluna.id, label.trim());
-          router.refresh();
-        } catch (err) {
-          showError(err, "Não foi possível renomear essa coluna.");
+        const resultado = await renameColuna(coluna.id, label.trim());
+        if (!resultado.ok) {
+          showError(null, resultado.message);
           setLabel(coluna.label);
+        } else {
+          router.refresh();
         }
       });
     } else {
@@ -60,16 +60,12 @@ export default function KanbanColumn({
 
   function handleDelete() {
     startTransition(async () => {
-      try {
-        const result = await deleteColuna(coluna.id);
-        if (!result.ok) {
-          showError(null, result.reason ?? "Não foi possível apagar essa coluna.");
-          return;
-        }
-        router.refresh();
-      } catch (err) {
-        showError(err, "Não foi possível apagar essa coluna.");
+      const resultado = await deleteColuna(coluna.id);
+      if (!resultado.ok) {
+        showError(null, resultado.message ?? "Não foi possível apagar essa coluna.");
+        return;
       }
+      router.refresh();
     });
   }
 
@@ -116,11 +112,11 @@ export default function KanbanColumn({
                 type="button"
                 onClick={() =>
                   startTransition(async () => {
-                    try {
-                      await toggleConclusaoColuna(coluna.id, !coluna.is_conclusao);
+                    const resultado = await toggleConclusaoColuna(coluna.id, !coluna.is_conclusao);
+                    if (!resultado.ok) {
+                      showError(null, resultado.message);
+                    } else {
                       router.refresh();
-                    } catch (err) {
-                      showError(err, "Não foi possível alterar a coluna de conclusão.");
                     }
                   })
                 }

@@ -264,7 +264,11 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
         const { error: uploadErr } = await supabase.storage.from("arquivos").upload(path, file);
         if (uploadErr) throw uploadErr;
         const resultado = await analisarExtrato(path, ano, mes, meuNome);
-        setAnalise(resultado);
+        if (!resultado.ok) {
+          setError(resultado.message);
+        } else {
+          setAnalise(resultado.data);
+        }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Não foi possível analisar esse extrato.");
       } finally {
@@ -291,12 +295,12 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
     }
     setError(null);
     startFechando(async () => {
-      try {
-        const r = await fecharMes(ano, mes);
-        setFechamentoRecente(r);
+      const resultado = await fecharMes(ano, mes);
+      if (!resultado.ok) {
+        setError(resultado.message);
+      } else {
+        setFechamentoRecente(resultado.data);
         router.refresh();
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Não foi possível fechar o mês.");
       }
     });
   }

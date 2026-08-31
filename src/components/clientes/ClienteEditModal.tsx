@@ -47,50 +47,50 @@ export default function ClienteEditModal({
     }
     setSaving(true);
     setError(null);
-    try {
-      // Lista explícita, não "resto do objeto" — `values` vem de um `select("*")` que também
-      // traz `nome_lower` (coluna gerada pelo Postgres a partir de `nome`, só pra evitar nomes
-      // duplicados); mandar ela de volta no UPDATE quebra com "generated column" no Postgres.
-      await updateClienteInline(cliente.id, {
-        nome: values.nome,
-        empresa: values.empresa,
-        cpf_cnpj: values.cpf_cnpj,
-        cidade: values.cidade,
-        endereco: values.endereco,
-        whatsapp: values.whatsapp,
-        whatsapp_2: values.whatsapp_2,
-        email: values.email,
-        observacoes: values.observacoes,
-      });
-      if (values.status !== cliente.status) {
-        await updateClienteStatus(cliente.id, values.status);
-      }
-      onChanged();
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro desconhecido ao salvar.");
-    } finally {
+    // Lista explícita, não "resto do objeto" — `values` vem de um `select("*")` que também
+    // traz `nome_lower` (coluna gerada pelo Postgres a partir de `nome`, só pra evitar nomes
+    // duplicados); mandar ela de volta no UPDATE quebra com "generated column" no Postgres.
+    const resultado = await updateClienteInline(cliente.id, {
+      nome: values.nome,
+      empresa: values.empresa,
+      cpf_cnpj: values.cpf_cnpj,
+      cidade: values.cidade,
+      endereco: values.endereco,
+      whatsapp: values.whatsapp,
+      whatsapp_2: values.whatsapp_2,
+      email: values.email,
+      observacoes: values.observacoes,
+    });
+    if (!resultado.ok) {
+      setError(resultado.message);
       setSaving(false);
+      return;
     }
+    if (values.status !== cliente.status) {
+      const resultadoStatus = await updateClienteStatus(cliente.id, values.status);
+      if (!resultadoStatus.ok) {
+        setError(resultadoStatus.message);
+        setSaving(false);
+        return;
+      }
+    }
+    onChanged();
+    onClose();
+    setSaving(false);
   }
 
   async function handleDelete() {
     if (!confirm(`Excluir o cliente "${cliente.nome}"? Essa ação não pode ser desfeita.`)) return;
     setDeleting(true);
     setError(null);
-    try {
-      const result = await deleteCliente(cliente.id);
-      if (!result.ok) {
-        setError(result.reason ?? "Não foi possível excluir esse cliente.");
-        return;
-      }
-      onChanged();
-      onClose();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro desconhecido ao excluir.");
-    } finally {
+    const resultado = await deleteCliente(cliente.id);
+    if (!resultado.ok) {
+      setError(resultado.message);
       setDeleting(false);
+      return;
     }
+    onChanged();
+    onClose();
   }
 
   return (

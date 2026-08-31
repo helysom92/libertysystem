@@ -15,9 +15,8 @@ export default function ChecklistTab({
   const [, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
-  function showError(err: unknown, fallback: string) {
-    console.error(fallback, err);
-    setError(err instanceof Error ? err.message : fallback);
+  function showError(message: string | undefined, fallback: string) {
+    setError(message ?? fallback);
     setTimeout(() => setError(null), 6000);
   }
 
@@ -25,12 +24,12 @@ export default function ChecklistTab({
     e.preventDefault();
     if (!texto.trim()) return;
     startTransition(async () => {
-      try {
-        await addChecklistItem(detail.servico.id, texto.trim());
+      const resultado = await addChecklistItem(detail.servico.id, texto.trim());
+      if (!resultado.ok) {
+        showError(resultado.message, "Não foi possível adicionar esse item.");
+      } else {
         setTexto("");
         onChanged();
-      } catch (err) {
-        showError(err, "Não foi possível adicionar esse item.");
       }
     });
   }
@@ -69,11 +68,11 @@ export default function ChecklistTab({
                 checked={item.done}
                 onChange={(e) =>
                   startTransition(async () => {
-                    try {
-                      await toggleChecklistItem(item.id, e.target.checked);
+                    const resultado = await toggleChecklistItem(item.id, e.target.checked);
+                    if (!resultado.ok) {
+                      showError(resultado.message, "Não foi possível marcar esse item.");
+                    } else {
                       onChanged();
-                    } catch (err) {
-                      showError(err, "Não foi possível marcar esse item.");
                     }
                   })
                 }
@@ -84,11 +83,11 @@ export default function ChecklistTab({
               type="button"
               onClick={() =>
                 startTransition(async () => {
-                  try {
-                    await removeChecklistItem(item.id);
+                  const resultado = await removeChecklistItem(item.id);
+                  if (!resultado.ok) {
+                    showError(resultado.message, "Não foi possível remover esse item.");
+                  } else {
                     onChanged();
-                  } catch (err) {
-                    showError(err, "Não foi possível remover esse item.");
                   }
                 })
               }
