@@ -7,6 +7,8 @@ import type {
   Comprovante,
   DespesaFixa,
   DespesaFixaOcorrencia,
+  DespesaVariavel,
+  DespesaVariavelOcorrencia,
   Evento,
   FechamentoMensal,
   Fornecedor,
@@ -14,6 +16,7 @@ import type {
   Lancamento,
   OrcamentoItemRow,
   Servico,
+  ServicoParcela,
 } from "@/lib/domain/types";
 import {
   buildMonthGrid,
@@ -31,7 +34,21 @@ import {
   type Meta,
   type MetaTipo,
 } from "@/lib/domain/dashboardMetrics";
-import { periodoDoMes, vendasAprovadas } from "@/lib/domain/financas";
+import {
+  aPagar,
+  aReceber,
+  despesasPagas,
+  excluirPrevistosDeServicoCancelado,
+  periodoDoMes,
+  recebido,
+  resultadoPendente,
+  resultadoPrevistoFinal,
+  resultadoRealizado,
+  vendasAprovadas,
+  type IndicadorComVencidos,
+  type IndicadorFinanceiro,
+} from "@/lib/domain/financas";
+import type { DadosVisaoGeral } from "@/components/financeiro/VisaoGeralFinanceiroClient";
 import VisaoGeralView from "./VisaoGeralView";
 import VendasView from "./VendasView";
 import DespesasView from "./DespesasView";
@@ -65,6 +82,18 @@ function cap(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/** Os cartões "Recebimentos vencidos"/"Despesas vencidas" mostram só o vencido, não o total do
+ * mês inteiro usado internamente pra encontrá-los — mesmo padrão de `financeiro/visao-geral`. */
+function comoIndicadorDeVencidos(ind: IndicadorComVencidos): IndicadorFinanceiro {
+  const registros = ind.vencidos;
+  return {
+    ...ind,
+    registros,
+    total: registros.reduce((s, r) => s + r.valor, 0),
+    quantidade: registros.length,
+  };
+}
+
 export default function DashboardShell({
   hojeISO,
   servicos,
@@ -73,6 +102,9 @@ export default function DashboardShell({
   eventos,
   despesasFixas,
   despesasFixasOcorrencias,
+  despesasVariaveis,
+  despesasVariaveisOcorrencias,
+  servicoParcelas,
   orcamentoItens,
   itensOrcamento,
   metas,
@@ -88,6 +120,9 @@ export default function DashboardShell({
   eventos: Evento[];
   despesasFixas: DespesaFixa[];
   despesasFixasOcorrencias: DespesaFixaOcorrencia[];
+  despesasVariaveis: DespesaVariavel[];
+  despesasVariaveisOcorrencias: DespesaVariavelOcorrencia[];
+  servicoParcelas: ServicoParcela[];
   orcamentoItens: OrcamentoItemRow[];
   itensOrcamento: ItemOrcamento[];
   metas: Meta[];
@@ -147,6 +182,64 @@ export default function DashboardShell({
     () => vendasAprovadas(servicos, periodoDoMes(mesAtual.year, mesAtual.month + 1)).total,
     [servicos, mesAtual]
   );
+
+  // Indicadores oficiais da Etapa 2 (mesmas funções de `financas.ts` que o Financeiro usa),
+  // escopados ao mês navegado aqui em Gestão — nunca recalculados na tela, só chamados.
+  const periodoMes = useMemo(() => periodoDoMes(mesAtual.year, mesAtual.month + 1), [mesAtual]);
+  const lancamentosPrevistos = useMemo(
+    () => excluirPrevistosDeServicoCancelado(lancamentos.filter((l) => l.status === "previsto"), servicos),
+    [lancamentos, servicos]
+  );
+  const lancsReceitaPrevisto = useMemo(() => lancamentosPrevistos.filter((l) => l.tipo === "Receita"), [lancamentosPrevistos]);
+  const lancsDespesaPrevisto = useMemo(() => lancamentosPrevistos.filter((l) => l.tipo === "Despesa"), [lancamentosPrevistos]);
+  const ocorrenciasFixasDoMes = useMemo(
+    () => despesasFixasOcorrencias.filter((o) => o.ano === mesAtual.year && o.mes === mesAtual.month + 1),
+    [despesasFixasOcorrencias, mesAtual]
+  );
+  const ocorrenciasVariaveisDoMes = useMemo(
+    () => despesasVariaveisOcorrencias.filter((o) => o.ano === mesAtual.year && o.mes === mesAtual.month + 1),
+    [despesasVariaveisOcorrencias, mesAtual]
+  );
+
+  const recebidoInd = useMemo(() => recebido(lancamentos, periodoMes), [lancamentos, periodoMes]);
+  const despesasPagasInd = useMemo(() => despesasPagas(lancamentos, periodoMes), [lancamentos, periodoMes]);
+  const aReceberInd = useMemo(
+    () => aReceber(servicos, servicoParcelas, lancsReceitaPrevisto, periodoMes, hojeISO),
+    [servicos, servicoParcelas, lancsReceitaPrevisto, periodoMes, hojeISO]
+  );
+  const aPagarInd = useMemo(
+    () =>
+      aPagar(
+        despesasFixas,
+        ocorrenciasFixasDoMes,
+        despesasVariaveis,
+        ocorrenciasVariaveisDoMes,
+        lancsDespesaPrevisto,
+        periodoMes,
+        hojeISO
+      ),
+    [despesasFixas, ocorrenciasFixasDoMes, despesasVariaveis, ocorrenciasVariaveisDoMes, lancsDespesaPrevisto, periodoMes, hojeISO]
+  );
+  const dadosIndicadores: DadosVisaoGeral = useMemo(
+    () => ({
+      recebido: recebidoInd,
+      despesasPagas: despesasPagasInd,
+      aReceber: aReceberInd,
+      recebimentosVencidos: comoIndicadorDeVencidos(aReceberInd),
+      aPagar: aPagarInd,
+      despesasVencidas: comoIndicadorDeVencidos(aPagarInd),
+      resultadoRealizado: resultadoRealizado(recebidoInd.total, despesasPagasInd.total),
+      resultadoPendente: resultadoPendente(aReceberInd.total, aPagarInd.total),
+      resultadoPrevistoFinal: resultadoPrevistoFinal(
+        recebidoInd.total,
+        aReceberInd.total,
+        despesasPagasInd.total,
+        aPagarInd.total
+      ),
+    }),
+    [recebidoInd, despesasPagasInd, aReceberInd, aPagarInd]
+  );
+
   const mesAtualRefDate = useMemo(() => new Date(mesAtual.year, mesAtual.month, 1), [mesAtual]);
   const porTipo = useMemo(() => vendasPorTipo(servicos, mesAtualRefDate), [servicos, mesAtualRefDate]);
   const topItens = useMemo(() => topItensCatalogo(orcamentoItens, itensOrcamento), [orcamentoItens, itensOrcamento]);
@@ -225,6 +318,7 @@ export default function DashboardShell({
         <VisaoGeralView
           kpis={kpis}
           faturamentoMes={faturamentoMes}
+          dadosIndicadores={dadosIndicadores}
           ano={mesAtual.year}
           mes={mesAtual.month + 1}
           monthly6={monthly.slice(-6)}

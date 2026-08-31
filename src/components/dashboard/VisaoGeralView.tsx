@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { fmtBRL } from "@/lib/domain/types";
 import {
   fmtPct,
@@ -12,7 +11,7 @@ import ProgressRing from "./charts/ProgressRing";
 import BarChart from "./charts/BarChart";
 import LineAreaChart from "./charts/LineAreaChart";
 import MonthNavBar from "./MonthNavBar";
-import DetalheMesPanel from "./DetalheMesPanel";
+import VisaoGeralFinanceiroClient, { type DadosVisaoGeral } from "@/components/financeiro/VisaoGeralFinanceiroClient";
 
 function KpiCard({
   label,
@@ -20,29 +19,22 @@ function KpiCard({
   isPct,
   deltaPct,
   ringPct,
-  active,
-  onClick,
+  invert,
 }: {
   label: string;
   value: number;
   isPct?: boolean;
   deltaPct: number | null;
   ringPct: number;
-  active?: boolean;
-  onClick?: () => void;
+  invert?: boolean;
 }) {
-  const deltaColor = deltaPct == null ? "var(--color-text-muted)" : deltaPct >= 0 ? "var(--color-success)" : "var(--color-danger)";
+  const positivo = deltaPct != null && (invert ? deltaPct <= 0 : deltaPct >= 0);
+  const deltaColor = deltaPct == null ? "var(--color-text-muted)" : positivo ? "var(--color-success)" : "var(--color-danger)";
   const deltaText =
     deltaPct == null ? "sem comparativo" : `${deltaPct >= 0 ? "↑" : "↓"} ${fmtPct(Math.abs(deltaPct))} vs mês anterior`;
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center gap-4 rounded-card border bg-card p-4 text-left transition-colors ${
-        active ? "border-gold" : "border-border-neutral hover:border-border-gold"
-      }`}
-    >
+    <div className="flex items-center gap-4 rounded-card border border-border-neutral bg-card p-4 text-left">
       <ProgressRing pct={ringPct} label={`${Math.round(ringPct)}%`} />
       <div className="min-w-0">
         <p className="text-[12px] font-semibold text-text-secondary">{label}</p>
@@ -51,7 +43,7 @@ function KpiCard({
           {deltaText}
         </p>
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -85,6 +77,7 @@ function MtdRow({
 export default function VisaoGeralView({
   kpis,
   faturamentoMes,
+  dadosIndicadores,
   ano,
   mes,
   monthly6,
@@ -100,6 +93,7 @@ export default function VisaoGeralView({
 }: {
   kpis: KpisVisaoGeral;
   faturamentoMes: number;
+  dadosIndicadores: DadosVisaoGeral;
   ano: number;
   mes: number;
   monthly6: MonthPoint[];
@@ -113,8 +107,6 @@ export default function VisaoGeralView({
   disableNext: boolean;
   mtd: MtdComparativo | null;
 }) {
-  const [detalheAberto, setDetalheAberto] = useState(false);
-
   return (
     <div>
       <MonthNavBar label={monthLabel} onPrev={onPrevMonth} onNext={onNextMonth} disableNext={disableNext} isCurrent={isMesAtual} />
@@ -125,22 +117,18 @@ export default function VisaoGeralView({
         <p className="mt-0.5 text-[11.5px] text-text-muted">Valor das OS aprovadas nesse mês, pago ou não</p>
       </div>
 
-      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <KpiCard {...kpis.receita} active={detalheAberto} onClick={() => setDetalheAberto((v) => !v)} />
-        <KpiCard {...kpis.despesas} active={detalheAberto} onClick={() => setDetalheAberto((v) => !v)} />
-        <KpiCard {...kpis.lucro} active={detalheAberto} onClick={() => setDetalheAberto((v) => !v)} />
-        <KpiCard {...kpis.margem} active={detalheAberto} onClick={() => setDetalheAberto((v) => !v)} />
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <KpiCard {...kpis.receita} />
+        <KpiCard {...kpis.despesas} invert />
+        <KpiCard {...kpis.margem} />
       </div>
 
-      {detalheAberto && (
-        <DetalheMesPanel
-          ano={ano}
-          mes={mes}
-          faturamentoMes={faturamentoMes}
-          receitaRealizada={kpis.receita.value}
-          despesaRealizada={kpis.despesas.value}
-        />
-      )}
+      <div className="mb-5">
+        <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">
+          Indicadores oficiais do mês — clique num cartão pra ver os registros
+        </p>
+        <VisaoGeralFinanceiroClient erro={null} dados={dadosIndicadores} podeVerResultado ano={ano} mes={mes} />
+      </div>
 
       {mtd && (
         <div className="mb-5 rounded-card border border-border-neutral bg-card p-5">

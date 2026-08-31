@@ -21,7 +21,7 @@ const MESES = [
   "Dezembro",
 ];
 
-interface DadosVisaoGeral {
+export interface DadosVisaoGeral {
   recebido: IndicadorFinanceiro;
   despesasPagas: IndicadorFinanceiro;
   aReceber: IndicadorFinanceiro;

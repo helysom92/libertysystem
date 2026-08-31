@@ -6,6 +6,8 @@ import type {
   Comprovante,
   DespesaFixa,
   DespesaFixaOcorrencia,
+  DespesaVariavel,
+  DespesaVariavelOcorrencia,
   Evento,
   FechamentoMensal,
   Fornecedor,
@@ -13,6 +15,7 @@ import type {
   Lancamento,
   OrcamentoItemRow,
   Servico,
+  ServicoParcela,
 } from "@/lib/domain/types";
 import type { Meta } from "@/lib/domain/dashboardMetrics";
 import type { Profile } from "@/lib/supabase/profile";
@@ -29,6 +32,9 @@ export default async function GestaoPage() {
     { data: eventos },
     { data: despesasFixas },
     { data: despesasFixasOcorrencias },
+    { data: despesasVariaveis },
+    { data: despesasVariaveisOcorrencias },
+    { data: servicoParcelas },
     { data: orcamentoItens },
     { data: itensOrcamento },
     { data: metas },
@@ -43,6 +49,9 @@ export default async function GestaoPage() {
     supabase.from("eventos").select("*"),
     supabase.from("despesas_fixas").select("*"),
     supabase.from("despesas_fixas_ocorrencias").select("*"),
+    supabase.from("despesas_variaveis").select("*"),
+    supabase.from("despesas_variaveis_ocorrencias").select("*"),
+    supabase.from("servico_parcelas").select("*").is("cancelada_em", null),
     supabase.from("orcamento_itens").select("*"),
     supabase.from("itens_orcamento").select("*"),
     supabase.from("metas").select("*"),
@@ -69,6 +78,9 @@ export default async function GestaoPage() {
         eventos={(eventos as Evento[]) ?? []}
         despesasFixas={(despesasFixas as DespesaFixa[]) ?? []}
         despesasFixasOcorrencias={(despesasFixasOcorrencias as DespesaFixaOcorrencia[]) ?? []}
+        despesasVariaveis={(despesasVariaveis as DespesaVariavel[]) ?? []}
+        despesasVariaveisOcorrencias={(despesasVariaveisOcorrencias as DespesaVariavelOcorrencia[]) ?? []}
+        servicoParcelas={(servicoParcelas as ServicoParcela[]) ?? []}
         orcamentoItens={(orcamentoItens as OrcamentoItemRow[]) ?? []}
         itensOrcamento={(itensOrcamento as ItemOrcamento[]) ?? []}
         metas={(metas as Meta[]) ?? []}
