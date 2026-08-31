@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/supabase/profile";
 import { allowedTabs, ROLE_LABELS } from "@/lib/domain/flows";
+import { isHelysom } from "@/lib/domain/permissions";
 import Sidebar from "@/components/ui/Sidebar";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -9,7 +10,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
     redirect("/login");
   }
 
-  const tabs = allowedTabs(profile.role);
+  // Finanças Pessoais não é um tab de papel (não entra em allowedTabs) — é exclusivo da
+  // identidade do Helysom, então só aparece no menu quando o e-mail autenticado bate.
+  const tabs = isHelysom(profile) ? [...allowedTabs(profile.role), "financas-pessoais"] : allowedTabs(profile.role);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-bg md:flex-row">

@@ -44,3 +44,25 @@ export function podeVerRetiradaDeLucro(role: Role): boolean {
 export function podeVerResultadoConsolidado(role: Role): boolean {
   return role === "administrador";
 }
+
+/** Finanças Pessoais é exclusivo do usuário do Helysom, por identidade (e-mail confirmado
+ * por ele em 2026-08-31), não por papel — outro administrador não deve ganhar acesso
+ * automático. Nunca decidir isso a partir de um dado alterável pelo navegador. */
+const HELYSOM_EMAIL = "helysomms@gmail.com";
+
+export function isHelysom(profile: Profile | null): boolean {
+  return !!profile && profile.email === HELYSOM_EMAIL;
+}
+
+/** Guarda de página/layout do módulo Finanças Pessoais — mesmo padrão de `requireTab`, mas
+ * por identidade exata em vez de papel. */
+export async function requireHelysom(): Promise<Profile> {
+  const profile = await getCurrentProfile();
+  if (!profile) {
+    redirect("/login");
+  }
+  if (!isHelysom(profile)) {
+    redirect(`/${homeTabFor(profile.role)}`);
+  }
+  return profile;
+}

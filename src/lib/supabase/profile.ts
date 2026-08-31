@@ -6,6 +6,7 @@ export interface Profile {
   id: string;
   nome: string;
   role: Role;
+  email: string;
 }
 
 // React's cache() dedupes calls within a single request — the (dashboard) layout
@@ -24,5 +25,6 @@ export const getCurrentProfile = cache(async (): Promise<Profile | null> => {
     .eq("id", user.id)
     .single();
 
-  return data as Profile | null;
+  if (!data) return null;
+  return { ...data, email: user.email ?? "" } as Profile;
 });

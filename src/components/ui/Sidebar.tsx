@@ -12,6 +12,7 @@ const TAB_LABELS: Record<string, string> = {
   financeiro: "Financeiro",
   comercial: "Comercial",
   producao: "Produção",
+  "financas-pessoais": "Finanças Pessoais",
 };
 
 const TAB_ICONS: Record<string, string> = {
@@ -21,6 +22,7 @@ const TAB_ICONS: Record<string, string> = {
   financeiro: "💰",
   comercial: "💼",
   producao: "🛠️",
+  "financas-pessoais": "🏦",
 };
 
 export default function Sidebar({
