@@ -11,8 +11,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   // Finanças Pessoais não é um tab de papel (não entra em allowedTabs) — é exclusivo da
-  // identidade do Helysom, então só aparece no menu quando o e-mail autenticado bate.
-  const tabs = isHelysom(profile) ? [...allowedTabs(profile.role), "financas-pessoais"] : allowedTabs(profile.role);
+  // identidade do Helysom, então só aparece no menu quando o e-mail autenticado bate. Fica
+  // como primeiro item do menu (pedido dele), antes de Gestão.
+  const tabs = isHelysom(profile) ? ["financas-pessoais", ...allowedTabs(profile.role)] : allowedTabs(profile.role);
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-bg md:flex-row">
