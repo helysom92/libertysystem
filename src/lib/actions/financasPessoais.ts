@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireHelysom } from "@/lib/domain/permissions";
-import type { RecorrenciaPessoal } from "@/lib/domain/types";
+import type { RecorrenciaPessoal, TipoMovimentoInvestimento } from "@/lib/domain/types";
 import { gerarParcelasCompra, vencimentoDaFatura } from "@/lib/domain/financasPessoais";
 import type { AcaoResultado, AcaoComSaldo } from "./resultado";
 
@@ -16,6 +16,7 @@ function revalidateFinancasPessoaisPaths() {
   revalidatePath("/financas-pessoais/contas");
   revalidatePath("/financas-pessoais/cartoes");
   revalidatePath("/financas-pessoais/dividas");
+  revalidatePath("/financas-pessoais/investimentos");
 }
 
 // ── Contas ──────────────────────────────────────────────────────────────────────────────────
@@ -639,6 +640,101 @@ export async function estornarPagamentoDivida(pagamentoId: string, motivo: strin
   if (error) return { ok: false, message: error.message };
   const resultado = data as { ok: boolean; reason?: string };
   if (!resultado.ok) return { ok: false, message: resultado.reason ?? "Não foi possível estornar esse pagamento." };
+  revalidateFinancasPessoaisPaths();
+  return { ok: true };
+}
+
+// ── Investimentos ───────────────────────────────────────────────────────────────────────────
+
+export interface InvestimentoInput {
+  nome: string;
+  tipo: string | null;
+  instituicao: string | null;
+}
+
+export async function createInvestimento(input: InvestimentoInput): Promise<AcaoResultado> {
+  const profile = await requireHelysom();
+  const supabase = await createClient();
+  const { error } = await supabase.from("investimentos_pessoais").insert({ ...input, owner_id: profile.id });
+  if (error) return { ok: false, message: error.message };
+  revalidateFinancasPessoaisPaths();
+  return { ok: true };
+}
+
+export async function updateInvestimento(id: string, input: InvestimentoInput): Promise<AcaoResultado> {
+  await requireHelysom();
+  const supabase = await createClient();
+  const { error } = await supabase.from("investimentos_pessoais").update(input).eq("id", id);
+  if (error) return { ok: false, message: error.message };
+  revalidateFinancasPessoaisPaths();
+  return { ok: true };
+}
+
+/** Desativar, nunca apagar — mesmo princípio de `arquivarConta`/`arquivarCartao`. */
+export async function arquivarInvestimento(id: string, ativo: boolean): Promise<AcaoResultado> {
+  await requireHelysom();
+  const supabase = await createClient();
+  const { error } = await supabase.from("investimentos_pessoais").update({ ativo }).eq("id", id);
+  if (error) return { ok: false, message: error.message };
+  revalidateFinancasPessoaisPaths();
+  return { ok: true };
+}
+
+/** Bloqueado pelo banco (trigger) quando o investimento já tem movimentação registrada. */
+export async function deleteInvestimento(id: string): Promise<AcaoResultado> {
+  await requireHelysom();
+  const supabase = await createClient();
+  const { error } = await supabase.from("investimentos_pessoais").delete().eq("id", id);
+  if (error) return { ok: false, message: error.message };
+  revalidateFinancasPessoaisPaths();
+  return { ok: true };
+}
+
+/** Registra aporte, resgate ou rendimento via RPC atômica — bloqueia (não avisa) resgate acima
+ * do saldo investido, mesmo padrão já validado nos outros blocos. */
+export async function registrarMovimentoInvestimento(
+  investimentoId: string,
+  tipo: TipoMovimentoInvestimento,
+  fields: { valor: number; data: string; contaId: string | null }
+): Promise<AcaoResultado> {
+  await requireHelysom();
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("registrar_movimento_investimento_pessoal", {
+    p_investimento_id: investimentoId,
+    p_tipo: tipo,
+    p_valor: fields.valor,
+    p_data: fields.data,
+    p_conta_id: fields.contaId,
+  });
+  if (error) return { ok: false, message: error.message };
+  const resultado = data as { ok: boolean; reason?: string };
+  if (!resultado.ok) return { ok: false, message: resultado.reason ?? "Não foi possível registrar esse movimento." };
+  revalidateFinancasPessoaisPaths();
+  return { ok: true };
+}
+
+export async function listarMovimentosDoInvestimento(investimentoId: string) {
+  await requireHelysom();
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("movimentos_investimento_pessoal")
+    .select("*")
+    .eq("investimento_id", investimentoId)
+    .order("criado_em", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function estornarMovimentoInvestimento(movimentoId: string, motivo: string | null): Promise<AcaoResultado> {
+  await requireHelysom();
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("estornar_movimento_investimento_pessoal", {
+    p_movimento_id: movimentoId,
+    p_motivo: motivo,
+  });
+  if (error) return { ok: false, message: error.message };
+  const resultado = data as { ok: boolean; reason?: string };
+  if (!resultado.ok) return { ok: false, message: resultado.reason ?? "Não foi possível estornar esse movimento." };
   revalidateFinancasPessoaisPaths();
   return { ok: true };
 }

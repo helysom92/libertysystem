@@ -1,7 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireHelysom } from "@/lib/domain/permissions";
 import { saldoConta } from "@/lib/domain/financasPessoais";
-import type { ContaPessoal, ReceitaPessoal, DespesaPessoal, TransferenciaPessoal } from "@/lib/domain/types";
+import type {
+  ContaPessoal,
+  ReceitaPessoal,
+  DespesaPessoal,
+  TransferenciaPessoal,
+  MovimentoInvestimentoPessoal,
+} from "@/lib/domain/types";
 import ContasClient from "@/components/financas-pessoais/ContasClient";
 import ErroConsulta from "@/components/financeiro/ErroConsulta";
 
@@ -15,21 +21,28 @@ export default async function ContasPessoaisPage() {
   let transferenciasList: TransferenciaPessoal[] = [];
 
   try {
-    const [{ data: contasRaw, error: e1 }, { data: receitas, error: e2 }, { data: despesas, error: e3 }, { data: transferencias, error: e4 }] =
-      await Promise.all([
-        supabase.from("contas_pessoais").select("*").eq("owner_id", profile.id).order("criado_em"),
-        supabase.from("receitas_pessoais").select("*").eq("owner_id", profile.id),
-        supabase.from("despesas_pessoais").select("*").eq("owner_id", profile.id),
-        supabase.from("transferencias_pessoais").select("*").eq("owner_id", profile.id),
-      ]);
-    const primeiroErro = e1 ?? e2 ?? e3 ?? e4;
+    const [
+      { data: contasRaw, error: e1 },
+      { data: receitas, error: e2 },
+      { data: despesas, error: e3 },
+      { data: transferencias, error: e4 },
+      { data: movimentosInvRaw, error: e5 },
+    ] = await Promise.all([
+      supabase.from("contas_pessoais").select("*").eq("owner_id", profile.id).order("criado_em"),
+      supabase.from("receitas_pessoais").select("*").eq("owner_id", profile.id),
+      supabase.from("despesas_pessoais").select("*").eq("owner_id", profile.id),
+      supabase.from("transferencias_pessoais").select("*").eq("owner_id", profile.id),
+      supabase.from("movimentos_investimento_pessoal").select("*").eq("owner_id", profile.id),
+    ]);
+    const primeiroErro = e1 ?? e2 ?? e3 ?? e4 ?? e5;
     if (primeiroErro) throw primeiroErro;
 
     contas = (contasRaw as ContaPessoal[]) ?? [];
     const rs = (receitas as ReceitaPessoal[]) ?? [];
     const ds = (despesas as DespesaPessoal[]) ?? [];
     const ts = (transferencias as TransferenciaPessoal[]) ?? [];
-    saldos = Object.fromEntries(contas.map((c) => [c.id, saldoConta(c, rs, ds, ts)]));
+    const mi = (movimentosInvRaw as MovimentoInvestimentoPessoal[]) ?? [];
+    saldos = Object.fromEntries(contas.map((c) => [c.id, saldoConta(c, rs, ds, ts, mi)]));
     transferenciasList = [...ts].sort((a, b) => (a.data < b.data ? 1 : -1)).slice(0, 20);
   } catch (err) {
     console.error("Falha ao carregar Contas (Finanças Pessoais)", err);

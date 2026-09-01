@@ -580,3 +580,33 @@ export interface PagamentoDividaPessoal {
   estornado_por: string | null;
   motivo_estorno: string | null;
 }
+
+// ── Finanças Pessoais — Bloco D (investimentos) ──
+
+export interface InvestimentoPessoal {
+  id: string;
+  owner_id: string;
+  nome: string;
+  tipo: string | null;
+  instituicao: string | null;
+  ativo: boolean;
+  criado_em: string;
+}
+
+export type TipoMovimentoInvestimento = "aporte" | "resgate" | "rendimento";
+
+/** `conta_id`: aporte tira dinheiro da conta, resgate devolve pra conta — rendimento fica
+ * dentro do investimento (não mexe em conta), `conta_id` fica null nesse caso. */
+export interface MovimentoInvestimentoPessoal {
+  id: string;
+  owner_id: string;
+  investimento_id: string;
+  tipo: TipoMovimentoInvestimento;
+  valor: number;
+  data: string;
+  conta_id: string | null;
+  criado_em: string;
+  estornado_em: string | null;
+  estornado_por: string | null;
+  motivo_estorno: string | null;
+}

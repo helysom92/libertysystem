@@ -11,6 +11,8 @@ import type {
   DividaPessoal,
   PagamentoDividaPessoal,
   SituacaoDividaPessoal,
+  InvestimentoPessoal,
+  MovimentoInvestimentoPessoal,
 } from "./types";
 
 /**
@@ -127,13 +129,15 @@ export function resultadoCaixaRealizadoPessoal(recebidoTotal: number, pagoTotal:
 
 // ── Saldo de uma conta: saldo inicial + movimentações com data >= data do saldo inicial ──
 // Nunca soma de novo o que já está refletido no saldo inicial informado, e nunca conta limite
-// de cartão ou investimento como saldo disponível (isso não é responsabilidade desta função —
-// cartão/investimento entram em blocos futuros, com suas próprias funções).
+// de cartão como saldo disponível (regra explícita do pedido). Aporte/resgate de investimento
+// (Bloco D) SÃO refletidos aqui quando têm `conta_id` — é dinheiro real saindo/voltando da
+// conta bancária, mesmo que o valor investido em si não conte como saldo disponível.
 export function saldoConta(
   conta: ContaPessoal,
   receitas: ReceitaPessoal[],
   despesas: DespesaPessoal[],
-  transferencias: TransferenciaPessoal[]
+  transferencias: TransferenciaPessoal[],
+  movimentosInvestimento: MovimentoInvestimentoPessoal[] = []
 ): number {
   let saldo = conta.saldo_inicial;
 
@@ -152,19 +156,30 @@ export function saldoConta(
     if (t.conta_origem_id === conta.id) saldo -= t.valor + t.tarifa;
     if (t.conta_destino_id === conta.id) saldo += t.valor;
   }
+  for (const m of movimentosInvestimento) {
+    if (m.conta_id !== conta.id || m.estornado_em) continue;
+    if (m.data < conta.data_saldo_inicial) continue;
+    if (m.tipo === "aporte") saldo -= m.valor;
+    else if (m.tipo === "resgate") saldo += m.valor;
+    // 'rendimento' nunca mexe em conta — fica dentro do investimento até um resgate futuro.
+  }
 
   return saldo;
 }
 
 /** Soma o saldo de todas as contas ativas — "Saldo disponível nas contas" da Visão Geral. Nunca
- * inclui limite de cartão nem valor de investimento (regra explícita do pedido). */
+ * inclui limite de cartão nem valor investido em si (só o que efetivamente saiu/voltou da
+ * conta via aporte/resgate). */
 export function saldoDisponivelTotal(
   contas: ContaPessoal[],
   receitas: ReceitaPessoal[],
   despesas: DespesaPessoal[],
-  transferencias: TransferenciaPessoal[]
+  transferencias: TransferenciaPessoal[],
+  movimentosInvestimento: MovimentoInvestimentoPessoal[] = []
 ): number {
-  return contas.filter((c) => c.ativa).reduce((soma, c) => soma + saldoConta(c, receitas, despesas, transferencias), 0);
+  return contas
+    .filter((c) => c.ativa)
+    .reduce((soma, c) => soma + saldoConta(c, receitas, despesas, transferencias, movimentosInvestimento), 0);
 }
 
 // ── Situação, pro mesmo padrão de badge usado no lado empresarial (situacaoLancamento) ──
@@ -342,3 +357,47 @@ export function situacaoDividaVencimento(
 }
 
 export type { SituacaoDividaPessoal };
+
+// ── Bloco D: investimentos ────────────────────────────────────────────────────────────────────
+// "Aporte não é despesa de consumo, resgate do principal não é receita nova" — por isso vivem
+// numa tabela própria (`movimentos_investimento_pessoal`), nunca em despesas_pessoais/
+// receitas_pessoais; saldo sempre derivado do ledger, mesmo padrão de `saldoConta`/`saldoDivida`.
+
+export function saldoInvestimento(
+  investimento: InvestimentoPessoal,
+  movimentos: MovimentoInvestimentoPessoal[]
+): number {
+  return movimentos
+    .filter((m) => m.investimento_id === investimento.id && !m.estornado_em)
+    .reduce((s, m) => s + (m.tipo === "resgate" ? -m.valor : m.valor), 0);
+}
+
+/** Só o que foi efetivamente aportado (nunca soma resgate/rendimento) — "quanto entrou de
+ * dinheiro novo", separado de "quanto vale hoje" (`saldoInvestimento`, que já inclui
+ * rendimento acumulado). */
+export function totalAportadoInvestimento(
+  investimento: InvestimentoPessoal,
+  movimentos: MovimentoInvestimentoPessoal[]
+): number {
+  return movimentos
+    .filter((m) => m.investimento_id === investimento.id && m.tipo === "aporte" && !m.estornado_em)
+    .reduce((s, m) => s + m.valor, 0);
+}
+
+/** Soma o saldo de todos os investimentos ativos — "Total em investimentos" da Visão Geral
+ * (painel consolidado, Bloco F) e da própria tela de Investimentos. */
+export function totalInvestidoGeral(
+  investimentos: InvestimentoPessoal[],
+  movimentos: MovimentoInvestimentoPessoal[]
+): number {
+  return investimentos.filter((i) => i.ativo).reduce((soma, i) => soma + saldoInvestimento(i, movimentos), 0);
+}
+
+export function rendimentoTotalInvestimento(
+  investimento: InvestimentoPessoal,
+  movimentos: MovimentoInvestimentoPessoal[]
+): number {
+  return movimentos
+    .filter((m) => m.investimento_id === investimento.id && m.tipo === "rendimento" && !m.estornado_em)
+    .reduce((s, m) => s + m.valor, 0);
+}

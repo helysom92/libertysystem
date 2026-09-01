@@ -10,8 +10,22 @@ import {
   saldoDivida,
   parcelasRestantesAtual,
   situacaoDividaVencimento,
+  saldoConta,
+  saldoInvestimento,
+  totalAportadoInvestimento,
+  totalInvestidoGeral,
+  rendimentoTotalInvestimento,
 } from "../financasPessoais";
-import type { CartaoPessoal, CompraCartaoPessoal, DespesaPessoal, DividaPessoal, PagamentoDividaPessoal } from "../types";
+import type {
+  CartaoPessoal,
+  CompraCartaoPessoal,
+  ContaPessoal,
+  DespesaPessoal,
+  DividaPessoal,
+  InvestimentoPessoal,
+  MovimentoInvestimentoPessoal,
+  PagamentoDividaPessoal,
+} from "../types";
 
 function compra(over: Partial<CompraCartaoPessoal>): CompraCartaoPessoal {
   return {
@@ -264,5 +278,125 @@ describe("situacaoDividaVencimento", () => {
     const d = divida({ dia_vencimento: 5 });
     const pagamentos = [pagamentoDivida({ divida_id: "div1", data: "2026-08-03", estornado_em: "2026-08-04T00:00:00Z" })];
     expect(situacaoDividaVencimento(d, pagamentos, "2026-08-15")).toBe("vencida");
+  });
+});
+
+// ── Bloco D: investimentos ──────────────────────────────────────────────────────────────────
+
+function conta(over: Partial<ContaPessoal>): ContaPessoal {
+  return {
+    id: "conta1",
+    owner_id: "o1",
+    nome: "Conta Corrente",
+    instituicao: null,
+    tipo: null,
+    saldo_inicial: 1000,
+    data_saldo_inicial: "2026-08-01",
+    ativa: true,
+    ...over,
+  };
+}
+
+function investimento(over: Partial<InvestimentoPessoal>): InvestimentoPessoal {
+  return {
+    id: "inv1",
+    owner_id: "o1",
+    nome: "Tesouro Selic",
+    tipo: "Renda fixa",
+    instituicao: null,
+    ativo: true,
+    criado_em: "2026-01-01T00:00:00Z",
+    ...over,
+  };
+}
+
+function movimento(over: Partial<MovimentoInvestimentoPessoal>): MovimentoInvestimentoPessoal {
+  return {
+    id: "m1",
+    owner_id: "o1",
+    investimento_id: "inv1",
+    tipo: "aporte",
+    valor: 100,
+    data: "2026-08-10",
+    conta_id: null,
+    criado_em: "2026-08-10T00:00:00Z",
+    estornado_em: null,
+    estornado_por: null,
+    motivo_estorno: null,
+    ...over,
+  };
+}
+
+describe("saldoInvestimento / totalAportadoInvestimento / rendimentoTotalInvestimento", () => {
+  const movimentos = [
+    movimento({ id: "m1", investimento_id: "inv1", tipo: "aporte", valor: 1000 }),
+    movimento({ id: "m2", investimento_id: "inv1", tipo: "rendimento", valor: 50 }),
+    movimento({ id: "m3", investimento_id: "inv1", tipo: "resgate", valor: 200 }),
+    movimento({ id: "m4", investimento_id: "inv1", tipo: "aporte", valor: 999, estornado_em: "2026-08-11T00:00:00Z" }),
+    movimento({ id: "m5", investimento_id: "outro-investimento", tipo: "aporte", valor: 5000 }),
+  ];
+
+  it("saldo é aporte + rendimento - resgate, ignora estornados e outros investimentos", () => {
+    expect(saldoInvestimento(investimento({}), movimentos)).toBe(850);
+  });
+
+  it("total aportado soma só aportes não estornados, nunca resgate/rendimento", () => {
+    expect(totalAportadoInvestimento(investimento({}), movimentos)).toBe(1000);
+  });
+
+  it("rendimento total soma só os rendimentos não estornados", () => {
+    expect(rendimentoTotalInvestimento(investimento({}), movimentos)).toBe(50);
+  });
+});
+
+describe("totalInvestidoGeral", () => {
+  it("soma só investimentos ativos, ignora desativados", () => {
+    const investimentos = [
+      investimento({ id: "a", ativo: true }),
+      investimento({ id: "b", ativo: true }),
+      investimento({ id: "c", ativo: false }),
+    ];
+    const movimentos = [
+      movimento({ investimento_id: "a", tipo: "aporte", valor: 1000 }),
+      movimento({ investimento_id: "b", tipo: "aporte", valor: 500 }),
+      movimento({ investimento_id: "c", tipo: "aporte", valor: 9999 }),
+    ];
+    expect(totalInvestidoGeral(investimentos, movimentos)).toBe(1500);
+  });
+});
+
+describe("saldoConta com movimentos de investimento", () => {
+  it("aporte tira da conta, resgate devolve pra conta", () => {
+    const c = conta({ saldo_inicial: 1000, data_saldo_inicial: "2026-08-01" });
+    const movimentos = [
+      movimento({ tipo: "aporte", valor: 300, conta_id: "conta1", data: "2026-08-10" }),
+      movimento({ tipo: "resgate", valor: 100, conta_id: "conta1", data: "2026-08-15" }),
+    ];
+    expect(saldoConta(c, [], [], [], movimentos)).toBe(800); // 1000 - 300 + 100
+  });
+
+  it("rendimento nunca mexe na conta, mesmo com conta_id preenchido por engano", () => {
+    const c = conta({ saldo_inicial: 1000, data_saldo_inicial: "2026-08-01" });
+    const movimentos = [movimento({ tipo: "rendimento", valor: 50, conta_id: "conta1", data: "2026-08-10" })];
+    expect(saldoConta(c, [], [], [], movimentos)).toBe(1000);
+  });
+
+  it("movimento estornado não conta pro saldo da conta", () => {
+    const c = conta({ saldo_inicial: 1000, data_saldo_inicial: "2026-08-01" });
+    const movimentos = [
+      movimento({ tipo: "aporte", valor: 300, conta_id: "conta1", data: "2026-08-10", estornado_em: "2026-08-11T00:00:00Z" }),
+    ];
+    expect(saldoConta(c, [], [], [], movimentos)).toBe(1000);
+  });
+
+  it("movimento de outra conta não afeta o saldo desta", () => {
+    const c = conta({ id: "conta1", saldo_inicial: 1000, data_saldo_inicial: "2026-08-01" });
+    const movimentos = [movimento({ tipo: "aporte", valor: 300, conta_id: "outra-conta", data: "2026-08-10" })];
+    expect(saldoConta(c, [], [], [], movimentos)).toBe(1000);
+  });
+
+  it("sem 5º argumento continua funcionando como antes (compatibilidade)", () => {
+    const c = conta({ saldo_inicial: 1000, data_saldo_inicial: "2026-08-01" });
+    expect(saldoConta(c, [], [], [])).toBe(1000);
   });
 });
