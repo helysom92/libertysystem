@@ -25,7 +25,6 @@ import {
   eventosDoCalendario,
   historico12Meses,
   kpisVisaoGeral,
-  monthlySeries,
   mtdComparativo,
   proximosEventos,
   topClientesGeral,
@@ -44,10 +43,13 @@ import {
   resultadoPendente,
   resultadoPrevistoFinal,
   resultadoRealizado,
+  serieMensalOficial,
   vendasAprovadas,
   type IndicadorComVencidos,
   type IndicadorFinanceiro,
 } from "@/lib/domain/financas";
+import { emProducao, atrasados } from "@/lib/domain/kpis";
+import { propostasAguardandoResposta, propostasVencidas } from "@/lib/domain/comercial";
 import type { DadosVisaoGeral } from "@/components/financeiro/VisaoGeralFinanceiroClient";
 import VisaoGeralView from "./VisaoGeralView";
 import VendasView from "./VendasView";
@@ -91,6 +93,44 @@ function comoIndicadorDeVencidos(ind: IndicadorComVencidos): IndicadorFinanceiro
     registros,
     total: registros.reduce((s, r) => s + r.valor, 0),
     quantidade: registros.length,
+  };
+}
+
+/** Empacota uma lista de OS (Servico[]) no mesmo envelope `IndicadorFinanceiro` que os 9
+ * cartões financeiros já usam — reaproveita o card+modal existentes em vez de criar um
+ * componente novo só pra "OS abertas"/"OS atrasadas". */
+function comoIndicadorDeServicos(servicos: Servico[], criterioData: string): IndicadorFinanceiro {
+  const registros = servicos.map((s) => ({
+    id: s.id,
+    descricao: `${s.numero ?? "—"} — ${s.cliente}`,
+    valor: s.valor,
+    data: s.prazo ?? s.aprovado_em ?? s.criado_em,
+  }));
+  return {
+    total: registros.reduce((sum, r) => sum + r.valor, 0),
+    quantidade: registros.length,
+    registros,
+    periodo: { inicio: "", fim: "" },
+    criterioData,
+    statusConsiderados: [],
+    statusExcluidos: [],
+  };
+}
+
+/** Mesma ideia, pras listas já vindas prontas de `comercial.ts` (RegistroComercial já tem o
+ * mesmo formato de RegistroIndicador — id/descricao/valor/data). */
+function comoIndicadorDeRegistros(
+  registros: { id: string; descricao: string; valor: number; data: string }[],
+  criterioData: string
+): IndicadorFinanceiro {
+  return {
+    total: registros.reduce((sum, r) => sum + r.valor, 0),
+    quantidade: registros.length,
+    registros,
+    periodo: { inicio: "", fim: "" },
+    criterioData,
+    statusConsiderados: [],
+    statusExcluidos: [],
   };
 }
 
@@ -140,7 +180,7 @@ export default function DashboardShell({
 
   // 25 meses = mês atual + 24 pra trás — dá pra navegar uns 2 anos pro passado no painel
   // estratégico (Visão Geral/Vendas/Despesas), sem precisar recalcular a série a cada clique.
-  const monthly = useMemo(() => monthlySeries(lancamentos, hoje, 25), [lancamentos, hoje]);
+  const monthly = useMemo(() => serieMensalOficial(lancamentos, hoje, 25), [lancamentos, hoje]);
   const [compareA, setCompareA] = useState(Math.max(0, monthly.length - 2));
   const [compareB, setCompareB] = useState(monthly.length - 1);
 
@@ -236,8 +276,21 @@ export default function DashboardShell({
         despesasPagasInd.total,
         aPagarInd.total
       ),
+      osAbertas: comoIndicadorDeServicos(emProducao(servicos), "OS aprovada, ainda não concluída"),
+      osAtrasadas: comoIndicadorDeServicos(
+        atrasados(servicos).filter((s) => s.numero != null),
+        "OS aprovada, prazo já vencido, ainda não concluída"
+      ),
+      propostasAguardando: comoIndicadorDeRegistros(
+        propostasAguardandoResposta(servicos),
+        "Proposta enviada, cliente ainda não respondeu"
+      ),
+      propostasVencidas: comoIndicadorDeRegistros(
+        propostasVencidas(servicos, hojeISO),
+        "Proposta enviada, validade já passou, sem resposta"
+      ),
     }),
-    [recebidoInd, despesasPagasInd, aReceberInd, aPagarInd]
+    [recebidoInd, despesasPagasInd, aReceberInd, aPagarInd, servicos, hojeISO]
   );
 
   const mesAtualRefDate = useMemo(() => new Date(mesAtual.year, mesAtual.month, 1), [mesAtual]);

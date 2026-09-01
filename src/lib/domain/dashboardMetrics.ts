@@ -140,7 +140,7 @@ export function kpisVisaoGeral(
       ringPct: Math.min(100, (atual.expenses / (metaDespesas || maxExpHist)) * 100),
     },
     lucro: {
-      label: "Lucro líquido",
+      label: "Resultado Realizado",
       value: lucroAtual,
       deltaPct: anterior ? pctDelta(lucroAtual, lucroAnterior) : null,
       ringPct: Math.min(

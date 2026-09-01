@@ -415,12 +415,12 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
         {fechamentoDoMes && !fechamentoRecente ? (
           <p className="text-sm">
             ✓ {MESES[mes - 1]}/{ano} fechado em {new Date(fechamentoDoMes.fechado_em).toLocaleDateString("pt-BR")} —{" "}
-            Entrou {fmtBRL(fechamentoDoMes.entrou)} · Saiu {fmtBRL(fechamentoDoMes.saiu)} · Lucro {fmtBRL(fechamentoDoMes.lucro)}
+            Entrou {fmtBRL(fechamentoDoMes.entrou)} · Saiu {fmtBRL(fechamentoDoMes.saiu)} · Resultado {fmtBRL(fechamentoDoMes.lucro)}
           </p>
         ) : fechamentoRecente ? (
           <p className="text-sm">
             ✓ {MESES[mes - 1]}/{ano} fechado agora — Entrou {fmtBRL(fechamentoRecente.entrou)} · Saiu{" "}
-            {fmtBRL(fechamentoRecente.saiu)} · Lucro {fmtBRL(fechamentoRecente.lucro)}
+            {fmtBRL(fechamentoRecente.saiu)} · Resultado {fmtBRL(fechamentoRecente.lucro)}
           </p>
         ) : (
           <button
@@ -443,8 +443,8 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
           ) : (
             <>
               <p className="mb-2 text-sm">
-                Lucro do mês: <span className="font-semibold text-gold">{fmtBRL(fechamentoAtivo.lucro)}</span> — quanto você
-                quer retirar?
+                Resultado do mês: <span className="font-semibold text-gold">{fmtBRL(fechamentoAtivo.lucro)}</span> — quanto
+                você quer retirar?
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <input
@@ -479,7 +479,7 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
               >
                 <span>{MESES[f.mes - 1]}/{f.ano}</span>
                 <span className="text-text-muted">
-                  Entrou {fmtBRL(f.entrou)} · Saiu {fmtBRL(f.saiu)} · Lucro {fmtBRL(f.lucro)}
+                  Entrou {fmtBRL(f.entrou)} · Saiu {fmtBRL(f.saiu)} · Resultado {fmtBRL(f.lucro)}
                 </span>
               </div>
             ))}

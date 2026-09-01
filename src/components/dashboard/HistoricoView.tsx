@@ -12,7 +12,7 @@ export default function HistoricoView({ rows }: { rows: HistoricoRow[] }) {
             <th className="px-1.5 py-2 font-semibold">Mês</th>
             <th className="px-1.5 py-2 text-right font-semibold">Vendas</th>
             <th className="px-1.5 py-2 text-right font-semibold">Despesas</th>
-            <th className="px-1.5 py-2 text-right font-semibold">Lucro</th>
+            <th className="px-1.5 py-2 text-right font-semibold">Resultado</th>
             <th className="px-1.5 py-2 text-right font-semibold">Margem</th>
             <th className="px-1.5 py-2 font-semibold">Tendência</th>
           </tr>

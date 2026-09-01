@@ -370,3 +370,47 @@ export function inconsistenciasFinanceiras(servicos: Servico[], parcelas: Servic
   }
   return achados;
 }
+
+// ── Etapa 6 — série mensal oficial ──
+export interface MesResultadoOficial {
+  key: string; // "YYYY-MM"
+  label: string; // "Ago/26"
+  year: number;
+  month: number; // 0-11 — mesmo formato de MonthPoint (dashboardMetrics.ts), pra ser substituto direto
+  sales: number; // recebido do mês — nome "sales" mantido só por compatibilidade de shape com MonthPoint
+  expenses: number; // despesas pagas do mês
+}
+
+const MESES_ABREV_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+/**
+ * Substituto oficial de `monthlySeries` (dashboardMetrics.ts) — mesmo formato de saída
+ * (drop-in, `MonthPoint`-compatível), mas cada mês é computado chamando `recebido`/
+ * `despesasPagas`, as mesmas funções oficiais usadas em todo o resto do sistema, em vez de
+ * reimplementar o filtro de lançamentos realizados de novo. Etapa 6: nenhuma fórmula de
+ * resultado deve existir em 2 lugares — `sales - expenses` aqui é sempre exatamente
+ * `resultadoRealizado(recebido, despesasPagas)` por construção, nunca uma conta paralela.
+ */
+export function serieMensalOficial(
+  lancamentos: Lancamento[],
+  refDate: Date,
+  meses: number,
+  timezone: string = FUSO_OPERACAO
+): MesResultadoOficial[] {
+  const pontos: MesResultadoOficial[] = [];
+  for (let i = meses - 1; i >= 0; i--) {
+    const d = new Date(refDate.getFullYear(), refDate.getMonth() - i, 1);
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const periodo = periodoDoMes(year, month + 1, timezone);
+    pontos.push({
+      key: `${year}-${String(month + 1).padStart(2, "0")}`,
+      label: `${MESES_ABREV_PT[month]}/${String(year).slice(2)}`,
+      year,
+      month,
+      sales: recebido(lancamentos, periodo).total,
+      expenses: despesasPagas(lancamentos, periodo).total,
+    });
+  }
+  return pontos;
+}

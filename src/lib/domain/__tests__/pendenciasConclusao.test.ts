@@ -40,6 +40,11 @@ function servico(overrides: Partial<Servico> = {}): Servico {
     share_token: null,
     proposta_opcao_escolhida: null,
     proposta_escolhida_em: null,
+    origem_lead: null,
+    data_follow_up: null,
+    proposta_enviada_em: null,
+    motivo_perda: null,
+    perdido_em: null,
     ...overrides,
   };
 }
@@ -66,7 +71,20 @@ function checklistItem(texto: string, done: boolean): ChecklistItem {
 }
 
 function medida(): Medicao {
-  return { id: "m1", servico_id: "s1", largura: 100, altura: 100, profundidade: null, unidade: "cm" };
+  return {
+    id: "m1",
+    servico_id: "s1",
+    largura: 100,
+    altura: 100,
+    profundidade: null,
+    unidade: "cm",
+    quantidade: 1,
+    local_medicao: null,
+    responsavel: null,
+    data: "2026-08-01",
+    observacoes: null,
+    status_revisao: "Confirmada",
+  };
 }
 
 function foto(): Foto {

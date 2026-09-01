@@ -23,6 +23,7 @@ import {
   inconsistenciasFinanceiras,
   situacaoLancamento,
   tipoDespesaLancamentoAvulso,
+  serieMensalOficial,
 } from "../financas";
 
 function servico(overrides: Partial<Servico> = {}): Servico {
@@ -63,6 +64,11 @@ function servico(overrides: Partial<Servico> = {}): Servico {
     share_token: null,
     proposta_opcao_escolhida: null,
     proposta_escolhida_em: null,
+    origem_lead: null,
+    data_follow_up: null,
+    proposta_enviada_em: null,
+    motivo_perda: null,
+    perdido_em: null,
     ...overrides,
   };
 }
@@ -119,6 +125,7 @@ function ocorrenciaFixa(overrides: Partial<DespesaFixaOcorrencia> = {}): Despesa
     cancelada_em: null,
     cancelada_por: null,
     motivo_cancelamento: null,
+    valor_pago: null,
     ...overrides,
   };
 }
@@ -140,6 +147,7 @@ function ocorrenciaVariavel(overrides: Partial<DespesaVariavelOcorrencia> = {}):
     cancelada_em: null,
     cancelada_por: null,
     motivo_cancelamento: null,
+    valor_pago: null,
     ...overrides,
   };
 }
@@ -407,5 +415,60 @@ describe("tipoDespesaLancamentoAvulso (Etapa 3)", () => {
 
   it("lançamento avulso sem OS vinculada é 'avulsa'", () => {
     expect(tipoDespesaLancamentoAvulso(null)).toBe("avulsa");
+  });
+});
+
+describe("Etapa 6 — Gestão macro: prova numérica dos indicadores oficiais", () => {
+  it("cenário 1: venda R$10.000, cliente paga R$5.000 agora e R$5.000 no futuro", () => {
+    const sv = servico({ id: "sv-6a", numero: "OS-600", aprovado_em: "2026-08-05T10:00:00Z", valor: 10000 });
+    const recebimentoAgora = lancamento({
+      id: "l-6a",
+      tipo: "Receita",
+      status: "realizado",
+      valor: 5000,
+      data: "2026-08-10",
+      servico_id: sv.id,
+    });
+    const parcelaFutura = parcela({
+      id: "pc-6a",
+      servico_id: sv.id,
+      valor_previsto: 5000,
+      valor_pago: null,
+      data_prevista: "2026-08-25",
+    });
+
+    const faturamentoContratado = vendasAprovadas([sv], AGOSTO).total;
+    const recebidoTotal = recebido([recebimentoAgora], AGOSTO).total;
+    const aReceberTotal = aReceber([sv], [parcelaFutura], [], AGOSTO, HOJE).total;
+
+    expect(faturamentoContratado).toBe(10000);
+    expect(recebidoTotal).toBe(5000);
+    expect(aReceberTotal).toBe(5000);
+  });
+
+  it("cenário 2: Recebido 20.000, Despesas pagas 12.000, A receber 4.000, A pagar 3.000 → Resultado realizado 8.000, Resultado previsto final 9.000", () => {
+    const recebidoTotal = 20000;
+    const despesasPagasTotal = 12000;
+    const aReceberTotal = 4000;
+    const aPagarTotal = 3000;
+
+    expect(resultadoRealizado(recebidoTotal, despesasPagasTotal)).toBe(8000);
+    expect(resultadoPendente(aReceberTotal, aPagarTotal)).toBe(1000);
+    expect(resultadoPrevistoFinal(recebidoTotal, aReceberTotal, despesasPagasTotal, aPagarTotal)).toBe(9000);
+  });
+
+  it("serieMensalOficial nunca diverge de recebido/despesasPagas — mesma fonte, sem fórmula duplicada", () => {
+    const lancamentos = [
+      lancamento({ id: "l-6b1", tipo: "Receita", status: "realizado", valor: 3000, data: "2026-08-05" }),
+      lancamento({ id: "l-6b2", tipo: "Receita", status: "previsto", valor: 999, data: "2026-08-06" }),
+      lancamento({ id: "l-6b3", tipo: "Despesa", status: "realizado", valor: 1200, data: "2026-08-15" }),
+      lancamento({ id: "l-6b4", tipo: "Receita", status: "realizado", valor: 500, data: "2026-07-20" }),
+    ];
+    const serie = serieMensalOficial(lancamentos, new Date(2026, 7, 15), 1);
+    expect(serie).toHaveLength(1);
+    expect(serie[0].sales).toBe(recebido(lancamentos, AGOSTO).total);
+    expect(serie[0].expenses).toBe(despesasPagas(lancamentos, AGOSTO).total);
+    expect(serie[0].sales).toBe(3000);
+    expect(serie[0].expenses).toBe(1200);
   });
 });

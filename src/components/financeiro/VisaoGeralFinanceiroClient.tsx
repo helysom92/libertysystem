@@ -31,6 +31,12 @@ export interface DadosVisaoGeral {
   resultadoRealizado: number;
   resultadoPendente: number;
   resultadoPrevistoFinal: number;
+  // Etapa 6 (Gestão) — opcionais porque o Financeiro (pendências do dia a dia) não os usa,
+  // só a Visão Geral de Gestão.
+  osAbertas?: IndicadorFinanceiro;
+  osAtrasadas?: IndicadorFinanceiro;
+  propostasAguardando?: IndicadorFinanceiro;
+  propostasVencidas?: IndicadorFinanceiro;
 }
 
 type CartaoAberto =
@@ -187,6 +193,53 @@ export default function VisaoGeralFinanceiroClient({
               })
             }
           />
+        </div>
+      )}
+
+      {(dados.osAbertas || dados.osAtrasadas || dados.propostasAguardando || dados.propostasVencidas) && (
+        <div className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {dados.osAbertas && (
+            <IndicadorCard
+              titulo="OS abertas"
+              valor={dados.osAbertas.total}
+              quantidade={dados.osAbertas.quantidade}
+              mesLabel="Agora"
+              onClick={() => setAberto({ tipo: "indicador", titulo: "OS abertas", indicador: dados.osAbertas! })}
+            />
+          )}
+          {dados.osAtrasadas && (
+            <IndicadorCard
+              titulo="OS atrasadas"
+              valor={dados.osAtrasadas.total}
+              quantidade={dados.osAtrasadas.quantidade}
+              mesLabel="Agora"
+              tom={dados.osAtrasadas.quantidade > 0 ? "atencao" : "neutro"}
+              onClick={() => setAberto({ tipo: "indicador", titulo: "OS atrasadas", indicador: dados.osAtrasadas! })}
+            />
+          )}
+          {dados.propostasAguardando && (
+            <IndicadorCard
+              titulo="Propostas aguardando"
+              valor={dados.propostasAguardando.total}
+              quantidade={dados.propostasAguardando.quantidade}
+              mesLabel="Agora"
+              onClick={() =>
+                setAberto({ tipo: "indicador", titulo: "Propostas aguardando resposta", indicador: dados.propostasAguardando! })
+              }
+            />
+          )}
+          {dados.propostasVencidas && (
+            <IndicadorCard
+              titulo="Propostas vencidas"
+              valor={dados.propostasVencidas.total}
+              quantidade={dados.propostasVencidas.quantidade}
+              mesLabel="Agora"
+              tom={dados.propostasVencidas.quantidade > 0 ? "atencao" : "neutro"}
+              onClick={() =>
+                setAberto({ tipo: "indicador", titulo: "Propostas vencidas", indicador: dados.propostasVencidas! })
+              }
+            />
+          )}
         </div>
       )}
 
