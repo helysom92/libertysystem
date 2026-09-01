@@ -25,6 +25,7 @@ export default function ImportacoesClient({ contas }: { contas: ContaPessoal[] }
   const [processando, setProcessando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [avisos, setAvisos] = useState<string[]>([]);
+  const [textoColado, setTextoColado] = useState("");
 
   function popularPendentes(linhasLidas: LinhaExtratoPessoal[]) {
     const linhas = linhasLidas.map((l, i) => ({
@@ -88,6 +89,21 @@ export default function ImportacoesClient({ contas }: { contas: ContaPessoal[] }
     });
   }
 
+  function processarTextoColado() {
+    setError(null);
+    setAvisos([]);
+    setPendentes([]);
+    setTotalOriginal(0);
+    const { linhas, erros } = parseCsvExtrato(textoColado);
+    if (linhas.length === 0 && erros.length > 0) {
+      setError(erros[0]);
+      return;
+    }
+    setAvisos(erros);
+    popularPendentes(linhas);
+    setTextoColado("");
+  }
+
   function atualizarLinha(chave: string, campo: "contaId" | "categoria", valor: string) {
     setPendentes((ls) => ls.map((l) => (l.chaveLocal === chave ? { ...l, [campo]: valor } : l)));
   }
@@ -146,6 +162,25 @@ export default function ImportacoesClient({ contas }: { contas: ContaPessoal[] }
         {contas.length === 0 && (
           <p className="mt-2 text-[12px] text-danger">Cadastre pelo menos uma conta antes de importar um extrato.</p>
         )}
+      </div>
+
+      <div className="mb-5 rounded-card border border-border-neutral bg-card p-4">
+        <p className="mb-2 text-[12px] font-semibold text-text-secondary">Ou cole o texto do extrato (CSV) direto aqui</p>
+        <textarea
+          value={textoColado}
+          onChange={(e) => setTextoColado(e.target.value)}
+          placeholder={"Data;Descricao;Valor\n01/09/2026;Mercado;-150,00"}
+          rows={4}
+          className="mb-2 w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 font-mono text-[12px]"
+        />
+        <button
+          type="button"
+          onClick={processarTextoColado}
+          disabled={!textoColado.trim() || contas.length === 0}
+          className="rounded-btn border border-border-gold-strong px-4 py-2 text-sm text-gold disabled:opacity-40"
+        >
+          Processar texto colado
+        </button>
       </div>
 
       {error && (
