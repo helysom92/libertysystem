@@ -1,9 +1,26 @@
 import { createClient } from "@/lib/supabase/server";
-import { calcularItemOrcamento, unitParaExibicao, type LinhaOrcamento, type OrcamentoItemDraft } from "@/lib/domain/orcamento";
+import type { LinhaOrcamento } from "@/lib/domain/orcamento";
 import { formatItemDetalhe } from "@/lib/domain/orcamentoText";
-import type { ItemOrcamento, OrcamentoItemRow } from "@/lib/domain/types";
+import type { CategoriaPrazo, ModoCalculoItem } from "@/lib/domain/orcamento";
 import OrcamentoDocumento, { type OrcamentoDocumentoItem } from "@/components/servico-modal/OrcamentoDocumento";
 import ImprimirButton from "./ImprimirButton";
+
+// DTO já pré-computado do lado seguro (dentro da RPC `get_proposta_publica`) — nunca inclui
+// custo_direto, preco_m2_manual, nem o catálogo interno completo. Só o resultado final do
+// cálculo de preço (area/valor_unit), pronto pra exibir.
+interface ItemPropostaPublica {
+  descricao: string;
+  categoria_prazo: CategoriaPrazo;
+  modo_calculo: ModoCalculoItem;
+  largura_cm: number | null;
+  altura_cm: number | null;
+  quantidade: number;
+  mostrar_medida_cliente: boolean;
+  item_nome: string | null;
+  area: number | null;
+  valor_unit: number;
+  valor_final: number;
+}
 
 interface PropostaPublica {
   servico: {
@@ -16,22 +33,8 @@ interface PropostaPublica {
     durabilidade_texto: string | null;
   };
   cliente: { nome: string };
-  itens: OrcamentoItemRow[];
-  catalogo: ItemOrcamento[];
+  itens: ItemPropostaPublica[];
   foto_storage_path: string | null;
-}
-
-function toDraft(row: OrcamentoItemRow): OrcamentoItemDraft {
-  return {
-    categoriaPrazo: row.categoria_prazo,
-    modoCalculo: row.modo_calculo,
-    itemOrcamentoId: row.item_orcamento_id,
-    larguraCm: row.largura_cm ?? 0,
-    alturaCm: row.altura_cm ?? 0,
-    quantidade: row.quantidade,
-    custoDireto: row.custo_direto ?? 0,
-    precoM2Manual: row.preco_m2_manual ?? 0,
-  };
 }
 
 export default async function PropostaPublicaPage({
@@ -55,24 +58,23 @@ export default async function PropostaPublicaPage({
     );
   }
 
-  const itens: OrcamentoDocumentoItem[] = proposta.itens.map((row) => {
-    const calc = calcularItemOrcamento(toDraft(row), proposta.catalogo);
-    const unit = unitParaExibicao(row.modo_calculo, calc, row.valor_final, row.quantidade);
-    const itemCatalogo = proposta.catalogo.find((i) => i.id === row.item_orcamento_id);
-    return {
-      descricao: row.descricao,
-      categoriaPrazo: row.categoria_prazo,
-      detalhe: formatItemDetalhe(row.modo_calculo, { ...calc, unit }, {
-        itemNome: itemCatalogo?.nome,
+  const itens: OrcamentoDocumentoItem[] = proposta.itens.map((row) => ({
+    descricao: row.descricao,
+    categoriaPrazo: row.categoria_prazo,
+    detalhe: formatItemDetalhe(
+      row.modo_calculo,
+      { area: row.area, unit: row.valor_unit, sugerido: row.valor_final, minimoAplicado: false },
+      {
+        itemNome: row.item_nome,
         larguraCm: row.largura_cm,
         alturaCm: row.altura_cm,
         quantidade: row.quantidade,
         mostrarMedidaCliente: row.mostrar_medida_cliente,
-      }),
-      valorUnit: unit,
-      valorFinal: row.valor_final,
-    };
-  });
+      }
+    ),
+    valorUnit: row.valor_unit,
+    valorFinal: row.valor_final,
+  }));
 
   return (
     <div style={{ minHeight: "100vh", background: "#fff", paddingTop: 24 }}>
