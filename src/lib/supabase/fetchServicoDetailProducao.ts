@@ -80,6 +80,11 @@ export async function fetchServicoDetailProducao(servicoId: string): Promise<Ser
     proposta_opcao_escolhida: null,
     proposta_escolhida_em: null,
     concluido_em: null,
+    origem_lead: null,
+    data_follow_up: null,
+    proposta_enviada_em: null,
+    motivo_perda: null,
+    perdido_em: null,
   };
 
   const cliente: Cliente = {

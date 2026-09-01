@@ -39,6 +39,11 @@ export interface Servico {
   share_token: string | null;
   proposta_opcao_escolhida: LinhaOrcamento | null;
   proposta_escolhida_em: string | null;
+  origem_lead: string | null;
+  data_follow_up: string | null; // ISO date (yyyy-mm-dd)
+  proposta_enviada_em: string | null; // ISO timestamp — quando o link de proposta foi gerado
+  motivo_perda: string | null;
+  perdido_em: string | null; // ISO timestamp
 }
 
 /** Só o necessário pra vincular uma despesa avulsa a uma OS já numerada (Nova Despesa). */

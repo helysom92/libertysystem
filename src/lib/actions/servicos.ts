@@ -314,6 +314,32 @@ export async function cancelarServico(servicoId: string, motivo: string | null):
   return { ok: true };
 }
 
+/** Marca um orçamento (ainda não aprovado) como oportunidade perdida — Etapa 5, funil
+ * comercial. Não apaga nada, só registra motivo+data; conceito separado de `cancelarServico`
+ * (que é sobre OS já aprovada e financeiro). */
+export async function perderOrcamento(servicoId: string, motivo: string): Promise<AcaoResultado> {
+  await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("perder_orcamento", { p_servico_id: servicoId, p_motivo: motivo });
+  if (error) return { ok: false, message: error.message };
+  const r = data as { ok: boolean; reason?: string };
+  if (!r.ok) return { ok: false, message: r.reason ?? "Não foi possível marcar como perdida." };
+  revalidateServicoPaths();
+  return { ok: true };
+}
+
+export async function updateFunilComercial(
+  servicoId: string,
+  fields: { origem_lead?: string | null; data_follow_up?: string | null }
+): Promise<AcaoResultado> {
+  await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const { error } = await supabase.from("servicos").update(fields).eq("id", servicoId);
+  if (error) return { ok: false, message: error.message };
+  revalidateServicoPaths();
+  return { ok: true };
+}
+
 export async function updateClienteInline(
   clienteId: string,
   fields: Partial<{

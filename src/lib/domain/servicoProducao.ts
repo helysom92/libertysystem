@@ -28,6 +28,11 @@ export function toServicoProducaoSafe(row: Omit<Servico, keyof ServicoCamposFina
     share_token: null,
     proposta_opcao_escolhida: null,
     proposta_escolhida_em: null,
+    origem_lead: null,
+    data_follow_up: null,
+    proposta_enviada_em: null,
+    motivo_perda: null,
+    perdido_em: null,
   };
 }
 
@@ -42,4 +47,9 @@ type ServicoCamposFinanceiros =
   | "durabilidade_texto"
   | "share_token"
   | "proposta_opcao_escolhida"
-  | "proposta_escolhida_em";
+  | "proposta_escolhida_em"
+  | "origem_lead"
+  | "data_follow_up"
+  | "proposta_enviada_em"
+  | "motivo_perda"
+  | "perdido_em";

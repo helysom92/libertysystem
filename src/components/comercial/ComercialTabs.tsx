@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/comercial/orcamentos", label: "Orçamentos" },
   { href: "/comercial/propostas", label: "Propostas" },
+  { href: "/comercial/indicadores", label: "Indicadores" },
 ];
 
 export default function ComercialTabs() {

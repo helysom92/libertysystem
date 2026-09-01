@@ -10,12 +10,14 @@ import { fmtDatePtBR } from "@/lib/domain/dates";
 import {
   toggleEntregaConfirmada,
   updateInformacoesAdicionais,
+  updateFunilComercial,
   updatePrazoServico,
   updatePrioridade,
   updateProximaAcao,
   updateResponsavel,
   deleteServico,
   cancelarServico,
+  perderOrcamento,
 } from "@/lib/actions/servicos";
 import { aprovarOrcamento, moveCardParaColuna } from "@/lib/actions/kanban";
 import { exportarWhatsapp } from "@/lib/domain/whatsapp";
@@ -58,6 +60,13 @@ export default function ResumoTab({
   const [moveError, setMoveError] = useState<string | null>(null);
   const [aprovando, setAprovando] = useState(false);
   const [miscError, setMiscError] = useState<string | null>(null);
+
+  const [origemLead, setOrigemLead] = useState(servico.origem_lead ?? "");
+  const [dataFollowUp, setDataFollowUp] = useState(servico.data_follow_up ?? "");
+  const [funilDirty, setFunilDirty] = useState(false);
+  const [funilSaving, setFunilSaving] = useState(false);
+  const [funilError, setFunilError] = useState<string | null>(null);
+  const [perdendo, setPerdendo] = useState(false);
 
   function runAction(fn: () => Promise<{ ok: boolean; message?: string }>, fallback: string) {
     setMiscError(null);
@@ -161,6 +170,36 @@ export default function ResumoTab({
     }
   }
 
+  async function saveFunilComercial() {
+    setFunilSaving(true);
+    setFunilError(null);
+    const resultado = await updateFunilComercial(servico.id, {
+      origem_lead: origemLead || null,
+      data_follow_up: dataFollowUp || null,
+    });
+    if (!resultado.ok) {
+      setFunilError(resultado.message);
+    } else {
+      setFunilDirty(false);
+      onChanged();
+    }
+    setFunilSaving(false);
+  }
+
+  async function handlePerderOportunidade() {
+    const motivo = prompt("Motivo da perda (obrigatório):");
+    if (!motivo || !motivo.trim()) return;
+    setPerdendo(true);
+    setMiscError(null);
+    const resultado = await perderOrcamento(servico.id, motivo.trim());
+    if (!resultado.ok) {
+      setMiscError(resultado.message);
+    } else {
+      onChanged();
+    }
+    setPerdendo(false);
+  }
+
   return (
     <div className="flex flex-col gap-5">
       {alerts.length > 0 && (
@@ -246,6 +285,57 @@ export default function ResumoTab({
           {acaoError && <p className="text-[12px] text-danger">Não foi possível salvar: {acaoError}</p>}
         </div>
       </div>
+
+      {!servico.numero && !servico.perdido_em && (
+        <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
+          <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">Funil Comercial</p>
+          <div className="flex gap-2">
+            <input
+              value={origemLead}
+              onChange={(e) => {
+                setOrigemLead(e.target.value);
+                setFunilDirty(true);
+              }}
+              placeholder="Origem do lead (ex: Instagram, indicação)"
+              className="flex-1 rounded-btn border border-border-neutral bg-card px-3 py-1.5 text-sm"
+            />
+            <input
+              type="date"
+              value={dataFollowUp}
+              onChange={(e) => {
+                setDataFollowUp(e.target.value);
+                setFunilDirty(true);
+              }}
+              className="rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+            />
+          </div>
+          <div className="mt-2 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={saveFunilComercial}
+              disabled={!funilDirty || funilSaving}
+              className="w-fit rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg disabled:opacity-40"
+            >
+              {funilSaving ? "Salvando..." : "Salvar"}
+            </button>
+            {funilError && <p className="text-[12px] text-danger">Não foi possível salvar: {funilError}</p>}
+          </div>
+          {servico.proposta_enviada_em && (
+            <p className="mt-2 text-[11.5px] text-text-muted">
+              Proposta enviada em {new Date(servico.proposta_enviada_em).toLocaleDateString("pt-BR")}
+            </p>
+          )}
+        </div>
+      )}
+
+      {servico.perdido_em && (
+        <div className="rounded-card border border-danger-border bg-card-secondary p-3 text-[12.5px]">
+          <p className="font-semibold text-danger">
+            Oportunidade perdida em {new Date(servico.perdido_em).toLocaleDateString("pt-BR")}
+          </p>
+          {servico.motivo_perda && <p className="mt-1 text-text-secondary">Motivo: {servico.motivo_perda}</p>}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
@@ -387,14 +477,26 @@ export default function ResumoTab({
       {moveError && <p className="text-[12.5px] text-danger">{moveError}</p>}
 
       {!servico.numero ? (
-        <button
-          type="button"
-          disabled={aprovando}
-          onClick={handleAprovar}
-          className="rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark py-2.5 text-sm font-semibold text-bg disabled:opacity-40"
-        >
-          {aprovando ? "Aprovando..." : "Aprovar Orçamento → Gerar OS"}
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            disabled={aprovando}
+            onClick={handleAprovar}
+            className="flex-1 rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark py-2.5 text-sm font-semibold text-bg disabled:opacity-40"
+          >
+            {aprovando ? "Aprovando..." : "Aprovar Orçamento → Gerar OS"}
+          </button>
+          {!servico.perdido_em && (
+            <button
+              type="button"
+              disabled={perdendo}
+              onClick={handlePerderOportunidade}
+              className="rounded-btn border border-danger-border px-3 py-2.5 text-[12.5px] text-danger disabled:opacity-40"
+            >
+              Perder Oportunidade
+            </button>
+          )}
+        </div>
       ) : !servico.concluido ? (
         <div className="flex gap-2">
           <select
