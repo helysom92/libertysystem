@@ -442,9 +442,14 @@ export async function createCompraCartao(input: CompraCartaoInput): Promise<Acao
   if (errCartao || !cartao) return { ok: false, message: errCartao?.message ?? "Cartão não encontrado." };
 
   const parcelas = gerarParcelasCompra(input.dataCompra, cartao.dia_fechamento, input.valorTotal, input.parcelasTotal);
+  // Precisa gerar o grupo aqui e passar explícito em toda linha — sem isso, o default da coluna
+  // (gen_random_uuid()) roda uma vez POR LINHA, e as parcelas da mesma compra nunca ficam
+  // amarradas entre si (cancelar uma não cancela as outras, que é o objetivo do campo).
+  const compraGrupoId = crypto.randomUUID();
   const rows = parcelas.map((p) => ({
     owner_id: profile.id,
     cartao_id: input.cartaoId,
+    compra_grupo_id: compraGrupoId,
     descricao: input.descricao,
     categoria: input.categoria,
     valor_parcela: p.valor,
