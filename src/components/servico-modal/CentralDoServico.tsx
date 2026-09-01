@@ -21,6 +21,7 @@ import StatusTab from "./StatusTab";
 import AgendaTab from "./AgendaTab";
 import PrazoTab from "./PrazoTab";
 import ExecucaoTab from "./ExecucaoTab";
+import PendenciasTab from "./PendenciasTab";
 
 // Comercial (Kanban de Orçamentos, lista de Propostas) — as mesmas abas de sempre, sem
 // mudança: é onde se monta o orçamento e a proposta interativa mora.
@@ -33,6 +34,7 @@ const TABS_COMERCIAL = [
   { id: "arquivos", label: "Arquivos" },
   { id: "fotos", label: "Fotos" },
   { id: "checklist", label: "Checklist" },
+  { id: "pendencias", label: "Pendências" },
   { id: "timeline", label: "Timeline" },
   { id: "historico", label: "Histórico" },
 ];
@@ -42,6 +44,7 @@ const TABS_COMERCIAL = [
 // Financeiro agora).
 const TABS_PRODUCAO = [
   { id: "status", label: "Status" },
+  { id: "pendencias", label: "Pendências" },
   { id: "agenda", label: "Agenda" },
   { id: "checklist", label: "Checklist" },
   { id: "prazo", label: "Prazo" },
@@ -187,6 +190,7 @@ export default function CentralDoServico({
               {tab === "arquivos" && <ArquivosTab detail={detail} onChanged={reload} />}
               {tab === "fotos" && <FotosTab detail={detail} onChanged={reload} />}
               {tab === "checklist" && <ChecklistTab detail={detail} onChanged={reload} />}
+              {tab === "pendencias" && <PendenciasTab detail={detail} />}
               {tab === "timeline" && <TimelineTab detail={detail} />}
               {tab === "historico" && <HistoricoTab detail={detail} />}
             </div>

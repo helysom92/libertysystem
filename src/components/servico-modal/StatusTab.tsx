@@ -3,15 +3,20 @@
 import { useState, useTransition } from "react";
 import type { ServicoDetail } from "@/lib/domain/types";
 import { computeIaAlerts } from "@/lib/domain/alerts";
-import { PRIORIDADES } from "@/lib/domain/flows";
+import { PRIORIDADES, ROLE_LABELS } from "@/lib/domain/flows";
 import type { Coluna } from "@/lib/domain/kanban";
 import {
   toggleEntregaConfirmada,
   updatePrioridade,
+  updateProximaAcao,
   updateResponsavel,
   deleteServico,
   cancelarServico,
 } from "@/lib/actions/servicos";
+
+// Mesma lista de papéis que "Meu Trabalho" (painel Hoje) filtra por proxima_responsavel —
+// espelha o mesmo select já usado na aba Resumo (comercial), aqui pro contexto Produção.
+const PROXIMA_ACAO_RESPONSAVEIS = ["", ...Object.values(ROLE_LABELS)];
 import { moveCardParaColuna } from "@/lib/actions/kanban";
 import { whatsappAppUrl } from "@/lib/domain/whatsapp";
 import ResponsavelSelect from "@/components/ui/ResponsavelSelect";
@@ -32,6 +37,30 @@ export default function StatusTab({
   const [moverPara, setMoverPara] = useState(colunasOS[0]?.id ?? "");
   const [moveError, setMoveError] = useState<string | null>(null);
   const [miscError, setMiscError] = useState<string | null>(null);
+
+  const [acaoTexto, setAcaoTexto] = useState(servico.proxima_acao_texto ?? "");
+  const [acaoResp, setAcaoResp] = useState(servico.proxima_responsavel ?? "");
+  const [acaoPrazo, setAcaoPrazo] = useState(servico.proxima_prazo ?? "");
+  const [acaoDirty, setAcaoDirty] = useState(false);
+  const [acaoSaving, setAcaoSaving] = useState(false);
+  const [acaoError, setAcaoError] = useState<string | null>(null);
+
+  async function saveProximaAcao() {
+    setAcaoSaving(true);
+    setAcaoError(null);
+    const resultado = await updateProximaAcao(servico.id, {
+      proxima_acao_texto: acaoTexto,
+      proxima_responsavel: acaoResp,
+      proxima_prazo: acaoPrazo,
+    });
+    if (!resultado.ok) {
+      setAcaoError(resultado.message);
+    } else {
+      setAcaoDirty(false);
+      onChanged();
+    }
+    setAcaoSaving(false);
+  }
 
   function runAction(fn: () => Promise<{ ok: boolean; message?: string }>, fallback: string) {
     setMiscError(null);
@@ -155,6 +184,55 @@ export default function StatusTab({
             }
             className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
           />
+        </div>
+      </div>
+
+      <div className="rounded-card border border-border-neutral bg-card-secondary p-3">
+        <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">Próxima Ação</p>
+        <input
+          value={acaoTexto}
+          onChange={(e) => {
+            setAcaoTexto(e.target.value);
+            setAcaoDirty(true);
+          }}
+          placeholder="Texto da ação"
+          className="mb-2 w-full rounded-btn border border-border-neutral bg-card px-3 py-1.5 text-sm"
+        />
+        <div className="flex gap-2">
+          <select
+            value={acaoResp}
+            onChange={(e) => {
+              setAcaoResp(e.target.value);
+              setAcaoDirty(true);
+            }}
+            className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+          >
+            {PROXIMA_ACAO_RESPONSAVEIS.map((r) => (
+              <option key={r} value={r}>
+                {r || "Sem responsável"}
+              </option>
+            ))}
+          </select>
+          <input
+            value={acaoPrazo}
+            onChange={(e) => {
+              setAcaoPrazo(e.target.value);
+              setAcaoDirty(true);
+            }}
+            placeholder="Prazo (ex: Hoje 16:00)"
+            className="flex-1 rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+          />
+        </div>
+        <div className="mt-2 flex items-center gap-3">
+          <button
+            type="button"
+            onClick={saveProximaAcao}
+            disabled={!acaoDirty || acaoSaving}
+            className="w-fit rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg disabled:opacity-40"
+          >
+            {acaoSaving ? "Salvando..." : "Salvar"}
+          </button>
+          {acaoError && <p className="text-[12px] text-danger">Não foi possível salvar: {acaoError}</p>}
         </div>
       </div>
 
