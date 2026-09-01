@@ -16,8 +16,14 @@ import {
 } from "@/lib/domain/comercial";
 import type { PeriodoFiltro } from "@/lib/domain/financas";
 import { fmtBRL, type ItemOrcamento, type Servico } from "@/lib/domain/types";
-import { fmtDatePtBR } from "@/lib/domain/dates";
 import type { Coluna } from "@/lib/domain/kanban";
+
+/** `RegistroComercial.data` é sempre um timestamp ISO completo (criado_em/aprovado_em/
+ * proposta_enviada_em/perdido_em), nunca uma data pura — `fmtDatePtBR` (que espera
+ * "YYYY-MM-DD") não serve aqui. */
+function fmtTimestampPtBR(iso: string): string {
+  return new Date(iso).toLocaleDateString("pt-BR");
+}
 import CentralDoServico from "@/components/servico-modal/CentralDoServico";
 
 interface Cartao {
@@ -117,7 +123,7 @@ export default function IndicadoresComercialClient({
               >
                 <span>{r.descricao}</span>
                 <span className="text-text-muted">
-                  {fmtBRL(r.valor)} · {fmtDatePtBR(r.data)}
+                  {fmtBRL(r.valor)} · {fmtTimestampPtBR(r.data)}
                 </span>
               </button>
             ))}
