@@ -7,6 +7,7 @@ import type { ContaPessoal } from "@/lib/domain/types";
 import { fmtBRL } from "@/lib/domain/types";
 import { fmtDatePtBR } from "@/lib/domain/dates";
 import type { LinhaExtratoPessoal } from "@/lib/domain/extratoPessoal";
+import { parseCsvExtrato } from "@/lib/domain/csvExtrato";
 import { analisarExtratoPessoal, importarReceitaRealizada, importarDespesaRealizada } from "@/lib/actions/financasPessoaisImportacao";
 
 interface LinhaPendente extends LinhaExtratoPessoal {
@@ -23,12 +24,50 @@ export default function ImportacoesClient({ contas }: { contas: ContaPessoal[] }
   const [lendo, startLendo] = useTransition();
   const [processando, setProcessando] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [avisos, setAvisos] = useState<string[]>([]);
+
+  function popularPendentes(linhasLidas: LinhaExtratoPessoal[]) {
+    const linhas = linhasLidas.map((l, i) => ({
+      ...l,
+      chaveLocal: `${i}-${l.data}-${l.valor}-${l.descricao}`,
+      contaId: contas[0]?.id ?? "",
+      categoria: "",
+    }));
+    setPendentes(linhas);
+    setTotalOriginal(linhas.length);
+  }
 
   function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setError(null);
+    setAvisos([]);
     setPendentes([]);
+    setTotalOriginal(0);
+
+    const ehCsv = file.name.toLowerCase().endsWith(".csv") || file.type === "text/csv";
+
+    if (ehCsv) {
+      // Leitura 100% local — sem IA, sem upload, sem depender de nenhuma chave de API.
+      startLendo(async () => {
+        try {
+          const texto = await file.text();
+          const { linhas, erros } = parseCsvExtrato(texto);
+          if (linhas.length === 0 && erros.length > 0) {
+            setError(erros[0]);
+            return;
+          }
+          setAvisos(erros);
+          popularPendentes(linhas);
+        } catch (err) {
+          setError(err instanceof Error ? err.message : "Não foi possível ler esse CSV.");
+        } finally {
+          if (inputRef.current) inputRef.current.value = "";
+        }
+      });
+      return;
+    }
+
     startLendo(async () => {
       try {
         const supabase = createClient();
@@ -40,14 +79,7 @@ export default function ImportacoesClient({ contas }: { contas: ContaPessoal[] }
           setError(resultado.message);
           return;
         }
-        const linhas = resultado.data.map((l, i) => ({
-          ...l,
-          chaveLocal: `${i}-${l.data}-${l.valor}`,
-          contaId: contas[0]?.id ?? "",
-          categoria: "",
-        }));
-        setPendentes(linhas);
-        setTotalOriginal(linhas.length);
+        popularPendentes(resultado.data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Não foi possível ler esse extrato.");
       } finally {
@@ -95,14 +127,21 @@ export default function ImportacoesClient({ contas }: { contas: ContaPessoal[] }
       <div className="mb-6">
         <h1 className="font-display text-xl font-bold">Importações</h1>
         <p className="text-[13px] text-text-secondary">
-          Suba o PDF de um extrato — a IA lê as linhas, mas nada é salvo sozinho: você confirma uma por uma.
+          Suba um extrato em CSV (leitura local, sem IA) ou PDF (lido por IA) — nada é salvo sozinho: você confirma cada linha.
         </p>
       </div>
 
       <div className="mb-5 rounded-card border border-border-neutral bg-card p-4">
         <label className="flex w-fit cursor-pointer items-center gap-2 rounded-btn border border-border-gold-strong px-4 py-2 text-sm text-gold">
-          {lendo ? "Lendo extrato..." : "+ Subir Extrato (PDF)"}
-          <input ref={inputRef} type="file" accept="application/pdf" className="hidden" onChange={handleFile} disabled={lendo || contas.length === 0} />
+          {lendo ? "Lendo extrato..." : "+ Subir Extrato (CSV ou PDF)"}
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".csv,text/csv,application/pdf"
+            className="hidden"
+            onChange={handleFile}
+            disabled={lendo || contas.length === 0}
+          />
         </label>
         {contas.length === 0 && (
           <p className="mt-2 text-[12px] text-danger">Cadastre pelo menos uma conta antes de importar um extrato.</p>
@@ -111,6 +150,15 @@ export default function ImportacoesClient({ contas }: { contas: ContaPessoal[] }
 
       {error && (
         <p className="mb-4 rounded-btn border border-danger-border bg-card px-3 py-2 text-[12.5px] text-danger">{error}</p>
+      )}
+
+      {avisos.length > 0 && (
+        <div className="mb-4 rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-[12px] text-text-secondary">
+          <p className="mb-1 font-semibold text-text-muted">{avisos.length} linha(s) não puderam ser lidas e foram puladas:</p>
+          {avisos.map((a, i) => (
+            <p key={i}>{a}</p>
+          ))}
+        </div>
       )}
 
       {totalOriginal > 0 && (
