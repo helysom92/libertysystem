@@ -1,11 +1,20 @@
-export default function ImportacoesPessoaisPage() {
-  return (
-    <div className="rounded-card border border-border-neutral bg-card p-6">
-      <h1 className="mb-2 text-lg font-semibold text-text">Importações</h1>
-      <p className="text-[13px] text-text-secondary">
-        Importação assistida de extratos e planilhas (CSV, XLSX, PDF com texto extraível) entra
-        no Bloco E, depois dos lançamentos manuais e regras de integridade estarem prontos.
-      </p>
-    </div>
-  );
+import { createClient } from "@/lib/supabase/server";
+import { requireHelysom } from "@/lib/domain/permissions";
+import type { ContaPessoal } from "@/lib/domain/types";
+import ImportacoesClient from "@/components/financas-pessoais/ImportacoesClient";
+import ErroConsulta from "@/components/financeiro/ErroConsulta";
+
+export default async function ImportacoesPessoaisPage() {
+  const profile = await requireHelysom();
+  const supabase = await createClient();
+
+  const { data: contasRaw, error } = await supabase
+    .from("contas_pessoais")
+    .select("*")
+    .eq("owner_id", profile.id)
+    .eq("ativa", true)
+    .order("nome");
+  if (error) return <ErroConsulta mensagem={error.message} />;
+
+  return <ImportacoesClient contas={(contasRaw as ContaPessoal[]) ?? []} />;
 }
