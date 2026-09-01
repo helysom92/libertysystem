@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { fetchServicoDetail } from "@/lib/supabase/fetchServicoDetail";
 import type { ItemOrcamento, ServicoDetail } from "@/lib/domain/types";
 import { TIPO_LABELS, type ServicoTipo } from "@/lib/domain/flows";
-import { updateServicoOrcamento, deleteServico, duplicarOrcamento } from "@/lib/actions/servicos";
+import { updateServicoOrcamento, deleteServico, duplicarOrcamento, updateFunilComercial, perderOrcamento } from "@/lib/actions/servicos";
 import { aprovarOrcamento } from "@/lib/actions/kanban";
 import ClienteTab from "./ClienteTab";
 import OrcamentoItensTab from "./OrcamentoItensTab";
@@ -45,6 +45,14 @@ export default function OrcamentoModal({
   const [duplicando, setDuplicando] = useState(false);
   const [duplicarError, setDuplicarError] = useState<string | null>(null);
 
+  const [origemLead, setOrigemLead] = useState("");
+  const [dataFollowUp, setDataFollowUp] = useState("");
+  const [funilDirty, setFunilDirty] = useState(false);
+  const [funilSaving, setFunilSaving] = useState(false);
+  const [funilError, setFunilError] = useState<string | null>(null);
+  const [perdendo, setPerdendo] = useState(false);
+  const [perderError, setPerderError] = useState<string | null>(null);
+
   const [itensDirty, setItensDirty] = useState(false);
   const hasUnsaved = basicoDirty || itensDirty;
 
@@ -69,6 +77,8 @@ export default function OrcamentoModal({
         setTipo(d.servico.tipo);
         setDescricao(d.servico.descricao ?? "");
         setPrazo(d.servico.prazo ?? "");
+        setOrigemLead(d.servico.origem_lead ?? "");
+        setDataFollowUp(d.servico.data_follow_up ?? "");
       }
       setLoading(false);
     });
@@ -115,6 +125,37 @@ export default function OrcamentoModal({
       router.refresh();
     }
     setDuplicando(false);
+  }
+
+  async function salvarFunilComercial() {
+    setFunilSaving(true);
+    setFunilError(null);
+    const resultado = await updateFunilComercial(servicoId, {
+      origem_lead: origemLead || null,
+      data_follow_up: dataFollowUp || null,
+    });
+    if (!resultado.ok) {
+      setFunilError(resultado.message);
+    } else {
+      setFunilDirty(false);
+      await reload();
+    }
+    setFunilSaving(false);
+  }
+
+  async function handlePerderOportunidade() {
+    const motivo = prompt("Motivo da perda (obrigatório):");
+    if (!motivo || !motivo.trim()) return;
+    setPerdendo(true);
+    setPerderError(null);
+    const resultado = await perderOrcamento(servicoId, motivo.trim());
+    if (!resultado.ok) {
+      setPerderError(resultado.message);
+    } else {
+      onClose();
+      router.refresh();
+    }
+    setPerdendo(false);
   }
 
   async function handleDelete() {
@@ -214,6 +255,57 @@ export default function OrcamentoModal({
               </div>
             </div>
 
+            {detail.servico.perdido_em ? (
+              <div className="mb-5 rounded-card border border-danger-border bg-card-secondary p-3 text-[12.5px]">
+                <p className="font-semibold text-danger">
+                  Oportunidade perdida em {new Date(detail.servico.perdido_em).toLocaleDateString("pt-BR")}
+                </p>
+                {detail.servico.motivo_perda && (
+                  <p className="mt-1 text-text-secondary">Motivo: {detail.servico.motivo_perda}</p>
+                )}
+              </div>
+            ) : (
+              <div className="mb-5 flex flex-col gap-3 rounded-card border border-border-neutral bg-card-secondary p-3">
+                <p className="text-[10.5px] tracking-wide text-text-muted uppercase">Funil Comercial</p>
+                <div className="flex gap-2">
+                  <input
+                    value={origemLead}
+                    onChange={(e) => {
+                      setOrigemLead(e.target.value);
+                      setFunilDirty(true);
+                    }}
+                    placeholder="Origem do lead (ex: Instagram, indicação)"
+                    className="flex-1 rounded-btn border border-border-neutral bg-card px-3 py-1.5 text-sm"
+                  />
+                  <input
+                    type="date"
+                    value={dataFollowUp}
+                    onChange={(e) => {
+                      setDataFollowUp(e.target.value);
+                      setFunilDirty(true);
+                    }}
+                    className="rounded-btn border border-border-neutral bg-card px-2 py-1.5 text-sm"
+                  />
+                </div>
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={salvarFunilComercial}
+                    disabled={!funilDirty || funilSaving}
+                    className="w-fit rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark px-3 py-1.5 text-[12.5px] font-semibold text-bg disabled:opacity-40"
+                  >
+                    {funilSaving ? "Salvando..." : "Salvar"}
+                  </button>
+                  {funilError && <p className="text-[12px] text-danger">{funilError}</p>}
+                </div>
+                {detail.servico.proposta_enviada_em && (
+                  <p className="text-[11.5px] text-text-muted">
+                    Proposta enviada em {new Date(detail.servico.proposta_enviada_em).toLocaleDateString("pt-BR")}
+                  </p>
+                )}
+              </div>
+            )}
+
             <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">Cliente</p>
             <div className="mb-5">
               <ClienteTab detail={detail} onChanged={reload} />
@@ -248,8 +340,9 @@ export default function OrcamentoModal({
 
             {aprovarError && <p className="mb-2 text-[12.5px] text-danger">{aprovarError}</p>}
             {duplicarError && <p className="mb-2 text-[12.5px] text-danger">{duplicarError}</p>}
+            {perderError && <p className="mb-2 text-[12.5px] text-danger">{perderError}</p>}
 
-            <div className="flex items-center gap-2 border-t border-border-neutral pt-4">
+            <div className="flex flex-wrap items-center gap-2 border-t border-border-neutral pt-4">
               <button
                 type="button"
                 disabled={aprovando}
@@ -267,6 +360,16 @@ export default function OrcamentoModal({
               >
                 {duplicando ? "Duplicando..." : "⧉ Duplicar"}
               </button>
+              {!detail.servico.perdido_em && (
+                <button
+                  type="button"
+                  disabled={perdendo}
+                  onClick={handlePerderOportunidade}
+                  className="rounded-btn border border-danger-border px-3 py-2.5 text-[12.5px] text-danger disabled:opacity-40"
+                >
+                  Perder Oportunidade
+                </button>
+              )}
               <button
                 type="button"
                 onClick={handleDelete}
