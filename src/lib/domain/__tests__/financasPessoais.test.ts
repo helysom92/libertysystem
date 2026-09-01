@@ -15,6 +15,8 @@ import {
   totalAportadoInvestimento,
   totalInvestidoGeral,
   rendimentoTotalInvestimento,
+  totalFaturasEmAberto,
+  patrimonioLiquido,
 } from "../financasPessoais";
 import type {
   CartaoPessoal,
@@ -398,5 +400,35 @@ describe("saldoConta com movimentos de investimento", () => {
   it("sem 5º argumento continua funcionando como antes (compatibilidade)", () => {
     const c = conta({ saldo_inicial: 1000, data_saldo_inicial: "2026-08-01" });
     expect(saldoConta(c, [], [], [])).toBe(1000);
+  });
+});
+
+describe("totalFaturasEmAberto / patrimonioLiquido (Bloco F)", () => {
+  const cartaoAtivo = cartao({ id: "cartaoA", ativo: true });
+  const cartaoInativo = cartao({ id: "cartaoB", ativo: false });
+
+  it("soma compras não canceladas de faturas não pagas em todos os cartões ativos, ignora inativos", () => {
+    const compras = [
+      compra({ id: "c1", cartao_id: "cartaoA", valor_parcela: 100, fatura_ano: 2026, fatura_mes: 9 }),
+      compra({ id: "c2", cartao_id: "cartaoA", valor_parcela: 50, fatura_ano: 2026, fatura_mes: 10 }),
+      compra({ id: "c3", cartao_id: "cartaoB", valor_parcela: 999, fatura_ano: 2026, fatura_mes: 9 }),
+    ];
+    expect(totalFaturasEmAberto([cartaoAtivo, cartaoInativo], compras, [])).toBe(150);
+  });
+
+  it("uma fatura já paga (despesa vinculada com situação paga) sai do total em aberto", () => {
+    const compras = [compra({ id: "c1", cartao_id: "cartaoA", valor_parcela: 100, fatura_ano: 2026, fatura_mes: 9 })];
+    const despesas = [
+      despesa({ cartao_id: "cartaoA", fatura_ano: 2026, fatura_mes: 9, situacao: "paga" }),
+    ];
+    expect(totalFaturasEmAberto([cartaoAtivo], compras, despesas)).toBe(0);
+  });
+
+  it("patrimônio líquido soma o que é seu e subtrai o que você deve", () => {
+    expect(patrimonioLiquido(1000, 500, 300, 100)).toBe(1100);
+  });
+
+  it("patrimônio líquido pode ficar negativo se as dívidas superarem os ativos", () => {
+    expect(patrimonioLiquido(100, 0, 500, 0)).toBe(-400);
   });
 });

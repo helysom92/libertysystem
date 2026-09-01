@@ -401,3 +401,40 @@ export function rendimentoTotalInvestimento(
     .filter((m) => m.investimento_id === investimento.id && m.tipo === "rendimento" && !m.estornado_em)
     .reduce((s, m) => s + m.valor, 0);
 }
+
+// ── Bloco F: painel consolidado ─────────────────────────────────────────────────────────────
+// Reaproveita só as funções que já existem de cada bloco — nunca recalcula nada novo aqui, só
+// soma o que cada bloco já sabe calcular sozinho.
+
+/** Soma, em todos os cartões ativos, o total de compras não canceladas cuja fatura ainda não
+ * foi paga — é o mesmo conceito de `limiteUsado`, só agregado pra todos os cartões de uma vez
+ * (aqui não interessa "limite", só "quanto ainda vou ter que pagar de fatura"). */
+export function totalFaturasEmAberto(
+  cartoes: CartaoPessoal[],
+  compras: CompraCartaoPessoal[],
+  despesasFatura: DespesaPessoal[]
+): number {
+  const faturasPagasPorCartao = new Map<string, Set<string>>();
+  for (const d of despesasFatura) {
+    if (d.situacao !== "paga" || !d.cartao_id || d.fatura_ano == null || d.fatura_mes == null) continue;
+    const key = `${d.fatura_ano}-${String(d.fatura_mes).padStart(2, "0")}`;
+    const set = faturasPagasPorCartao.get(d.cartao_id) ?? new Set<string>();
+    set.add(key);
+    faturasPagasPorCartao.set(d.cartao_id, set);
+  }
+  return cartoes
+    .filter((c) => c.ativo)
+    .reduce((soma, c) => soma + limiteUsado(c.id, compras, faturasPagasPorCartao.get(c.id) ?? new Set()), 0);
+}
+
+/** Patrimônio líquido = tudo que é seu (saldo nas contas + investido) menos tudo que você deve
+ * (dívidas ativas + faturas de cartão ainda não pagas) — nunca inclui limite de cartão como se
+ * fosse dinheiro (isso nunca é ativo). */
+export function patrimonioLiquido(
+  saldoContas: number,
+  totalInvestido: number,
+  saldoDevedorDividas: number,
+  faturasEmAberto: number
+): number {
+  return saldoContas + totalInvestido - saldoDevedorDividas - faturasEmAberto;
+}
