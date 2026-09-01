@@ -7,7 +7,13 @@ import type { RecorrenciaPessoal, TipoMovimentoInvestimento } from "@/lib/domain
 import { gerarParcelasCompra, vencimentoDaFatura } from "@/lib/domain/financasPessoais";
 import type { AcaoResultado, AcaoComSaldo } from "./resultado";
 
-export type { AcaoResultado, AcaoComSaldo };
+// NUNCA re-exportar tipos deste arquivo ("use server") com `export type { X }` — o scanner de
+// exports do Next.js 16/Turbopack não reconhece esse padrão como type-only aqui: ele tenta
+// registrar X como server action de verdade (`registerServerReference(X, ...)`), e como X só
+// existe como tipo (apagado em runtime), TODA action deste módulo quebra com
+// "ReferenceError: X is not defined" na avaliação do módulo — confirmado via log de produção
+// (Vercel) depois que este arquivo cresceu o bastante pra disparar o bug. Quem precisar do tipo
+// importa direto de "./resultado".
 
 function revalidateFinancasPessoaisPaths() {
   revalidatePath("/financas-pessoais");
