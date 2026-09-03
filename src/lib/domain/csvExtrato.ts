@@ -1,4 +1,5 @@
 import type { LinhaExtratoPessoal } from "./extratoPessoal";
+import { normalizarBusca } from "./texto";
 
 /**
  * Leitor de CSV de extrato — alternativa ao PDF-por-IA (Bloco E) que não depende de nenhuma
@@ -22,14 +23,6 @@ const ALIASES_DESCRICAO = ["descricao", "descrição", "historico", "histórico"
 const ALIASES_VALOR = ["valor", "amount", "valor (r$)", "valor(r$)"];
 const ALIASES_DEBITO = ["debito", "débito", "saída", "saida"];
 const ALIASES_CREDITO = ["credito", "crédito", "entrada"];
-
-function normalizarCabecalho(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
-}
 
 /** Tokeniza uma linha CSV respeitando aspas (campo com o delimitador dentro fica intacto) —
  * suporte mínimo ao RFC 4180 (aspas duplicadas "" viram uma aspas literal). */
@@ -116,7 +109,7 @@ export function parseCsvExtrato(conteudo: string): ResultadoParseCsv {
   if (linhasBrutas.length === 0) return { linhas: [], erros: ["Arquivo vazio."] };
 
   const delimitador = detectarDelimitador(linhasBrutas[0]);
-  const cabecalho = parseLinhaCsv(linhasBrutas[0], delimitador).map(normalizarCabecalho);
+  const cabecalho = parseLinhaCsv(linhasBrutas[0], delimitador).map(normalizarBusca);
 
   const idxData = cabecalho.findIndex((h) => ALIASES_DATA.includes(h));
   const idxDescricao = cabecalho.findIndex((h) => ALIASES_DESCRICAO.includes(h));

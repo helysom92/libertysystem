@@ -1,6 +1,7 @@
 import type { PeriodoFiltro, IndicadorFinanceiro, RegistroIndicador } from "./financas";
 import { periodoDoMes } from "./financas";
 import type { CalendarEvent } from "./dashboardMetrics";
+import { normalizarBusca } from "./texto";
 import { addDays } from "./dates";
 import type {
   ContaPessoal,
@@ -482,11 +483,7 @@ export function patrimonioLiquido(
 
 // ── Etapa 7.1 — proteção contra importação duplicada ──
 export function normalizarDescricaoPessoal(s: string): string {
-  return s
-    .trim()
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "");
+  return normalizarBusca(s);
 }
 
 /**
