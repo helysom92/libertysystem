@@ -312,6 +312,7 @@ export default function VisaoGeralPessoalClient({
           onSelectDay={setSelectedDate}
           selectedDateLabel={selectedDateLabel}
           selectedDayEvents={selectedDayEvents}
+          painelTitulo="Compromissos do dia"
         />
       </div>
 

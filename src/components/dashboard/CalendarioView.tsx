@@ -14,6 +14,7 @@ export default function CalendarioView({
   selectedDateLabel,
   selectedDayEvents,
   agendaHref,
+  painelTitulo = "Agenda",
 }: {
   monthLabel: string;
   cells: CalendarCell[];
@@ -25,6 +26,8 @@ export default function CalendarioView({
   selectedDayEvents: CalendarEvent[];
   /** Quando ausente (ex: calendário financeiro pessoal, que não tem Agenda própria), o link some. */
   agendaHref?: string;
+  /** Título do painel lateral — "Agenda" por padrão (Gestão); calendário pessoal usa outro. */
+  painelTitulo?: string;
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr]">
@@ -101,7 +104,7 @@ export default function CalendarioView({
       </div>
 
       <div className="rounded-card border border-border-neutral bg-card-secondary p-5">
-        <p className="mb-0.5 font-display text-[15px] font-bold text-text">Agenda</p>
+        <p className="mb-0.5 font-display text-[15px] font-bold text-text">{painelTitulo}</p>
         <div className="mb-4 flex items-center justify-between">
           <p className="text-[13px] text-text-secondary">{selectedDateLabel}</p>
           {agendaHref && (
