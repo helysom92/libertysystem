@@ -5,7 +5,8 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireHelysom } from "@/lib/domain/permissions";
 import type { LinhaExtratoPessoal } from "@/lib/domain/extratoPessoal";
-import type { AcaoResultado, AcaoComDado } from "./resultado";
+import type { AcaoComDado } from "./resultado";
+import { ehDuplicataMovimentoPessoal } from "@/lib/domain/financasPessoais";
 
 // NUNCA `export type { X }` num arquivo "use server" — o scanner de exports do Next.js 16/
 // Turbopack não reconhece isso como type-only aqui e quebra TODA action do arquivo em produção
@@ -79,14 +80,72 @@ export interface ImportarMovimentoInput {
   valor: number;
   data: string;
   contaId: string;
+  /** Etapa 7.1 — usuário já confirmou que quer registrar mesmo parecendo duplicata. */
+  confirmarDuplicata?: boolean;
+}
+
+/** Resultado de false pode vir com `duplicataPossivel: true` — nesse caso não é um erro de
+ * verdade, é um pedido de confirmação (Etapa 7.1: nunca bloquear um movimento genuinamente
+ * repetido, só avisar e deixar o usuário decidir). */
+export type ResultadoImportacao = { ok: true } | { ok: false; message: string; duplicataPossivel?: boolean };
+
+/**
+ * Etapa 7.1 — proteção contra importação duplicada: mesma conta + mesma data + valor
+ * (±1 centavo) + descrição igual normalizada já lançada = provável duplicata do extrato
+ * (critério puro em `ehDuplicataMovimentoPessoal`, financasPessoais.ts). Não é um hash guardado
+ * no banco (schema não muda) — é a mesma verificação, feita na hora, contra o que já existe
+ * pra essa conta/data. Escopo estreito (uma conta, um dia) pra ficar barato e não pegar
+ * lançamento antigo não relacionado.
+ */
+async function existeMovimentoPessoalDuplicado(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  tabela: "receitas_pessoais" | "despesas_pessoais",
+  colunaConta: "conta_destino_id" | "conta_id",
+  colunaData: "data_prevista" | "vencimento",
+  ownerId: string,
+  contaId: string,
+  data: string,
+  valor: number,
+  descricao: string
+): Promise<boolean> {
+  const { data: existentes } = await supabase
+    .from(tabela)
+    .select("valor_previsto, descricao")
+    .eq("owner_id", ownerId)
+    .eq(colunaConta, contaId)
+    .eq(colunaData, data);
+  return (existentes ?? []).some((e) =>
+    ehDuplicataMovimentoPessoal({ valor: e.valor_previsto, descricao: e.descricao }, { valor, descricao })
+  );
 }
 
 /** Cria a receita já como recebida (o dinheiro já entrou, é fato do extrato) — insere e
  * registra o recebimento total na sequência, reaproveitando a RPC atômica que já existe
  * (`registrar_recebimento_pessoal`, migration 0039). Nenhuma tabela/RPC nova pro Bloco E. */
-export async function importarReceitaRealizada(input: ImportarMovimentoInput): Promise<AcaoResultado> {
+export async function importarReceitaRealizada(input: ImportarMovimentoInput): Promise<ResultadoImportacao> {
   const profile = await requireHelysom();
   const supabase = await createClient();
+
+  if (!input.confirmarDuplicata) {
+    const duplicada = await existeMovimentoPessoalDuplicado(
+      supabase,
+      "receitas_pessoais",
+      "conta_destino_id",
+      "data_prevista",
+      profile.id,
+      input.contaId,
+      input.data,
+      input.valor,
+      input.descricao
+    );
+    if (duplicada) {
+      return {
+        ok: false,
+        message: "Já existe uma receita igual (mesma conta, data, valor e descrição) — pode ser duplicata do extrato.",
+        duplicataPossivel: true,
+      };
+    }
+  }
 
   const { data: receita, error: errInsert } = await supabase
     .from("receitas_pessoais")
@@ -118,9 +177,30 @@ export async function importarReceitaRealizada(input: ImportarMovimentoInput): P
 }
 
 /** Espelha `importarReceitaRealizada` pro lado da despesa. */
-export async function importarDespesaRealizada(input: ImportarMovimentoInput): Promise<AcaoResultado> {
+export async function importarDespesaRealizada(input: ImportarMovimentoInput): Promise<ResultadoImportacao> {
   const profile = await requireHelysom();
   const supabase = await createClient();
+
+  if (!input.confirmarDuplicata) {
+    const duplicada = await existeMovimentoPessoalDuplicado(
+      supabase,
+      "despesas_pessoais",
+      "conta_id",
+      "vencimento",
+      profile.id,
+      input.contaId,
+      input.data,
+      input.valor,
+      input.descricao
+    );
+    if (duplicada) {
+      return {
+        ok: false,
+        message: "Já existe uma despesa igual (mesma conta, data, valor e descrição) — pode ser duplicata do extrato.",
+        duplicataPossivel: true,
+      };
+    }
+  }
 
   const { data: despesa, error: errInsert } = await supabase
     .from("despesas_pessoais")

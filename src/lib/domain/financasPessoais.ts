@@ -438,3 +438,28 @@ export function patrimonioLiquido(
 ): number {
   return saldoContas + totalInvestido - saldoDevedorDividas - faturasEmAberto;
 }
+
+// ── Etapa 7.1 — proteção contra importação duplicada ──
+export function normalizarDescricaoPessoal(s: string): string {
+  return s
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "");
+}
+
+/**
+ * Mesma conta + mesma data (já garantido por quem chama, via filtro na consulta) + valor
+ * praticamente igual (±1 centavo, evita falso-negativo por arredondamento) + descrição igual
+ * normalizada = provável duplicata do mesmo extrato importado de novo. Só relata — quem chama
+ * decide bloquear ou pedir confirmação, nunca apaga/ignora sozinho.
+ */
+export function ehDuplicataMovimentoPessoal(
+  existente: { valor: number; descricao: string },
+  novo: { valor: number; descricao: string }
+): boolean {
+  return (
+    Math.abs(existente.valor - novo.valor) < 0.005 &&
+    normalizarDescricaoPessoal(existente.descricao) === normalizarDescricaoPessoal(novo.descricao)
+  );
+}

@@ -17,6 +17,8 @@ import {
   rendimentoTotalInvestimento,
   totalFaturasEmAberto,
   patrimonioLiquido,
+  ehDuplicataMovimentoPessoal,
+  normalizarDescricaoPessoal,
 } from "../financasPessoais";
 import type {
   CartaoPessoal,
@@ -430,5 +432,49 @@ describe("totalFaturasEmAberto / patrimonioLiquido (Bloco F)", () => {
 
   it("patrimônio líquido pode ficar negativo se as dívidas superarem os ativos", () => {
     expect(patrimonioLiquido(100, 0, 500, 0)).toBe(-400);
+  });
+});
+
+describe("Etapa 7.1 — proteção contra importação duplicada", () => {
+  it("mesmo valor e mesma descrição (mesma grafia) é duplicata", () => {
+    expect(
+      ehDuplicataMovimentoPessoal({ valor: 150.75, descricao: "Supermercado ABC" }, { valor: 150.75, descricao: "Supermercado ABC" })
+    ).toBe(true);
+  });
+
+  it("importar o mesmo extrato duas vezes gera a mesma linha duas vezes — detectado", () => {
+    // Simula a mesma linha do extrato lida duas vezes (dois uploads do mesmo arquivo).
+    const linhaDoExtrato = { valor: 89.9, descricao: "NETFLIX.COM" };
+    expect(ehDuplicataMovimentoPessoal(linhaDoExtrato, { ...linhaDoExtrato })).toBe(true);
+  });
+
+  it("descrição com acento/maiúscula/espaço a mais ainda é reconhecida como igual", () => {
+    expect(
+      ehDuplicataMovimentoPessoal({ valor: 50, descricao: "  Padaria São José  " }, { valor: 50, descricao: "padaria sao jose" })
+    ).toBe(true);
+  });
+
+  it("diferença de até 1 centavo (arredondamento) ainda conta como igual", () => {
+    expect(ehDuplicataMovimentoPessoal({ valor: 100.0, descricao: "Farmácia" }, { valor: 100.004, descricao: "Farmácia" })).toBe(
+      true
+    );
+  });
+
+  it("valor genuinamente diferente NÃO é duplicata — mesmo com descrição igual", () => {
+    expect(ehDuplicataMovimentoPessoal({ valor: 100, descricao: "Uber" }, { valor: 35, descricao: "Uber" })).toBe(false);
+  });
+
+  it("descrição genuinamente diferente NÃO é duplicata — mesmo com valor igual", () => {
+    expect(ehDuplicataMovimentoPessoal({ valor: 100, descricao: "Uber" }, { valor: 100, descricao: "iFood" })).toBe(false);
+  });
+
+  it("duas transações genuinamente idênticas no mesmo dia (ex: 2 corridas de Uber de R$20) são marcadas como possível duplicata — mas o fluxo de confirmação (Server Action) permite registrar mesmo assim, nunca bloqueia de vez", () => {
+    // A função pura só aponta "parece igual" — quem decide se é duplicata de verdade ou uma
+    // repetição legítima é o usuário, via confirmarDuplicata=true na Server Action.
+    expect(ehDuplicataMovimentoPessoal({ valor: 20, descricao: "Uber" }, { valor: 20, descricao: "Uber" })).toBe(true);
+  });
+
+  it("normalizarDescricaoPessoal remove acento, caixa e espaços nas pontas", () => {
+    expect(normalizarDescricaoPessoal("  Ônibus Intermunicipal  ")).toBe("onibus intermunicipal");
   });
 });

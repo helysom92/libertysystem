@@ -112,7 +112,7 @@ export default function ImportacoesClient({ contas }: { contas: ContaPessoal[] }
     setPendentes((ls) => ls.filter((l) => l.chaveLocal !== chave));
   }
 
-  function registrar(linha: LinhaPendente, tipo: "Receita" | "Despesa") {
+  function registrar(linha: LinhaPendente, tipo: "Receita" | "Despesa", confirmarDuplicata = false) {
     if (!linha.contaId) {
       setError("Selecione uma conta antes de registrar essa linha.");
       return;
@@ -125,11 +125,20 @@ export default function ImportacoesClient({ contas }: { contas: ContaPessoal[] }
       valor: linha.valor,
       data: linha.data,
       contaId: linha.contaId,
+      confirmarDuplicata,
     };
     const acao = tipo === "Receita" ? importarReceitaRealizada : importarDespesaRealizada;
     acao(input).then((resultado) => {
       setProcessando(null);
       if (!resultado.ok) {
+        // Etapa 7.1 — não é bloqueio, é aviso: deixa o usuário confirmar se for mesmo um
+        // movimento repetido de verdade (ex: duas compras iguais no mesmo dia).
+        if (resultado.duplicataPossivel) {
+          if (confirm(`${resultado.message}\n\nRegistrar mesmo assim?`)) {
+            registrar(linha, tipo, true);
+          }
+          return;
+        }
         setError(resultado.message);
         return;
       }
