@@ -1,11 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { IndicadorFinanceiro, RegistroIndicador } from "@/lib/domain/financas";
 import { fmtBRL } from "@/lib/domain/types";
+import type { DespesaPessoal, ReceitaPessoal } from "@/lib/domain/types";
 import { fmtDatePtBR } from "@/lib/domain/dates";
+import type { MesPessoal } from "@/lib/domain/financasPessoais";
+import { eventosDoCalendarioPessoal } from "@/lib/domain/financasPessoais";
+import { buildMonthGrid } from "@/lib/domain/dashboardMetrics";
 import IndicadorCard from "@/components/financeiro/IndicadorCard";
 import DetalhamentoIndicadorModal from "@/components/financeiro/DetalhamentoIndicadorModal";
+import BarChart from "@/components/dashboard/charts/BarChart";
+import CalendarioView from "@/components/dashboard/CalendarioView";
+
+function cap(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 const MESES = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
 
@@ -24,6 +34,9 @@ interface DadosVisaoGeralPessoal {
   totalDividas: number;
   faturasEmAberto: number;
   patrimonioLiquido: number;
+  serieMensal12: MesPessoal[];
+  despesas: DespesaPessoal[];
+  receitas: ReceitaPessoal[];
 }
 
 /** `inverter=true` pra métricas onde subir é ruim (ex: despesas) — verde/vermelho invertidos. */
@@ -43,9 +56,44 @@ type CartaoAberto =
   | { tipo: "memoria"; titulo: string; linhas: { label: string; valor: number; destaque?: boolean }[] }
   | null;
 
-export default function VisaoGeralPessoalClient({ dados, ano, mes }: { dados: DadosVisaoGeralPessoal | null; ano: number; mes: number }) {
+export default function VisaoGeralPessoalClient({
+  dados,
+  ano,
+  mes,
+  hoje,
+}: {
+  dados: DadosVisaoGeralPessoal | null;
+  ano: number;
+  mes: number;
+  hoje: string;
+}) {
   const [aberto, setAberto] = useState<CartaoAberto>(null);
   const mesLabel = `${MESES[mes - 1]}/${ano}`;
+
+  const hojeDate = useMemo(() => new Date(hoje + "T00:00:00"), [hoje]);
+  const [cal, setCal] = useState({ year: hojeDate.getFullYear(), month: hojeDate.getMonth() });
+  const [selectedDate, setSelectedDate] = useState(hoje);
+
+  const eventosPorDia = useMemo(
+    () => (dados ? eventosDoCalendarioPessoal(dados.despesas, dados.receitas, cal.year, cal.month, hoje) : {}),
+    [dados, cal, hoje]
+  );
+  const cells = useMemo(() => buildMonthGrid(cal.year, cal.month, hoje, selectedDate, eventosPorDia), [cal, hoje, selectedDate, eventosPorDia]);
+  const monthLabel = cap(new Date(cal.year, cal.month, 1).toLocaleDateString("pt-BR", { month: "long", year: "numeric" }));
+  const selectedDateLabel = cap(
+    new Date(selectedDate + "T00:00:00").toLocaleDateString("pt-BR", { day: "numeric", month: "long", year: "numeric" })
+  );
+  const selectedDayEvents = eventosPorDia[selectedDate] ?? [];
+  function prevMonth() {
+    setCal((c) => (c.month === 0 ? { year: c.year - 1, month: 11 } : { year: c.year, month: c.month - 1 }));
+  }
+  function nextMonth() {
+    setCal((c) => (c.month === 11 ? { year: c.year + 1, month: 0 } : { year: c.year, month: c.month + 1 }));
+  }
+  function goToday() {
+    setCal({ year: hojeDate.getFullYear(), month: hojeDate.getMonth() });
+    setSelectedDate(hoje);
+  }
 
   if (!dados) return null;
 
@@ -240,6 +288,32 @@ export default function VisaoGeralPessoalClient({ dados, ano, mes }: { dados: Da
           )}
         </div>
       )}
+
+      <div className="mt-5 rounded-card border border-border-neutral bg-card-secondary p-5">
+        <p className="mb-4 font-display text-[15px] font-bold text-text">Evolução mensal — 12 meses</p>
+        <BarChart
+          series={[
+            { key: "recebido", label: "Recebido", color: "var(--color-gold)" },
+            { key: "pago", label: "Pago", color: "var(--color-text-muted)" },
+          ]}
+          data={dados.serieMensal12.map((m) => ({ label: m.label, values: [m.recebido, m.pago] }))}
+          fmt={fmtBRL}
+        />
+      </div>
+
+      <div className="mt-5">
+        <p className="mb-3 font-display text-[15px] font-bold text-text">Calendário financeiro pessoal</p>
+        <CalendarioView
+          monthLabel={monthLabel}
+          cells={cells}
+          onPrev={prevMonth}
+          onNext={nextMonth}
+          onToday={goToday}
+          onSelectDay={setSelectedDate}
+          selectedDateLabel={selectedDateLabel}
+          selectedDayEvents={selectedDayEvents}
+        />
+      </div>
 
       {aberto?.tipo === "indicador" && (
         <DetalhamentoIndicadorModal titulo={aberto.titulo} indicador={aberto.indicador} onClose={() => setAberto(null)} />

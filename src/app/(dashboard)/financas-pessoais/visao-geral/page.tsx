@@ -16,6 +16,7 @@ import {
   patrimonioLiquido,
   compromissosProximos,
   receitasProximas,
+  serieMensalPessoal,
 } from "@/lib/domain/financasPessoais";
 import type {
   ContaPessoal,
@@ -106,7 +107,7 @@ export default async function VisaoGeralPessoalPage({
 
   if (erro) return <ErroConsulta mensagem={erro} />;
 
-  return <VisaoGeralPessoalClient dados={dados} ano={ano} mes={mes} />;
+  return <VisaoGeralPessoalClient dados={dados} ano={ano} mes={mes} hoje={hoje} />;
 }
 
 function montarDados(
@@ -162,5 +163,12 @@ function montarDados(
     totalDividas,
     faturasEmAberto,
     patrimonioLiquido: patrimonioLiquido(saldoDisponivel, totalInvestido, totalDividas, faturasEmAberto),
+    // Etapa 7 (itens que faltavam): série de 12 meses pro gráfico de evolução (server, fixo em
+    // "hoje" — mesmo padrão não-navegável do gráfico equivalente em Gestão) + os brutos de
+    // despesas/receitas pro calendário financeiro pessoal, que precisa navegar mês a mês no
+    // cliente sem ida ao servidor a cada clique.
+    serieMensal12: serieMensalPessoal(receitas, despesas, new Date(hoje + "T00:00:00"), 12),
+    despesas,
+    receitas,
   };
 }

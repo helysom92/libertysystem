@@ -427,9 +427,9 @@ export default function DashboardShell({
           onNext={nextMonth}
           onToday={goToday}
           onSelectDay={setSelectedDate}
-          selectedDate={selectedDate}
           selectedDateLabel={selectedDateLabel}
           selectedDayEvents={selectedDayEvents}
+          agendaHref={`/producao/agenda?data=${selectedDate}`}
         />
       )}
       {view === "clients" && <ClientesView clientes={clientes} servicos={servicos} />}

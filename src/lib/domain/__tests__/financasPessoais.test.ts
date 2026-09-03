@@ -24,6 +24,8 @@ import {
   receitasAtrasadas,
   despesasAtrasadas,
   alertasPessoais,
+  serieMensalPessoal,
+  eventosDoCalendarioPessoal,
 } from "../financasPessoais";
 import type {
   CartaoPessoal,
@@ -603,5 +605,49 @@ describe("Etapa 8 — central de alertas pessoais (só lê, nunca age sozinha)",
 
   it("tudo em dia (sem nada pendente) devolve lista vazia", () => {
     expect(alertasPessoais([], [], [], [], [], [], HOJE)).toEqual([]);
+  });
+});
+
+describe("serieMensalPessoal (Etapa 7 — evolução mensal)", () => {
+  it("reaproveita receitasRecebidasNoMes/despesasPagasNoMes mês a mês, sem recalcular na mão", () => {
+    const receitas = [
+      receita({ id: "r1", valor_recebido: 500, data_efetiva: "2026-07-10", situacao: "recebida" }),
+      receita({ id: "r2", valor_recebido: 300, data_efetiva: "2026-08-05", situacao: "recebida" }),
+    ];
+    const despesas = [despesa({ id: "d1", valor_pago: 200, data_efetiva: "2026-08-12", situacao: "paga" })];
+    const serie = serieMensalPessoal(receitas, despesas, new Date("2026-08-20T00:00:00"), 3);
+    expect(serie.map((m) => m.key)).toEqual(["2026-06", "2026-07", "2026-08"]);
+    expect(serie.find((m) => m.key === "2026-07")?.recebido).toBe(500);
+    expect(serie.find((m) => m.key === "2026-08")?.recebido).toBe(300);
+    expect(serie.find((m) => m.key === "2026-08")?.pago).toBe(200);
+    expect(serie.find((m) => m.key === "2026-06")?.recebido).toBe(0);
+  });
+});
+
+describe("eventosDoCalendarioPessoal (Etapa 7 — calendário financeiro pessoal)", () => {
+  const HOJE_CAL = "2026-08-01";
+
+  it("despesa em aberto no mês vira vencimento no dia certo", () => {
+    const d = despesa({ id: "d1", descricao: "Aluguel", valor_previsto: 1200, valor_pago: 0, vencimento: "2026-08-10", situacao: "prevista" });
+    const mapa = eventosDoCalendarioPessoal([d], [], 2026, 7, HOJE_CAL); // agosto = mês 7 (0-11)
+    expect(mapa["2026-08-10"]).toEqual([{ tipo: "vencimento", titulo: "Aluguel", valor: 1200 }]);
+  });
+
+  it("receita prevista em aberto no mês vira compromisso no dia certo", () => {
+    const r = receita({ id: "r1", descricao: "Freela", valor_previsto: 800, valor_recebido: 0, data_prevista: "2026-08-20", situacao: "prevista" });
+    const mapa = eventosDoCalendarioPessoal([], [r], 2026, 7, HOJE_CAL);
+    expect(mapa["2026-08-20"]).toEqual([{ tipo: "compromisso", titulo: "Freela", valor: 800 }]);
+  });
+
+  it("despesa já paga e receita já recebida não aparecem no calendário", () => {
+    const d = despesa({ id: "d1", vencimento: "2026-08-10", situacao: "paga", valor_pago: 1200 });
+    const r = receita({ id: "r1", data_prevista: "2026-08-20", situacao: "recebida", valor_recebido: 800 });
+    const mapa = eventosDoCalendarioPessoal([d], [r], 2026, 7, HOJE_CAL);
+    expect(mapa["2026-08-10"]).toBeUndefined();
+    expect(mapa["2026-08-20"]).toBeUndefined();
+  });
+
+  it("mês sem nada pendente devolve mapa vazio", () => {
+    expect(eventosDoCalendarioPessoal([], [], 2026, 7, HOJE_CAL)).toEqual({});
   });
 });

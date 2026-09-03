@@ -11,9 +11,9 @@ export default function CalendarioView({
   onNext,
   onToday,
   onSelectDay,
-  selectedDate,
   selectedDateLabel,
   selectedDayEvents,
+  agendaHref,
 }: {
   monthLabel: string;
   cells: CalendarCell[];
@@ -21,9 +21,10 @@ export default function CalendarioView({
   onNext: () => void;
   onToday: () => void;
   onSelectDay: (dateStr: string) => void;
-  selectedDate: string;
   selectedDateLabel: string;
   selectedDayEvents: CalendarEvent[];
+  /** Quando ausente (ex: calendário financeiro pessoal, que não tem Agenda própria), o link some. */
+  agendaHref?: string;
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.5fr_1fr]">
@@ -103,9 +104,11 @@ export default function CalendarioView({
         <p className="mb-0.5 font-display text-[15px] font-bold text-text">Agenda</p>
         <div className="mb-4 flex items-center justify-between">
           <p className="text-[13px] text-text-secondary">{selectedDateLabel}</p>
-          <Link href={`/producao/agenda?data=${selectedDate}`} className="text-[11.5px] font-semibold text-gold hover:underline">
-            Abrir na Agenda →
-          </Link>
+          {agendaHref && (
+            <Link href={agendaHref} className="text-[11.5px] font-semibold text-gold hover:underline">
+              Abrir na Agenda →
+            </Link>
+          )}
         </div>
         {selectedDayEvents.length === 0 && (
           <p className="text-[13px] text-text-muted">Nenhum compromisso ou vencimento nesta data.</p>

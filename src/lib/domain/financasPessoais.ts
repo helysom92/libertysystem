@@ -1,4 +1,6 @@
 import type { PeriodoFiltro, IndicadorFinanceiro, RegistroIndicador } from "./financas";
+import { periodoDoMes } from "./financas";
+import type { CalendarEvent } from "./dashboardMetrics";
 import { addDays } from "./dates";
 import type {
   ContaPessoal,
@@ -53,6 +55,44 @@ export function despesasPagasNoMes(despesas: DespesaPessoal[], periodo: PeriodoF
     statusConsiderados: ["parcial", "paga"],
     statusExcluidos: ["prevista", "cancelada"],
   };
+}
+
+// ── Etapa 7 (evolução mensal) — série de N meses reaproveitando as duas funções oficiais acima,
+// nunca recalculando recebido/pago na mão. Mesmo padrão de `serieMensalOficial` (financas.ts),
+// mas com dado e regra 100% pessoais.
+const MESES_ABREV_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+export interface MesPessoal {
+  key: string;
+  label: string;
+  year: number;
+  month: number;
+  recebido: number;
+  pago: number;
+}
+
+export function serieMensalPessoal(
+  receitas: ReceitaPessoal[],
+  despesas: DespesaPessoal[],
+  refDate: Date,
+  meses: number
+): MesPessoal[] {
+  const pontos: MesPessoal[] = [];
+  for (let i = meses - 1; i >= 0; i--) {
+    const d = new Date(refDate.getFullYear(), refDate.getMonth() - i, 1);
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const periodo = periodoDoMes(year, month + 1);
+    pontos.push({
+      key: `${year}-${String(month + 1).padStart(2, "0")}`,
+      label: `${MESES_ABREV_PT[month]}/${String(year).slice(2)}`,
+      year,
+      month,
+      recebido: receitasRecebidasNoMes(receitas, periodo).total,
+      pago: despesasPagasNoMes(despesas, periodo).total,
+    });
+  }
+  return pontos;
 }
 
 // ── Receitas previstas em aberto / compromissos a pagar (saldo restante, por vencimento) ──
@@ -566,6 +606,33 @@ export function receitasAtrasadas(receitas: ReceitaPessoal[], hojeISO: string): 
     .map((r): RegistroIndicador => ({ id: r.id, descricao: r.descricao, valor: Math.max(0, r.valor_previsto - r.valor_recebido), data: r.data_prevista ?? "" }))
     .filter((r) => r.valor > 0 && r.data && r.data < hojeISO)
     .sort((a, b) => a.data.localeCompare(b.data));
+}
+
+// ── Etapa 7 (calendário pessoal) — mapa dia→eventos pro grid do calendário (`buildMonthGrid`,
+// já genérico em dashboardMetrics.ts, é reaproveitado sem alteração). Reaproveita
+// `compromissosAPagar`/`receitasPrevistasEmAberto` (mesma regra oficial de "em aberto no mês"
+// usada nos cards da Visão Geral) em vez de recalcular a filtragem aqui.
+export function eventosDoCalendarioPessoal(
+  despesas: DespesaPessoal[],
+  receitas: ReceitaPessoal[],
+  year: number,
+  month: number, // 0-11
+  hojeISO: string
+): Record<string, CalendarEvent[]> {
+  const periodo = periodoDoMes(year, month + 1);
+  const map: Record<string, CalendarEvent[]> = {};
+  const push = (dateStr: string, ev: CalendarEvent) => {
+    (map[dateStr] ??= []).push(ev);
+  };
+
+  for (const r of compromissosAPagar(despesas, periodo, hojeISO).registros) {
+    push(r.data, { tipo: "vencimento", titulo: r.descricao, valor: r.valor });
+  }
+  for (const r of receitasPrevistasEmAberto(receitas, periodo, hojeISO).registros) {
+    push(r.data, { tipo: "compromisso", titulo: r.descricao, valor: r.valor });
+  }
+
+  return map;
 }
 
 export function ehDuplicataMovimentoPessoal(
