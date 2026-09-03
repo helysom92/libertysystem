@@ -19,6 +19,8 @@ import {
   patrimonioLiquido,
   ehDuplicataMovimentoPessoal,
   normalizarDescricaoPessoal,
+  compromissosProximos,
+  receitasProximas,
 } from "../financasPessoais";
 import type {
   CartaoPessoal,
@@ -29,7 +31,30 @@ import type {
   InvestimentoPessoal,
   MovimentoInvestimentoPessoal,
   PagamentoDividaPessoal,
+  ReceitaPessoal,
 } from "../types";
+
+function receita(over: Partial<ReceitaPessoal>): ReceitaPessoal {
+  return {
+    id: "r1",
+    owner_id: "o1",
+    descricao: "Salário",
+    origem_id: null,
+    pagador: null,
+    categoria: null,
+    valor_previsto: 1000,
+    valor_recebido: 0,
+    conta_destino_id: null,
+    data_prevista: null,
+    data_efetiva: null,
+    recorrencia: "unica",
+    situacao: "prevista",
+    observacoes: null,
+    cancelada_em: null,
+    motivo_cancelamento: null,
+    ...over,
+  };
+}
 
 function compra(over: Partial<CompraCartaoPessoal>): CompraCartaoPessoal {
   return {
@@ -476,5 +501,44 @@ describe("Etapa 7.1 — proteção contra importação duplicada", () => {
 
   it("normalizarDescricaoPessoal remove acento, caixa e espaços nas pontas", () => {
     expect(normalizarDescricaoPessoal("  Ônibus Intermunicipal  ")).toBe("onibus intermunicipal");
+  });
+});
+
+describe("Etapa 7.3 — compromissos/receitas próximos (janela móvel, não o mês calendário)", () => {
+  const HOJE = "2026-08-27";
+
+  it("despesa vencendo dentro dos próximos 7 dias aparece, ordenada por vencimento", () => {
+    const d1 = despesa({ id: "d1", vencimento: "2026-09-01", valor_previsto: 200 });
+    const d2 = despesa({ id: "d2", vencimento: "2026-08-28", valor_previsto: 50 });
+    const r = compromissosProximos([d1, d2], HOJE);
+    expect(r.map((x) => x.id)).toEqual(["d2", "d1"]);
+  });
+
+  it("despesa vencendo além de 7 dias não aparece", () => {
+    const d = despesa({ vencimento: "2026-09-10", valor_previsto: 100 });
+    expect(compromissosProximos([d], HOJE)).toEqual([]);
+  });
+
+  it("despesa vencendo antes de hoje (já atrasada) não conta como 'próxima' — isso já é 'vencido'", () => {
+    const d = despesa({ vencimento: "2026-08-20", valor_previsto: 100 });
+    expect(compromissosProximos([d], HOJE)).toEqual([]);
+  });
+
+  it("despesa já paga ou cancelada não aparece mesmo com vencimento próximo", () => {
+    const paga = despesa({ vencimento: "2026-08-28", valor_previsto: 100, valor_pago: 100, situacao: "paga" });
+    const cancelada = despesa({ id: "d2", vencimento: "2026-08-28", valor_previsto: 100, situacao: "cancelada" });
+    expect(compromissosProximos([paga, cancelada], HOJE)).toEqual([]);
+  });
+
+  it("despesa parcialmente paga mostra só o saldo restante", () => {
+    const d = despesa({ vencimento: "2026-08-28", valor_previsto: 300, valor_pago: 100, situacao: "parcial" });
+    expect(compromissosProximos([d], HOJE)[0].valor).toBe(200);
+  });
+
+  it("receitasProximas espelha o mesmo critério pro lado da receita", () => {
+    const r1 = receita({ id: "r1", data_prevista: "2026-08-30", valor_previsto: 500 });
+    const r2 = receita({ id: "r2", data_prevista: "2026-09-15", valor_previsto: 500 });
+    const resultado = receitasProximas([r1, r2], HOJE);
+    expect(resultado.map((x) => x.id)).toEqual(["r1"]);
   });
 });

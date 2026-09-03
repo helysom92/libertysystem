@@ -14,6 +14,8 @@ import {
   saldoDevedorTotal,
   totalFaturasEmAberto,
   patrimonioLiquido,
+  compromissosProximos,
+  receitasProximas,
 } from "@/lib/domain/financasPessoais";
 import type {
   ContaPessoal,
@@ -125,6 +127,16 @@ function montarDados(
   const pago = despesasPagasNoMes(despesas, periodo);
   const aReceber = receitasPrevistasEmAberto(receitas, periodo, hoje);
   const aPagar = compromissosAPagar(despesas, periodo, hoje);
+  const resultadoRealizado = resultadoCaixaRealizadoPessoal(recebido.total, pago.total);
+
+  // Etapa 7.3 — comparação com o mês anterior, sempre reaproveitando as mesmas funções oficiais
+  // (nunca uma conta nova só pra comparar).
+  const mesAnteriorNum = periodo.mes === 1 ? 12 : periodo.mes - 1;
+  const anoAnterior = periodo.mes === 1 ? periodo.ano - 1 : periodo.ano;
+  const periodoAnterior = periodoDoMes(anoAnterior, mesAnteriorNum);
+  const recebidoAnterior = receitasRecebidasNoMes(receitas, periodoAnterior);
+  const pagoAnterior = despesasPagasNoMes(despesas, periodoAnterior);
+  const resultadoRealizadoAnterior = resultadoCaixaRealizadoPessoal(recebidoAnterior.total, pagoAnterior.total);
 
   const saldoDisponivel = saldoDisponivelTotal(contas, receitas, despesas, transferencias, movimentosInvestimento);
   const totalInvestido = totalInvestidoGeral(investimentos, movimentosInvestimento);
@@ -136,7 +148,14 @@ function montarDados(
     pago,
     aReceber,
     aPagar,
-    resultadoRealizado: resultadoCaixaRealizadoPessoal(recebido.total, pago.total),
+    resultadoRealizado,
+    comparacaoMesAnterior: {
+      recebido: recebidoAnterior.total,
+      pago: pagoAnterior.total,
+      resultadoRealizado: resultadoRealizadoAnterior,
+    },
+    compromissosProximos: compromissosProximos(despesas, hoje),
+    receitasProximas: receitasProximas(receitas, hoje),
     saldoDisponivel,
     contasComSaldoConhecido: contas.some((c) => c.ativa),
     totalInvestido,

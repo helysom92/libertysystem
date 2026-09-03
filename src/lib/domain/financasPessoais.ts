@@ -1,4 +1,5 @@
 import type { PeriodoFiltro, IndicadorFinanceiro, RegistroIndicador } from "./financas";
+import { addDays } from "./dates";
 import type {
   ContaPessoal,
   ReceitaPessoal,
@@ -454,6 +455,30 @@ export function normalizarDescricaoPessoal(s: string): string {
  * normalizada = provável duplicata do mesmo extrato importado de novo. Só relata — quem chama
  * decide bloquear ou pedir confirmação, nunca apaga/ignora sozinho.
  */
+// ── Etapa 7.3 — Visão Geral Pessoal: janela móvel (não escopada ao mês calendário), pra
+// "o que vence nos próximos dias" não parar de mostrar nada só porque virou o mês. ──
+
+/** Despesas com saldo em aberto vencendo entre hoje e `hoje + dias` (padrão 7), ordenadas por
+ * vencimento — janela móvel, não o mês calendário (diferente de `compromissosAPagar`). */
+export function compromissosProximos(despesas: DespesaPessoal[], hojeISO: string, dias: number = 7): RegistroIndicador[] {
+  const limite = addDays(hojeISO, dias);
+  return despesas
+    .filter((d) => d.situacao !== "cancelada" && d.situacao !== "paga")
+    .map((d): RegistroIndicador => ({ id: d.id, descricao: d.descricao, valor: Math.max(0, d.valor_previsto - d.valor_pago), data: d.vencimento ?? "" }))
+    .filter((d) => d.valor > 0 && d.data && d.data >= hojeISO && d.data <= limite)
+    .sort((a, b) => a.data.localeCompare(b.data));
+}
+
+/** Espelha `compromissosProximos` pro lado das receitas previstas. */
+export function receitasProximas(receitas: ReceitaPessoal[], hojeISO: string, dias: number = 7): RegistroIndicador[] {
+  const limite = addDays(hojeISO, dias);
+  return receitas
+    .filter((r) => r.situacao !== "cancelada" && r.situacao !== "recebida")
+    .map((r): RegistroIndicador => ({ id: r.id, descricao: r.descricao, valor: Math.max(0, r.valor_previsto - r.valor_recebido), data: r.data_prevista ?? "" }))
+    .filter((r) => r.valor > 0 && r.data && r.data >= hojeISO && r.data <= limite)
+    .sort((a, b) => a.data.localeCompare(b.data));
+}
+
 export function ehDuplicataMovimentoPessoal(
   existente: { valor: number; descricao: string },
   novo: { valor: number; descricao: string }

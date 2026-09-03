@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { IndicadorFinanceiro } from "@/lib/domain/financas";
+import type { IndicadorFinanceiro, RegistroIndicador } from "@/lib/domain/financas";
 import { fmtBRL } from "@/lib/domain/types";
+import { fmtDatePtBR } from "@/lib/domain/dates";
 import IndicadorCard from "@/components/financeiro/IndicadorCard";
 import DetalhamentoIndicadorModal from "@/components/financeiro/DetalhamentoIndicadorModal";
 
@@ -14,12 +15,27 @@ interface DadosVisaoGeralPessoal {
   aReceber: IndicadorFinanceiro & { vencidos: IndicadorFinanceiro["registros"] };
   aPagar: IndicadorFinanceiro & { vencidos: IndicadorFinanceiro["registros"] };
   resultadoRealizado: number;
+  comparacaoMesAnterior: { recebido: number; pago: number; resultadoRealizado: number };
+  compromissosProximos: RegistroIndicador[];
+  receitasProximas: RegistroIndicador[];
   saldoDisponivel: number;
   contasComSaldoConhecido: boolean;
   totalInvestido: number;
   totalDividas: number;
   faturasEmAberto: number;
   patrimonioLiquido: number;
+}
+
+/** `inverter=true` pra métricas onde subir é ruim (ex: despesas) — verde/vermelho invertidos. */
+function deltaTexto(atual: number, anterior: number, inverter = false): { texto: string; cor: string } {
+  if (anterior === 0) {
+    if (atual === 0) return { texto: "sem mudança vs mês anterior", cor: "var(--color-text-muted)" };
+    return { texto: "mês anterior sem movimento", cor: "var(--color-text-muted)" };
+  }
+  const pct = ((atual - anterior) / Math.abs(anterior)) * 100;
+  const positivo = inverter ? pct <= 0 : pct >= 0;
+  const cor = positivo ? "var(--color-success)" : "var(--color-danger)";
+  return { texto: `${pct >= 0 ? "↑" : "↓"} ${Math.abs(pct).toFixed(0)}% vs mês anterior`, cor };
 }
 
 type CartaoAberto =
@@ -61,14 +77,19 @@ export default function VisaoGeralPessoalClient({ dados, ano, mes }: { dados: Da
       </div>
 
       <div className="mb-1 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        <IndicadorCard
-          titulo="Receitas recebidas no mês"
-          valor={dados.recebido.total}
-          quantidade={dados.recebido.quantidade}
-          mesLabel={mesLabel}
-          tom="bom"
-          onClick={() => setAberto({ tipo: "indicador", titulo: "Receitas recebidas no mês", indicador: dados.recebido })}
-        />
+        <div>
+          <IndicadorCard
+            titulo="Receitas recebidas no mês"
+            valor={dados.recebido.total}
+            quantidade={dados.recebido.quantidade}
+            mesLabel={mesLabel}
+            tom="bom"
+            onClick={() => setAberto({ tipo: "indicador", titulo: "Receitas recebidas no mês", indicador: dados.recebido })}
+          />
+          <p className="mt-1 text-[11px]" style={{ color: deltaTexto(dados.recebido.total, dados.comparacaoMesAnterior.recebido).cor }}>
+            {deltaTexto(dados.recebido.total, dados.comparacaoMesAnterior.recebido).texto}
+          </p>
+        </div>
         <IndicadorCard
           titulo="Receitas previstas em aberto"
           valor={dados.aReceber.total}
@@ -90,13 +111,18 @@ export default function VisaoGeralPessoalClient({ dados, ano, mes }: { dados: Da
             })
           }
         />
-        <IndicadorCard
-          titulo="Saídas pagas no mês"
-          valor={dados.pago.total}
-          quantidade={dados.pago.quantidade}
-          mesLabel={mesLabel}
-          onClick={() => setAberto({ tipo: "indicador", titulo: "Saídas pagas no mês", indicador: dados.pago })}
-        />
+        <div>
+          <IndicadorCard
+            titulo="Saídas pagas no mês"
+            valor={dados.pago.total}
+            quantidade={dados.pago.quantidade}
+            mesLabel={mesLabel}
+            onClick={() => setAberto({ tipo: "indicador", titulo: "Saídas pagas no mês", indicador: dados.pago })}
+          />
+          <p className="mt-1 text-[11px]" style={{ color: deltaTexto(dados.pago.total, dados.comparacaoMesAnterior.pago, true).cor }}>
+            {deltaTexto(dados.pago.total, dados.comparacaoMesAnterior.pago, true).texto}
+          </p>
+        </div>
         <IndicadorCard
           titulo="Compromissos a pagar no mês"
           valor={dados.aPagar.total}
@@ -121,23 +147,32 @@ export default function VisaoGeralPessoalClient({ dados, ano, mes }: { dados: Da
       </div>
 
       <div className="mt-1 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <IndicadorCard
-          titulo="Resultado de caixa realizado"
-          valor={dados.resultadoRealizado}
-          mesLabel={mesLabel}
-          tom={dados.resultadoRealizado >= 0 ? "bom" : "atencao"}
-          onClick={() =>
-            setAberto({
-              tipo: "memoria",
-              titulo: "Resultado de caixa realizado",
-              linhas: [
-                { label: "Receitas recebidas", valor: dados.recebido.total },
-                { label: "Saídas pagas", valor: dados.pago.total },
-                { label: "Resultado de caixa realizado", valor: dados.resultadoRealizado, destaque: true },
-              ],
-            })
-          }
-        />
+        <div>
+          <IndicadorCard
+            titulo="Resultado de caixa realizado"
+            valor={dados.resultadoRealizado}
+            mesLabel={mesLabel}
+            tom={dados.resultadoRealizado >= 0 ? "bom" : "atencao"}
+            onClick={() =>
+              setAberto({
+                tipo: "memoria",
+                titulo: "Resultado de caixa realizado",
+                linhas: [
+                  { label: "Receitas recebidas", valor: dados.recebido.total },
+                  { label: "Saídas pagas", valor: dados.pago.total },
+                  { label: "Resultado de caixa realizado", valor: dados.resultadoRealizado, destaque: true },
+                ],
+              })
+            }
+          />
+          <p
+            className="mt-1 text-[11px]"
+            style={{ color: deltaTexto(dados.resultadoRealizado, dados.comparacaoMesAnterior.resultadoRealizado).cor }}
+          >
+            {deltaTexto(dados.resultadoRealizado, dados.comparacaoMesAnterior.resultadoRealizado).texto} (
+            {fmtBRL(dados.comparacaoMesAnterior.resultadoRealizado)} no mês passado)
+          </p>
+        </div>
         <div className="flex flex-col items-start gap-1 rounded-card border border-border-neutral bg-card p-4">
           <p className="text-[10.5px] tracking-wide text-text-muted uppercase">Saldo disponível nas contas</p>
           <p className="font-display text-xl font-bold text-gradient-gold">{fmtBRL(dados.saldoDisponivel)}</p>
@@ -168,6 +203,43 @@ export default function VisaoGeralPessoalClient({ dados, ano, mes }: { dados: Da
           <p className="text-[11px] text-text-muted">Compras já feitas, fatura ainda não paga</p>
         </div>
       </div>
+
+      {(dados.compromissosProximos.length > 0 || dados.receitasProximas.length > 0) && (
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {dados.compromissosProximos.length > 0 && (
+            <div className="rounded-card border border-border-neutral bg-card p-4">
+              <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">
+                Compromissos próximos (7 dias)
+              </p>
+              <div className="flex flex-col gap-1">
+                {dados.compromissosProximos.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between text-[12.5px]">
+                    <span className="text-text-secondary">
+                      {fmtDatePtBR(r.data)} · {r.descricao}
+                    </span>
+                    <span className="font-semibold">{fmtBRL(r.valor)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {dados.receitasProximas.length > 0 && (
+            <div className="rounded-card border border-border-neutral bg-card p-4">
+              <p className="mb-2 text-[10.5px] tracking-wide text-text-muted uppercase">Receitas próximas (7 dias)</p>
+              <div className="flex flex-col gap-1">
+                {dados.receitasProximas.map((r) => (
+                  <div key={r.id} className="flex items-center justify-between text-[12.5px]">
+                    <span className="text-text-secondary">
+                      {fmtDatePtBR(r.data)} · {r.descricao}
+                    </span>
+                    <span className="font-semibold text-success">{fmtBRL(r.valor)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {aberto?.tipo === "indicador" && (
         <DetalhamentoIndicadorModal titulo={aberto.titulo} indicador={aberto.indicador} onClose={() => setAberto(null)} />
