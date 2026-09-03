@@ -479,6 +479,81 @@ export function receitasProximas(receitas: ReceitaPessoal[], hojeISO: string, di
     .sort((a, b) => a.data.localeCompare(b.data));
 }
 
+// ── Etapa 8 — central de alertas (só pro dono, "Hoje") ──
+export interface AlertaPessoal {
+  texto: string;
+  cor: string;
+}
+
+const COR_VENCIDO = "#E07A7A";
+const COR_PROXIMO = "#E0A64E";
+const DIAS_AVISO_FATURA = 5;
+
+/**
+ * Nunca age sozinho — só lê e resume. Reaproveita as mesmas funções já usadas na Visão Geral
+ * Pessoal e nas telas de Cartões/Dívidas (nenhum critério novo aqui, só uma central onde os
+ * 4 tipos de aviso pessoais aparecem juntos).
+ */
+export function alertasPessoais(
+  despesas: DespesaPessoal[],
+  receitasEmAbertoVencidas: RegistroIndicador[],
+  cartoes: CartaoPessoal[],
+  compras: CompraCartaoPessoal[],
+  dividas: DividaPessoal[],
+  pagamentosDivida: PagamentoDividaPessoal[],
+  hojeISO: string
+): AlertaPessoal[] {
+  const alertas: AlertaPessoal[] = [];
+
+  for (const d of compromissosProximos(despesas, hojeISO)) {
+    alertas.push({ texto: `Despesa pessoal vencendo: ${d.descricao} — ${d.data.split("-").reverse().join("/")}`, cor: COR_PROXIMO });
+  }
+
+  for (const r of receitasEmAbertoVencidas) {
+    alertas.push({ texto: `Receita esperada atrasada: ${r.descricao} — era ${r.data.split("-").reverse().join("/")}`, cor: COR_VENCIDO });
+  }
+
+  const ano = Number(hojeISO.slice(0, 4));
+  const mes = Number(hojeISO.slice(5, 7));
+  for (const c of cartoes) {
+    if (!c.ativo) continue;
+    const total = totalFaturaAberta(compras, c.id, ano, mes);
+    if (total <= 0) continue;
+    const vencimento = vencimentoDaFatura(ano, mes, c.dia_fechamento, c.dia_vencimento);
+    if (vencimento < hojeISO) {
+      alertas.push({ texto: `Fatura ${c.nome} vencida (${vencimento.split("-").reverse().join("/")}) — ${fmtBRLLocal(total)}`, cor: COR_VENCIDO });
+    } else {
+      const dias = Math.round((new Date(vencimento).getTime() - new Date(hojeISO).getTime()) / 86_400_000);
+      if (dias <= DIAS_AVISO_FATURA) {
+        alertas.push({ texto: `Fatura ${c.nome} vence em ${dias}d — ${fmtBRLLocal(total)}`, cor: COR_PROXIMO });
+      }
+    }
+  }
+
+  for (const dv of dividas) {
+    const situacao = situacaoDividaVencimento(dv, pagamentosDivida, hojeISO);
+    if (situacao === "vencida") {
+      alertas.push({ texto: `Dívida "${dv.descricao ?? dv.credor}" vencendo neste mês, ainda sem pagamento`, cor: COR_VENCIDO });
+    }
+  }
+
+  return alertas;
+}
+
+function fmtBRLLocal(v: number): string {
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+/** Receitas previstas com data já vencida, sem escopo de mês — pra central de alertas
+ * (diferente de `receitasPrevistasEmAberto(...).vencidos`, que só olha o mês selecionado). */
+export function receitasAtrasadas(receitas: ReceitaPessoal[], hojeISO: string): RegistroIndicador[] {
+  return receitas
+    .filter((r) => r.situacao !== "cancelada" && r.situacao !== "recebida")
+    .map((r): RegistroIndicador => ({ id: r.id, descricao: r.descricao, valor: Math.max(0, r.valor_previsto - r.valor_recebido), data: r.data_prevista ?? "" }))
+    .filter((r) => r.valor > 0 && r.data && r.data < hojeISO)
+    .sort((a, b) => a.data.localeCompare(b.data));
+}
+
 export function ehDuplicataMovimentoPessoal(
   existente: { valor: number; descricao: string },
   novo: { valor: number; descricao: string }

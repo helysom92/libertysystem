@@ -21,6 +21,8 @@ import {
   normalizarDescricaoPessoal,
   compromissosProximos,
   receitasProximas,
+  receitasAtrasadas,
+  alertasPessoais,
 } from "../financasPessoais";
 import type {
   CartaoPessoal,
@@ -540,5 +542,51 @@ describe("Etapa 7.3 — compromissos/receitas próximos (janela móvel, não o m
     const r2 = receita({ id: "r2", data_prevista: "2026-09-15", valor_previsto: 500 });
     const resultado = receitasProximas([r1, r2], HOJE);
     expect(resultado.map((x) => x.id)).toEqual(["r1"]);
+  });
+});
+
+describe("Etapa 8 — central de alertas pessoais (só lê, nunca age sozinha)", () => {
+  const HOJE = "2026-08-27";
+
+  it("receitasAtrasadas ignora escopo de mês — pega qualquer previsão vencida", () => {
+    const r = receita({ data_prevista: "2026-06-01", valor_previsto: 300 });
+    expect(receitasAtrasadas([r], HOJE)).toHaveLength(1);
+  });
+
+  it("receitasAtrasadas não conta receita já recebida ou cancelada", () => {
+    const recebida = receita({ data_prevista: "2026-06-01", valor_previsto: 300, valor_recebido: 300, situacao: "recebida" });
+    const cancelada = receita({ id: "r2", data_prevista: "2026-06-01", valor_previsto: 300, situacao: "cancelada" });
+    expect(receitasAtrasadas([recebida, cancelada], HOJE)).toEqual([]);
+  });
+
+  it("alertasPessoais junta despesa próxima + receita atrasada + fatura vencendo + dívida vencida", () => {
+    const despesaProxima = despesa({ vencimento: "2026-08-28", valor_previsto: 100 });
+    const receitaAtrasada = receitasAtrasadas([receita({ data_prevista: "2026-08-01", valor_previsto: 200 })], HOJE);
+    const cartaoTeste = cartao({ id: "c1", dia_fechamento: 20, dia_vencimento: 28 });
+    const compraTeste = compra({ cartao_id: "c1", fatura_ano: 2026, fatura_mes: 8, valor_parcela: 150 });
+    const dividaVencida = divida({ dia_vencimento: 10, situacao: "ativa" });
+
+    const alertas = alertasPessoais([despesaProxima], receitaAtrasada, [cartaoTeste], [compraTeste], [dividaVencida], [], HOJE);
+
+    expect(alertas.some((a) => a.texto.includes("Despesa pessoal vencendo"))).toBe(true);
+    expect(alertas.some((a) => a.texto.includes("Receita esperada atrasada"))).toBe(true);
+    expect(alertas.some((a) => a.texto.includes("Fatura"))).toBe(true);
+    expect(alertas.some((a) => a.texto.includes("Dívida"))).toBe(true);
+  });
+
+  it("alertasPessoais não avisa fatura sem nenhuma compra no mês", () => {
+    const cartaoTeste = cartao({ id: "c1", dia_fechamento: 20, dia_vencimento: 28 });
+    const alertas = alertasPessoais([], [], [cartaoTeste], [], [], [], HOJE);
+    expect(alertas.some((a) => a.texto.includes("Fatura"))).toBe(false);
+  });
+
+  it("alertasPessoais não avisa dívida já quitada", () => {
+    const dividaQuitada = divida({ dia_vencimento: 10, situacao: "quitada" });
+    const alertas = alertasPessoais([], [], [], [], [dividaQuitada], [], HOJE);
+    expect(alertas.some((a) => a.texto.includes("Dívida"))).toBe(false);
+  });
+
+  it("tudo em dia (sem nada pendente) devolve lista vazia", () => {
+    expect(alertasPessoais([], [], [], [], [], [], HOJE)).toEqual([]);
   });
 });
