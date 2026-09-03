@@ -22,6 +22,7 @@ import {
   compromissosProximos,
   receitasProximas,
   receitasAtrasadas,
+  despesasAtrasadas,
   alertasPessoais,
 } from "../financasPessoais";
 import type {
@@ -559,6 +560,14 @@ describe("Etapa 8 — central de alertas pessoais (só lê, nunca age sozinha)",
     expect(receitasAtrasadas([recebida, cancelada], HOJE)).toEqual([]);
   });
 
+  it("despesasAtrasadas espelha receitasAtrasadas pro lado da despesa (achado do review: faltava)", () => {
+    const atrasada = despesa({ vencimento: "2026-06-01", valor_previsto: 150 });
+    const paga = despesa({ id: "d2", vencimento: "2026-06-01", valor_previsto: 150, valor_pago: 150, situacao: "paga" });
+    const resultado = despesasAtrasadas([atrasada, paga], HOJE);
+    expect(resultado).toHaveLength(1);
+    expect(resultado[0].id).toBe("d1");
+  });
+
   it("alertasPessoais junta despesa próxima + receita atrasada + fatura vencendo + dívida vencida", () => {
     const despesaProxima = despesa({ vencimento: "2026-08-28", valor_previsto: 100 });
     const receitaAtrasada = receitasAtrasadas([receita({ data_prevista: "2026-08-01", valor_previsto: 200 })], HOJE);
@@ -572,6 +581,12 @@ describe("Etapa 8 — central de alertas pessoais (só lê, nunca age sozinha)",
     expect(alertas.some((a) => a.texto.includes("Receita esperada atrasada"))).toBe(true);
     expect(alertas.some((a) => a.texto.includes("Fatura"))).toBe(true);
     expect(alertas.some((a) => a.texto.includes("Dívida"))).toBe(true);
+  });
+
+  it("alertasPessoais também avisa despesa pessoal já atrasada, não só a próxima de vencer", () => {
+    const despesaAtrasada = despesa({ vencimento: "2026-08-01", valor_previsto: 80 });
+    const alertas = alertasPessoais([despesaAtrasada], [], [], [], [], [], HOJE);
+    expect(alertas.some((a) => a.texto.includes("Despesa pessoal atrasada"))).toBe(true);
   });
 
   it("alertasPessoais não avisa fatura sem nenhuma compra no mês", () => {

@@ -64,25 +64,10 @@ export interface MonthPoint {
   expenses: number;
 }
 
-export function monthlySeries(lancamentos: Lancamento[], refDate: Date, months: number): MonthPoint[] {
-  const points: MonthPoint[] = [];
-  for (let i = months - 1; i >= 0; i--) {
-    const d = new Date(refDate.getFullYear(), refDate.getMonth() - i, 1);
-    const year = d.getFullYear();
-    const month = d.getMonth();
-    const key = `${year}-${String(month + 1).padStart(2, "0")}`;
-    points.push({ key, label: `${mesLabel(year, month)}/${String(year).slice(2)}`, year, month, sales: 0, expenses: 0 });
-  }
-  const byKey = new Map(points.map((p) => [p.key, p]));
-  for (const l of lancamentos) {
-    if (l.status !== "realizado") continue;
-    const p = byKey.get(yearMonthKey(l.data));
-    if (!p) continue;
-    if (l.tipo === "Receita") p.sales += l.valor;
-    else p.expenses += l.valor;
-  }
-  return points;
-}
+// Etapa 6: `monthlySeries` (reimplementava o mesmo filtro de lançamentos realizados que
+// `recebido`/`despesasPagas` já fazem em financas.ts) foi substituída por
+// `serieMensalOficial` (financas.ts) em todo lugar que a usava — removida daqui pra não ficar
+// código morto que alguém "conserta" por engano achando que ainda é a fonte real dos números.
 
 // ── Visão Geral: KPIs do mês atual + delta + anel de progresso ──
 export interface KpiCardData {
@@ -325,7 +310,7 @@ export function compararMeses(monthly: MonthPoint[], indexA: number, indexB: num
   return [
     { label: "Vendas", aValor: a.sales, bValor: b.sales },
     { label: "Despesas", aValor: a.expenses, bValor: b.expenses },
-    { label: "Lucro", aValor: a.sales - a.expenses, bValor: b.sales - b.expenses },
+    { label: "Resultado", aValor: a.sales - a.expenses, bValor: b.sales - b.expenses },
   ];
 }
 

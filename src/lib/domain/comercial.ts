@@ -1,4 +1,4 @@
-import { yearMonthKeyTz } from "./dates";
+import { yearMonthKeyTz, isoDateFromTimestampTz } from "./dates";
 import { vendasAprovadas, type PeriodoFiltro } from "./financas";
 import type { Servico } from "./types";
 
@@ -111,7 +111,7 @@ export function propostasVencidas(servicos: Servico[], hojeISO: string): Registr
   return servicos
     .filter((s) => {
       if (!s.proposta_enviada_em || !oportunidadeAberta(s)) return false;
-      const enviadaISO = s.proposta_enviada_em.slice(0, 10);
+      const enviadaISO = isoDateFromTimestampTz(s.proposta_enviada_em);
       const vencimento = addDaysISO(enviadaISO, s.validade_proposta_dias);
       return vencimento < hojeISO;
     })
@@ -146,7 +146,7 @@ export function alertasComerciais(servicos: Servico[], hojeISO: string): AlertaC
       continue;
     }
 
-    const enviadaISO = s.proposta_enviada_em.slice(0, 10);
+    const enviadaISO = isoDateFromTimestampTz(s.proposta_enviada_em);
     const vencimento = addDaysISO(enviadaISO, s.validade_proposta_dias);
     if (vencimento < hojeISO) {
       alertas.push({ servicoId: s.id, texto: `${s.cliente}: proposta vencida (validade era ${vencimento})`, cor: "#e05252" });

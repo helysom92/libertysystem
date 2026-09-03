@@ -16,15 +16,17 @@ import {
 } from "@/lib/domain/comercial";
 import type { PeriodoFiltro } from "@/lib/domain/financas";
 import { fmtBRL, type ItemOrcamento, type Servico } from "@/lib/domain/types";
+import { fmtDatePtBR, isoDateFromTimestampTz } from "@/lib/domain/dates";
 import type { Coluna } from "@/lib/domain/kanban";
+import CentralDoServico from "@/components/servico-modal/CentralDoServico";
 
 /** `RegistroComercial.data` é sempre um timestamp ISO completo (criado_em/aprovado_em/
- * proposta_enviada_em/perdido_em), nunca uma data pura — `fmtDatePtBR` (que espera
- * "YYYY-MM-DD") não serve aqui. */
+ * proposta_enviada_em/perdido_em), nunca uma data pura — `fmtDatePtBR` sozinho espera
+ * "YYYY-MM-DD", por isso passa primeiro por `isoDateFromTimestampTz` (fuso da operação, não o
+ * fuso em que o Postgres serializou o timestamp). */
 function fmtTimestampPtBR(iso: string): string {
-  return new Date(iso).toLocaleDateString("pt-BR");
+  return fmtDatePtBR(isoDateFromTimestampTz(iso));
 }
-import CentralDoServico from "@/components/servico-modal/CentralDoServico";
 
 interface Cartao {
   id: string;
@@ -98,7 +100,7 @@ export default function IndicadoresComercialClient({
             key={c.id}
             type="button"
             onClick={() => c.registros.length > 0 && setAbertoId(abertoId === c.id ? null : c.id)}
-            disabled={c.registros.length === 0 && c.id !== "conversao" && c.id !== "ticket"}
+            disabled={c.registros.length === 0}
             className={`flex flex-col items-start gap-1 rounded-card border p-3 text-left transition-colors ${
               abertoId === c.id ? "border-gold" : "border-border-neutral hover:border-border-gold-strong"
             }`}

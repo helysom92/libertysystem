@@ -509,6 +509,10 @@ export function alertasPessoais(
     alertas.push({ texto: `Despesa pessoal vencendo: ${d.descricao} — ${d.data.split("-").reverse().join("/")}`, cor: COR_PROXIMO });
   }
 
+  for (const d of despesasAtrasadas(despesas, hojeISO)) {
+    alertas.push({ texto: `Despesa pessoal atrasada: ${d.descricao} — era ${d.data.split("-").reverse().join("/")}`, cor: COR_VENCIDO });
+  }
+
   for (const r of receitasEmAbertoVencidas) {
     alertas.push({ texto: `Receita esperada atrasada: ${r.descricao} — era ${r.data.split("-").reverse().join("/")}`, cor: COR_VENCIDO });
   }
@@ -542,6 +546,16 @@ export function alertasPessoais(
 
 function fmtBRLLocal(v: number): string {
   return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+/** Espelha `receitasAtrasadas` pro lado da despesa — sem escopo de mês, pra não sumir uma
+ * despesa vencida só porque ela venceu num mês anterior ao atual. */
+export function despesasAtrasadas(despesas: DespesaPessoal[], hojeISO: string): RegistroIndicador[] {
+  return despesas
+    .filter((d) => d.situacao !== "cancelada" && d.situacao !== "paga")
+    .map((d): RegistroIndicador => ({ id: d.id, descricao: d.descricao, valor: Math.max(0, d.valor_previsto - d.valor_pago), data: d.vencimento ?? "" }))
+    .filter((d) => d.valor > 0 && d.data && d.data < hojeISO)
+    .sort((a, b) => a.data.localeCompare(b.data));
 }
 
 /** Receitas previstas com data já vencida, sem escopo de mês — pra central de alertas

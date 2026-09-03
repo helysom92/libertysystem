@@ -161,7 +161,7 @@ export default function VisaoGeralView({
           />
         </div>
         <div className="rounded-card border border-border-neutral bg-card p-5">
-          <p className="mb-4 font-display text-[15px] font-bold text-text">Evolução do lucro — 12 meses</p>
+          <p className="mb-4 font-display text-[15px] font-bold text-text">Evolução do resultado — 12 meses</p>
           <LineAreaChart
             points={monthly12.map((m) => m.sales - m.expenses)}
             labels={monthly12.map((m) => m.label)}

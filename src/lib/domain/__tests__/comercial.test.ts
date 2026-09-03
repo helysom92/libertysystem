@@ -163,6 +163,17 @@ describe("propostasVencidas", () => {
     expect(propostasVencidas(svs, "2026-08-09").map((x) => x.id)).toEqual(["a"]);
     expect(propostasVencidas(svs, "2026-08-08").map((x) => x.id)).toEqual([]);
   });
+
+  it("achado do review: proposta enviada tarde da noite (fuso MS) não conta como enviada no dia seguinte por causa do UTC", () => {
+    // 21h30 de 10/08 em Campo Grande (UTC-4) grava como 2026-08-11T01:30:00Z. Vencimento real
+    // (fuso da operação): 10/08 + 7 dias = 17/08. Um bug de `.slice(0,10)` direto no timestamp
+    // leria a data como "2026-08-11" e empurraria o vencimento pra 18/08 — em 18/08 a proposta
+    // já devia estar vencida (17/08 < 18/08); com o bug, ainda pareceria válida.
+    const svs = [
+      servico({ id: "a", proposta_enviada_em: "2026-08-11T01:30:00Z", validade_proposta_dias: 7 }),
+    ];
+    expect(propostasVencidas(svs, "2026-08-18").map((x) => x.id)).toEqual(["a"]);
+  });
 });
 
 describe("alertasComerciais", () => {

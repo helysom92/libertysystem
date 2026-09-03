@@ -480,8 +480,9 @@ export default function ResumoTab({
         <div className="flex gap-2">
           <button
             type="button"
-            disabled={aprovando}
+            disabled={aprovando || !!servico.perdido_em}
             onClick={handleAprovar}
+            title={servico.perdido_em ? "Oportunidade marcada como perdida — não pode ser aprovada" : undefined}
             className="flex-1 rounded-btn bg-gradient-to-br from-gold-light via-gold-mid to-gold-dark py-2.5 text-sm font-semibold text-bg disabled:opacity-40"
           >
             {aprovando ? "Aprovando..." : "Aprovar Orçamento → Gerar OS"}
