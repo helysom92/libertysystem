@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { aprovarMovimento, baixarPrevisto, ignorarMovimento } from "@/lib/actions/fila";
+import { aprovarMovimento, baixarPrevisto, ignorarMovimento, receberParcelaComMovimento } from "@/lib/actions/fila";
 import { UNIDADES } from "@/lib/domain/regras";
 import type { ItemFila } from "@/lib/domain/filaConfirmacao";
 import { fmtBRL, type UnidadeNegocio } from "@/lib/domain/types";
@@ -12,7 +12,13 @@ function dataBR(iso: string): string {
 }
 
 function ItemDaFila({ item, onResolvido }: { item: ItemFila; onResolvido: () => void }) {
-  const { movimento, regra, baixas } = item;
+  const { movimento, regra, baixas, recebiveis, clientesProvaveis } = item;
+  const pagador = movimento.pagador;
+  const detalhesDaConta = [
+    pagador?.banco && pagador.banco !== movimento.descricao ? `banco: ${pagador.banco}` : null,
+    pagador?.documento ? `${pagador.tipoDocumento ?? "doc"}: ${pagador.documento}` : null,
+    pagador?.email && pagador.email !== movimento.descricao ? pagador.email : null,
+  ].filter(Boolean);
   const [categoria, setCategoria] = useState(item.categoriaSugerida);
   const [unidade, setUnidade] = useState<UnidadeNegocio | "">(item.unidadeSugerida ?? "");
   const [lembrar, setLembrar] = useState(false);
@@ -40,9 +46,40 @@ function ItemDaFila({ item, onResolvido }: { item: ItemFila; onResolvido: () => 
             {dataBR(movimento.data)} · {movimento.tipo}
             {regra ? ` · regra: ${regra.padrao}` : ""}
           </p>
+          {detalhesDaConta.length > 0 && <p className="text-[11px] text-text-muted">{detalhesDaConta.join(" · ")}</p>}
+          {clientesProvaveis.length > 0 && (
+            <p className="text-[11.5px] text-gold">
+              Possível cliente: {clientesProvaveis.map((c) => `${c.nome} (${c.motivo})`).join(" ou ")}
+            </p>
+          )}
         </div>
         <span className={`font-semibold ${cor}`}>{fmtBRL(movimento.valor)}</span>
       </div>
+
+      {recebiveis.length > 0 && (
+        <div className="mt-2 rounded-btn border border-border-gold p-2">
+          <p className="mb-1 text-[11px] text-text-secondary">
+            Você tinha um recebimento previsto parecido com esse Pix. Corresponde?
+          </p>
+          {recebiveis.map((r) => (
+            <div key={r.parcelaId} className="flex flex-wrap items-center justify-between gap-2 py-0.5">
+              <span>
+                {r.descricao} · saldo {fmtBRL(r.saldo)}
+                {r.dataPrevista ? ` · previsto ${dataBR(r.dataPrevista)}` : ""}{" "}
+                <span className="text-text-muted">({r.motivo})</span>
+              </span>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => executar(() => receberParcelaComMovimento(movimento.id, r.parcelaId))}
+                className="rounded-btn bg-gold px-2.5 py-1 text-[11.5px] font-semibold text-bg disabled:opacity-60"
+              >
+                Sim, corresponde
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       {baixas.length > 0 && (
         <div className="mt-2 rounded-btn border border-border-gold p-2">
@@ -102,7 +139,7 @@ function ItemDaFila({ item, onResolvido }: { item: ItemFila; onResolvido: () => 
           }
           className="rounded-btn border border-border-gold-strong px-2.5 py-1 text-[11.5px] font-semibold text-gold disabled:opacity-60"
         >
-          {baixas.length > 0 ? "Lançar como novo" : "Aprovar e lançar"}
+          {baixas.length > 0 || recebiveis.length > 0 ? "Não, lançar como novo" : "Aprovar e lançar"}
         </button>
         <button
           type="button"

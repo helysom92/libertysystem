@@ -19,6 +19,7 @@ interface MovimentoMercadoPago {
   descricao: string;
   contraparte: string | null;
   tipoBruto: string;
+  pagador: Record<string, unknown>;
 }
 
 interface PagamentoMercadoPago {
@@ -29,22 +30,33 @@ interface PagamentoMercadoPago {
   transaction_amount?: number;
   operation_type?: string;
   description?: string | null;
-  payer?: { first_name?: string | null; last_name?: string | null; email?: string | null };
+  payer?: {
+    first_name?: string | null;
+    last_name?: string | null;
+    email?: string | null;
+    identification?: { type?: string | null; number?: string | null } | null;
+  };
   point_of_interaction?: {
     transaction_data?: { bank_info?: { payer?: { long_name?: string | null } } };
   };
 }
 
-/** Nome de quem pagou: nome/sobrenome, senão e-mail. Só se não houver nada disso cai no
- * `long_name` do Pix — que, na prática, costuma ser o nome do BANCO do pagador (Sicredi etc.),
- * não da pessoa, e por isso nunca deve ser o preferido pra casar regras. */
-function nomeDoPagador(p: PagamentoMercadoPago): string | null {
-  // Pix: o Mercado Pago mascara o nome da pessoa ("XXXXXXXXXXX") — isso não é um nome.
+/**
+ * Tudo que o Mercado Pago diz sobre quem pagou. `nome` é o da PESSOA/EMPRESA (o destaque na
+ * tela); o `long_name` do Pix é o nome do BANCO dela (Sicredi etc.) e fica só como informação
+ * secundária. O nome da pessoa costuma vir mascarado ("XXXXXXXXXXX") — isso não é nome.
+ * `bruto` guarda o objeto original do pagador pra podermos ver o que a conta realmente recebe.
+ */
+function infoDoPagador(p: PagamentoMercadoPago): Record<string, unknown> {
   const nome = [textoUtil(p.payer?.first_name), textoUtil(p.payer?.last_name)].filter(Boolean).join(" ").trim();
-  if (nome) return nome;
-  const email = textoUtil(p.payer?.email);
-  if (email) return email;
-  return textoUtil(p.point_of_interaction?.transaction_data?.bank_info?.payer?.long_name);
+  return {
+    nome: nome || null,
+    banco: textoUtil(p.point_of_interaction?.transaction_data?.bank_info?.payer?.long_name),
+    documento: textoUtil(p.payer?.identification?.number),
+    tipoDocumento: p.payer?.identification?.type ?? null,
+    email: textoUtil(p.payer?.email),
+    bruto: p.payer ?? null,
+  };
 }
 
 /** Texto genérico/mascarado = vazio, curtinho ou um caractere repetido ("XXXXXXXXXXX"). */
@@ -94,18 +106,24 @@ async function buscarMovimentosMercadoPago(diasAtras: number): Promise<Movimento
     .map((p) => {
       const valorBruto = Number(p.transaction_amount ?? 0);
       const tipo: "Receita" | "Despesa" = valorBruto < 0 ? "Despesa" : "Receita";
-      const contraparte = nomeDoPagador(p);
-      const partes = [contraparte, textoUtil(p.description)].filter(
+      const pagador = infoDoPagador(p);
+      const nome = pagador.nome as string | null;
+      const partes = [nome, textoUtil(p.description)].filter(
         (parte, i, todas): parte is string => !!parte && todas.indexOf(parte) === i
       );
+      // Sem nome nem descrição: usa o e-mail e, por último, o banco — só pra não ficar em branco.
+      const alternativa =
+        (pagador.email as string | null) ??
+        (pagador.banco ? `Pix recebido (banco: ${pagador.banco as string})` : "Pagamento Mercado Pago");
       return {
         mpId: String(p.id),
         data: (p.date_approved ?? p.date_created ?? "").slice(0, 10),
         valor: Math.abs(valorBruto),
         tipo,
-        descricao: partes.length > 0 ? partes.join(" — ") : "Pagamento Mercado Pago",
-        contraparte,
+        descricao: partes.length > 0 ? partes.join(" — ") : alternativa,
+        contraparte: nome,
         tipoBruto: p.operation_type ?? "",
+        pagador,
       };
     })
     .filter((m) => m.data.length === 10);
@@ -129,11 +147,26 @@ async function sincronizarEntradas(supabase: Supabase): Promise<number> {
     descricao: m.descricao,
     contraparte: m.contraparte,
     tipo_mp_bruto: m.tipoBruto,
+    pagador: m.pagador,
   }));
-  const { data, error } = await supabase
+  let { data, error } = await supabase
     .from("mercadopago_movimentos")
     .upsert(linhas, { onConflict: "mp_id" })
     .select("mp_id");
+  // Se a coluna `pagador` ainda não existir (migration pendente), grava sem ela em vez de parar.
+  if (error && /pagador/i.test(error.message)) {
+    ({ data, error } = await supabase
+      .from("mercadopago_movimentos")
+      .upsert(
+        linhas.map((linha) => {
+          const semPagador: Record<string, unknown> = { ...linha };
+          delete semPagador.pagador;
+          return semPagador;
+        }),
+        { onConflict: "mp_id" }
+      )
+      .select("mp_id"));
+  }
   if (error) throw new Error(error.message);
   return data?.length ?? 0;
 }
