@@ -14,7 +14,10 @@ import {
   type RetiradaDoMes,
 } from "@/lib/actions/extrato";
 import { createLancamento, deleteLancamento } from "@/lib/actions/financeiro";
-import { fmtBRL } from "@/lib/domain/types";
+import { listarRegras } from "@/lib/actions/regras";
+import { UNIDADES, sugerirPorRegra, type RegraLancamento } from "@/lib/domain/regras";
+import { fmtBRL, type UnidadeNegocio } from "@/lib/domain/types";
+import RegrasAprendidasPanel from "./RegrasAprendidasPanel";
 import { todayISO } from "@/lib/domain/dates";
 import type { AchadoConciliacao } from "@/lib/domain/extrato";
 import type { FechamentoMensal } from "@/lib/domain/types";
@@ -25,9 +28,19 @@ const MESES = [
   "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
 ];
 
-function AchadoFaltando({ achado, onLancado }: { achado: AchadoConciliacao; onLancado: () => void }) {
+function AchadoFaltando({
+  achado,
+  regras,
+  onLancado,
+}: {
+  achado: AchadoConciliacao;
+  regras: RegraLancamento[];
+  onLancado: () => void;
+}) {
   const linha = achado.linhaExtrato!;
-  const [categoria, setCategoria] = useState("Geral");
+  const regra = sugerirPorRegra(linha.descricao, linha.tipo, regras);
+  const [categoria, setCategoria] = useState(regra?.categoria || "Geral");
+  const [unidade, setUnidade] = useState<UnidadeNegocio | "">(regra?.unidade_negocio ?? "");
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -41,6 +54,7 @@ function AchadoFaltando({ achado, onLancado }: { achado: AchadoConciliacao; onLa
         valor: linha.valor,
         data: linha.data,
         status: "realizado",
+        ...(unidade ? { unidade_negocio: unidade } : {}),
       });
       if (!resultado.ok) {
         setError(resultado.message);
@@ -59,6 +73,7 @@ function AchadoFaltando({ achado, onLancado }: { achado: AchadoConciliacao; onLa
         <p className="font-medium">{linha.descricao}</p>
         <p className="text-[11px] text-text-muted">
           {linha.data.split("-").reverse().join("/")} · {linha.tipo}
+          {regra ? ` · regra: ${regra.padrao}` : ""}
         </p>
         {error && <p className="text-[11px] text-danger">{error}</p>}
       </div>
@@ -69,6 +84,19 @@ function AchadoFaltando({ achado, onLancado }: { achado: AchadoConciliacao; onLa
           className="w-28 rounded-btn border border-border-neutral bg-card px-2 py-1 text-[11.5px]"
           placeholder="Categoria"
         />
+        <select
+          value={unidade}
+          onChange={(e) => setUnidade(e.target.value as UnidadeNegocio | "")}
+          className="rounded-btn border border-border-neutral bg-card px-2 py-1 text-[11.5px]"
+          aria-label="Unidade de negócio"
+        >
+          <option value="">Com. Visual</option>
+          {UNIDADES.filter((u) => u.valor !== "comunicacao_visual").map((u) => (
+            <option key={u.valor} value={u.valor}>
+              {u.rotulo}
+            </option>
+          ))}
+        </select>
         <span className={`w-20 text-right font-semibold ${linha.tipo === "Despesa" ? "text-danger" : "text-success"}`}>
           {fmtBRL(linha.valor)}
         </span>
@@ -184,6 +212,27 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
   const [mostrarInternas, setMostrarInternas] = useState(false);
   const [pending, startTransition] = useTransition();
   const [buscandoAuto, startBuscaAutoTransition] = useTransition();
+  const [regras, setRegras] = useState<RegraLancamento[]>([]);
+
+  function recarregarRegras() {
+    listarRegras()
+      .then(setRegras)
+      .catch(() => setRegras([]));
+  }
+
+  useEffect(() => {
+    let cancelado = false;
+    listarRegras()
+      .then((r) => {
+        if (!cancelado) setRegras(r);
+      })
+      .catch(() => {
+        if (!cancelado) setRegras([]);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, []);
   const [fechando, startFechando] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [fechamentoRecente, setFechamentoRecente] = useState<{ entrou: number; saiu: number; lucro: number } | null>(null);
@@ -397,7 +446,7 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
             </p>
             <div className="flex flex-col gap-1.5">
               {faltando.map((a, i) => (
-                <AchadoFaltando key={i} achado={a} onLancado={() => removerAchado(a)} />
+                <AchadoFaltando key={i} achado={a} regras={regras} onLancado={() => removerAchado(a)} />
               ))}
               {faltando.length === 0 && <p className="text-sm text-text-muted">Nada faltando — tudo já lançado.</p>}
             </div>
@@ -496,6 +545,8 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
           )}
         </div>
       )}
+
+      <RegrasAprendidasPanel regras={regras} onChanged={recarregarRegras} />
 
       {fechamentos.length > 0 && (
         <div>

@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidateFinanceiroPaths } from "./revalidateFinanceiro";
 import { requireRole } from "@/lib/domain/permissions";
 import type { AcaoResultado, AcaoComSaldo } from "./resultado";
+import type { UnidadeNegocio } from "@/lib/domain/types";
 
 export interface NovoLancamentoInput {
   tipo: "Receita" | "Despesa";
@@ -17,6 +18,7 @@ export interface NovoLancamentoInput {
   banco?: string | null;
   forma_pagamento?: string | null;
   status?: "previsto" | "realizado" | "cancelado";
+  unidade_negocio?: UnidadeNegocio | null;
 }
 
 export async function createLancamento(input: NovoLancamentoInput): Promise<AcaoResultado> {

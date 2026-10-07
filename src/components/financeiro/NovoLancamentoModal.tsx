@@ -3,7 +3,8 @@
 import { useState, useTransition } from "react";
 import { createLancamento, deleteLancamento, updateLancamento } from "@/lib/actions/financeiro";
 import { todayISO } from "@/lib/domain/dates";
-import type { Fornecedor, Lancamento } from "@/lib/domain/types";
+import { UNIDADES } from "@/lib/domain/regras";
+import type { Fornecedor, Lancamento, UnidadeNegocio } from "@/lib/domain/types";
 
 const FORMAS_PAGAMENTO = ["Pix", "Dinheiro", "Cartão de Débito", "Cartão de Crédito", "Boleto", "Transferência"];
 
@@ -27,6 +28,7 @@ export default function NovoLancamentoModal({
   const [status, setStatus] = useState<"previsto" | "realizado">(
     editing?.status === "previsto" ? "previsto" : "realizado"
   );
+  const [unidade, setUnidade] = useState<UnidadeNegocio | "">(editing?.unidade_negocio ?? "");
   const [pending, startTransition] = useTransition();
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,6 +47,9 @@ export default function NovoLancamentoModal({
         banco: banco || null,
         forma_pagamento: formaPagamento,
         status,
+        // Só manda a unidade quando ela existe ou mudou — assim o formulário continua
+        // funcionando em qualquer ambiente onde a coluna ainda não foi criada.
+        ...(unidade || editing?.unidade_negocio ? { unidade_negocio: unidade || null } : {}),
       };
       const resultado = editing ? await updateLancamento(editing.id, payload) : await createLancamento(payload);
       if (!resultado.ok) {
@@ -149,6 +154,22 @@ export default function NovoLancamentoModal({
               className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
             />
           </div>
+        </div>
+
+        <div className="mb-3">
+          <label className="mb-1 block text-xs text-text-secondary">Unidade de negócio</label>
+          <select
+            value={unidade}
+            onChange={(e) => setUnidade(e.target.value as UnidadeNegocio | "")}
+            className="w-full rounded-btn border border-border-neutral bg-card-secondary px-3 py-2 text-sm"
+          >
+            <option value="">Padrão (Comunicação Visual)</option>
+            {UNIDADES.map((u) => (
+              <option key={u.valor} value={u.valor}>
+                {u.rotulo}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="mb-3 flex gap-3">

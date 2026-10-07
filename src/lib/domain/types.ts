@@ -205,6 +205,10 @@ export interface LogEntry {
 
 export type LancamentoStatus = "previsto" | "realizado" | "cancelado";
 
+/** Mesmo enum do banco (`unidade_negocio`, migration 0054). `null`/ausente num lançamento
+ * significa Comunicação Visual — ver `unidadeEfetiva` em regras.ts. */
+export type UnidadeNegocio = "comunicacao_visual" | "digital" | "outros";
+
 export interface FechamentoMensal {
   id: string;
   ano: number;
@@ -228,6 +232,7 @@ export interface Lancamento {
   banco: string | null;
   forma_pagamento: string | null;
   status: LancamentoStatus;
+  unidade_negocio?: UnidadeNegocio | null;
 }
 
 export interface DespesaFixa {

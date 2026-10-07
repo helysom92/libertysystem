@@ -50,6 +50,7 @@ import {
 } from "@/lib/domain/financas";
 import { emProducao, atrasados } from "@/lib/domain/kpis";
 import { propostasAguardandoResposta, propostasVencidas } from "@/lib/domain/comercial";
+import { UNIDADES, filtrarPorUnidade, type FiltroUnidade } from "@/lib/domain/regras";
 import type { DadosVisaoGeral } from "@/components/financeiro/VisaoGeralFinanceiroClient";
 import VisaoGeralView from "./VisaoGeralView";
 import VendasView from "./VendasView";
@@ -138,7 +139,7 @@ export default function DashboardShell({
   hojeISO,
   servicos,
   clientes,
-  lancamentos,
+  lancamentos: lancamentosTodos,
   eventos,
   despesasFixas,
   despesasFixasOcorrencias,
@@ -173,6 +174,14 @@ export default function DashboardShell({
 }) {
   const router = useRouter();
   const hoje = useMemo(() => new Date(hojeISO + "T00:00:00"), [hojeISO]);
+
+  // Filtro de unidade aplicado uma vez só, aqui — daí em diante todo cálculo de lançamentos
+  // (série mensal, KPIs, relatórios) já recebe só a unidade escolhida. OS/vendas não filtram.
+  const [unidadeFiltro, setUnidadeFiltro] = useState<FiltroUnidade>("todas");
+  const lancamentos = useMemo(
+    () => filtrarPorUnidade(lancamentosTodos, unidadeFiltro),
+    [lancamentosTodos, unidadeFiltro]
+  );
 
   const [view, setView] = useState("overview");
   const [cal, setCal] = useState({ year: hoje.getFullYear(), month: hoje.getMonth() });
@@ -352,6 +361,30 @@ export default function DashboardShell({
 
   return (
     <div>
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-[12.5px]">
+        <label htmlFor="filtro-unidade" className="text-text-secondary">
+          Unidade (receitas e despesas):
+        </label>
+        <select
+          id="filtro-unidade"
+          value={unidadeFiltro}
+          onChange={(e) => setUnidadeFiltro(e.target.value as FiltroUnidade)}
+          className="rounded-btn border border-border-neutral bg-card-secondary px-2.5 py-1.5"
+        >
+          <option value="todas">Todas</option>
+          {UNIDADES.map((u) => (
+            <option key={u.valor} value={u.valor}>
+              {u.rotulo}
+            </option>
+          ))}
+        </select>
+        {unidadeFiltro !== "todas" && (
+          <span className="text-text-muted">
+            Vendas e OS não são filtradas por unidade — só os lançamentos financeiros.
+          </span>
+        )}
+      </div>
+
       <div className="mb-6 flex gap-1 overflow-x-auto border-b border-border-neutral">
         {TABS.map((t) => (
           <button
