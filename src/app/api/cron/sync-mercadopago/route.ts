@@ -24,12 +24,15 @@ interface PagamentoMercadoPago {
   };
 }
 
-/** Nome de quem pagou: o do Pix (banco) quando existir, senão nome/sobrenome, senão e-mail. */
+/** Nome de quem pagou: nome/sobrenome, senão e-mail. Só se não houver nada disso cai no
+ * `long_name` do Pix — que, na prática, costuma ser o nome do BANCO do pagador (Sicredi etc.),
+ * não da pessoa, e por isso nunca deve ser o preferido pra casar regras. */
 function nomeDoPagador(p: PagamentoMercadoPago): string | null {
-  const pix = p.point_of_interaction?.transaction_data?.bank_info?.payer?.long_name?.trim();
-  if (pix) return pix;
   const nome = [p.payer?.first_name, p.payer?.last_name].filter(Boolean).join(" ").trim();
-  return nome || p.payer?.email?.trim() || null;
+  if (nome) return nome;
+  const email = p.payer?.email?.trim();
+  if (email) return email;
+  return p.point_of_interaction?.transaction_data?.bank_info?.payer?.long_name?.trim() || null;
 }
 
 /** Descrição genérica = vazia, curtinha ou um caractere repetido ("XXXXXXXXXXX"). */
