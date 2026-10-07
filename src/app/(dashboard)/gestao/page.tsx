@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { fetchAllClientes } from "@/lib/supabase/fetchAllClientes";
 import { requireTab } from "@/lib/domain/permissions";
-import { todayISO } from "@/lib/domain/dates";
+import { hojeISOOperacao } from "@/lib/domain/dates";
 import type {
   Comprovante,
   DespesaFixa,
@@ -21,8 +21,9 @@ import type { Meta } from "@/lib/domain/dashboardMetrics";
 import type { Profile } from "@/lib/supabase/profile";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 
-export default async function GestaoPage() {
+export default async function GestaoPage({ searchParams }: { searchParams: Promise<{ aba?: string }> }) {
   await requireTab("gestao");
+  const { aba } = await searchParams;
 
   const supabase = await createClient();
   const [
@@ -71,7 +72,8 @@ export default async function GestaoPage() {
       </div>
 
       <DashboardShell
-        hojeISO={todayISO()}
+        abaInicial={aba}
+        hojeISO={hojeISOOperacao()}
         servicos={(servicos as Servico[]) ?? []}
         clientes={clientes}
         lancamentos={(lancamentos as Lancamento[]) ?? []}

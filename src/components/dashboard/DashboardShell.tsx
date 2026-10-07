@@ -62,12 +62,14 @@ import ClientesView from "./ClientesView";
 import MetasView from "./MetasView";
 import GargalosView from "./GargalosView";
 import ConferenciaView from "./ConferenciaView";
+import RevisaoSemanalView from "./RevisaoSemanalView";
 import UsuariosView from "./UsuariosView";
 import RelatoriosClient from "@/components/relatorios/RelatoriosClient";
 import type { Profile } from "@/lib/supabase/profile";
 
 const TABS = [
   { key: "overview", label: "Visão Geral" },
+  { key: "revisao", label: "Revisão semanal" },
   { key: "sales", label: "Vendas" },
   { key: "expenses", label: "Despesas" },
   { key: "compare", label: "Comparativo" },
@@ -153,7 +155,9 @@ export default function DashboardShell({
   comprovantes,
   fechamentos,
   usuarios,
+  abaInicial,
 }: {
+  abaInicial?: string;
   hojeISO: string;
   servicos: Servico[];
   clientes: Cliente[];
@@ -183,7 +187,7 @@ export default function DashboardShell({
     [lancamentosTodos, unidadeFiltro]
   );
 
-  const [view, setView] = useState("overview");
+  const [view, setView] = useState(TABS.some((t) => t.key === abaInicial) ? abaInicial! : "overview");
   const [cal, setCal] = useState({ year: hoje.getFullYear(), month: hoje.getMonth() });
   const [selectedDate, setSelectedDate] = useState(hojeISO);
 
@@ -417,6 +421,18 @@ export default function DashboardShell({
           onNextMonth={nextViewMonth}
           disableNext={viewIdx === monthly.length - 1}
           mtd={mtd}
+        />
+      )}
+      {view === "revisao" && (
+        <RevisaoSemanalView
+          hojeISO={hojeISO}
+          servicos={servicos}
+          lancamentos={lancamentosTodos}
+          servicoParcelas={servicoParcelas}
+          despesasFixas={despesasFixas}
+          despesasFixasOcorrencias={despesasFixasOcorrencias}
+          despesasVariaveis={despesasVariaveis}
+          despesasVariaveisOcorrencias={despesasVariaveisOcorrencias}
         />
       )}
       {view === "sales" && (

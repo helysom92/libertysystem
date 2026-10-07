@@ -26,6 +26,7 @@ import AlertasGerais from "@/components/hoje/AlertasGerais";
 import SemFinanceiroPosEntrega from "@/components/hoje/SemFinanceiroPosEntrega";
 import FilaConfirmacao from "@/components/hoje/FilaConfirmacao";
 import { filaDeConfirmacao } from "@/lib/actions/fila";
+import { inicioDaSemana } from "@/lib/domain/revisaoSemanal";
 import type { FilaClassificada } from "@/lib/domain/filaConfirmacao";
 
 export default async function HojePage() {
@@ -83,13 +84,23 @@ export default async function HojePage() {
   // Fila diária de movimentos do Mercado Pago — só Administrador. Se a tabela/colunas ainda
   // não existirem (migration pendente) ou o banco falhar, a tela Hoje segue normal, sem fila.
   let fila: FilaClassificada | null = null;
+  let revisaoPendente = false;
   if (role === "administrador") {
     try {
       fila = await filaDeConfirmacao();
     } catch {
       fila = null;
     }
+    // Revisão semanal (Etapa E): avisa quando a semana corrente ainda não foi confirmada. Se a
+    // tabela não existir ainda (migration pendente), não mostra nada.
+    const { data: revisaoDaSemana, error: erroRevisao } = await supabase
+      .from("revisoes_semanais")
+      .select("id")
+      .eq("semana_inicio", inicioDaSemana(hojeISO))
+      .maybeSingle();
+    revisaoPendente = !erroRevisao && !revisaoDaSemana;
   }
+  const hojeEhSegunda = new Date(hojeISO + "T00:00:00Z").getUTCDay() === 1;
 
   return (
     <div>
@@ -107,6 +118,23 @@ export default async function HojePage() {
         <ProducaoKpis servicos={svs} />
       ) : (
         <AdminKpis servicos={svs} />
+      )}
+
+      {revisaoPendente && (
+        <div className="mt-5">
+          <AlertasGerais
+            titulo="Revisão semanal"
+            alertas={[
+              {
+                texto: hojeEhSegunda
+                  ? "Hoje é dia de revisão semanal — a semana ainda não foi conferida."
+                  : "A revisão semanal desta semana ainda não foi concluída.",
+                cor: "#e0a030",
+              },
+            ]}
+            href="/gestao?aba=revisao"
+          />
+        </div>
       )}
 
       {fila && fila.itens.length > 0 && (
