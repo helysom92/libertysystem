@@ -28,15 +28,16 @@ interface PagamentoMercadoPago {
  * `long_name` do Pix — que, na prática, costuma ser o nome do BANCO do pagador (Sicredi etc.),
  * não da pessoa, e por isso nunca deve ser o preferido pra casar regras. */
 function nomeDoPagador(p: PagamentoMercadoPago): string | null {
-  const nome = [p.payer?.first_name, p.payer?.last_name].filter(Boolean).join(" ").trim();
+  // Pix: o Mercado Pago mascara o nome da pessoa ("XXXXXXXXXXX") — isso não é um nome.
+  const nome = [textoUtil(p.payer?.first_name), textoUtil(p.payer?.last_name)].filter(Boolean).join(" ").trim();
   if (nome) return nome;
-  const email = p.payer?.email?.trim();
+  const email = textoUtil(p.payer?.email);
   if (email) return email;
-  return p.point_of_interaction?.transaction_data?.bank_info?.payer?.long_name?.trim() || null;
+  return textoUtil(p.point_of_interaction?.transaction_data?.bank_info?.payer?.long_name);
 }
 
-/** Descrição genérica = vazia, curtinha ou um caractere repetido ("XXXXXXXXXXX"). */
-function descricaoUtil(texto: string | null | undefined): string | null {
+/** Texto genérico/mascarado = vazio, curtinho ou um caractere repetido ("XXXXXXXXXXX"). */
+function textoUtil(texto: string | null | undefined): string | null {
   const t = texto?.trim();
   if (!t || t.length < 3 || /^(.)\1*$/.test(t)) return null;
   return t;
@@ -83,7 +84,7 @@ async function buscarMovimentosMercadoPago(diasAtras: number): Promise<Movimento
       const valorBruto = Number(p.transaction_amount ?? 0);
       const tipo: "Receita" | "Despesa" = valorBruto < 0 ? "Despesa" : "Receita";
       const contraparte = nomeDoPagador(p);
-      const partes = [contraparte, descricaoUtil(p.description)].filter(
+      const partes = [contraparte, textoUtil(p.description)].filter(
         (parte, i, todas): parte is string => !!parte && todas.indexOf(parte) === i
       );
       return {
