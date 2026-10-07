@@ -41,6 +41,22 @@ export async function marcarLancamentoRealizado(id: string): Promise<AcaoResulta
   return { ok: true };
 }
 
+/** Dá baixa num lançamento previsto: marca realizado **e** grava a data real do pagamento/
+ * recebimento — `marcarLancamentoRealizado` mantém a data prevista, o que errava o mês quando
+ * o dinheiro só se moveu depois. */
+export async function baixarLancamentoPrevisto(id: string, data: string): Promise<AcaoResultado> {
+  await requireRole("administrador", "secretaria");
+  const supabase = await createClient();
+  const { data: atual } = await supabase.from("lancamentos").select("status").eq("id", id).maybeSingle();
+  if (!atual) return { ok: false, message: "Esse lançamento não existe mais." };
+  if (atual.status !== "previsto") return { ok: false, message: "Esse lançamento já não está previsto." };
+  const { error } = await supabase.from("lancamentos").update({ status: "realizado", data }).eq("id", id);
+  if (error) return { ok: false, message: error.message };
+  revalidateFinanceiroPaths();
+  revalidatePath("/hoje");
+  return { ok: true };
+}
+
 export async function updateLancamento(id: string, input: NovoLancamentoInput): Promise<AcaoResultado> {
   await requireRole("administrador", "secretaria");
   const supabase = await createClient();

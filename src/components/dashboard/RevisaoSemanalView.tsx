@@ -12,6 +12,7 @@ import {
   type ItemRevisao,
 } from "@/lib/domain/revisaoSemanal";
 import { fmtBRL } from "@/lib/domain/types";
+import ListaEmLote from "./ListaEmLote";
 
 const dataBR = (d: string) => fmtDatePtBR(d.slice(0, 10));
 
@@ -231,8 +232,8 @@ export default function RevisaoSemanalView(props: DadosRevisao) {
         conferido={!!conferido.pagar}
         onToggle={() => alternar("pagar")}
       >
-        <Lista titulo="Vencidas" itens={revisao.pagar.vencidas} vazio="Nada vencido." cor="text-danger" />
-        <Lista titulo="Vencem nos próximos 7 dias" itens={revisao.pagar.proximas} vazio="Nada a pagar nesta janela." />
+        <ListaEmLote titulo="Vencidas" itens={revisao.pagar.vencidas} vazio="Nada vencido." modo="pagar" cor="text-danger" />
+        <ListaEmLote titulo="Vencem nos próximos 7 dias" itens={revisao.pagar.proximas} vazio="Nada a pagar nesta janela." modo="pagar" />
       </Secao>
 
       <Secao
@@ -241,8 +242,8 @@ export default function RevisaoSemanalView(props: DadosRevisao) {
         conferido={!!conferido.receber}
         onToggle={() => alternar("receber")}
       >
-        <Lista titulo="Atrasados" itens={revisao.receber.atrasadas} vazio="Nenhum recebimento atrasado." cor="text-danger" />
-        <Lista titulo="Previstos nos próximos 7 dias" itens={revisao.receber.proximas} vazio="Nada previsto nesta janela." cor="text-success" />
+        <ListaEmLote titulo="Atrasados" itens={revisao.receber.atrasadas} vazio="Nenhum recebimento atrasado." modo="receber" cor="text-danger" />
+        <ListaEmLote titulo="Previstos nos próximos 7 dias" itens={revisao.receber.proximas} vazio="Nada previsto nesta janela." modo="receber" cor="text-success" />
       </Secao>
 
       <Secao

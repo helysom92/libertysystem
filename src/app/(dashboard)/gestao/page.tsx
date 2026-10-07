@@ -21,6 +21,9 @@ import type { Meta } from "@/lib/domain/dashboardMetrics";
 import type { Profile } from "@/lib/supabase/profile";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 
+// A revisão semanal pode resolver dezenas de itens por chamada (cada um é uma RPC).
+export const maxDuration = 60;
+
 export default async function GestaoPage({ searchParams }: { searchParams: Promise<{ aba?: string }> }) {
   await requireTab("gestao");
   const { aba } = await searchParams;

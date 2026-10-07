@@ -211,6 +211,86 @@ describe("montarRevisao — recebimentos, fluxo e previsão", () => {
   });
 });
 
+describe("montarRevisao — referência de ação de cada item (resolução em lote)", () => {
+  const fixa = (id: string, dia: number): DespesaFixa => ({
+    id,
+    descricao: `Fixa ${id}`,
+    valor: 200,
+    dia_vencimento: dia,
+    categoria: null,
+    fornecedor_id: null,
+    ativo: true,
+  });
+
+  it("conta fixa do mês, lançamento previsto e parcela carregam a ação certa", () => {
+    const r = montarRevisao(
+      dados({
+        servicos: [os({ id: "s1", numero: "OS-9" })],
+        servicoParcelas: [
+          {
+            id: "p1",
+            servico_id: "s1",
+            ordem: 1,
+            descricao: "Sinal",
+            valor_previsto: 300,
+            data_prevista: "2026-10-01",
+            valor_pago: null,
+            pago_em: null,
+            forma_pagamento: null,
+            lancamento_id: null,
+            cancelada_em: null,
+            cancelada_por: null,
+            motivo_cancelamento: null,
+          },
+        ],
+        despesasFixas: [fixa("aluguel", 9)],
+        lancamentos: [
+          lanc({ id: "boleto", data: "2026-10-03" }),
+          lanc({ id: "pix", tipo: "Receita", data: "2026-10-02", valor: 80 }),
+        ],
+      })
+    );
+    expect(r.pagar.proximas.find((i) => i.id === "aluguel")?.acao).toEqual({
+      kind: "fixa",
+      despesaFixaId: "aluguel",
+      ano: 2026,
+      mes: 10,
+    });
+    expect(r.pagar.vencidas.find((i) => i.id === "boleto")?.acao).toEqual({ kind: "lancamento", lancamentoId: "boleto" });
+    expect(r.receber.atrasadas.find((i) => i.id === "p1")?.acao).toEqual({
+      kind: "parcela",
+      parcelaId: "p1",
+      servicoId: "s1",
+    });
+    expect(r.receber.atrasadas.find((i) => i.id === "pix")?.acao).toEqual({ kind: "lancamento", lancamentoId: "pix" });
+  });
+
+  it("ocorrência não paga de mês anterior mantém o ano/mês dela", () => {
+    const r = montarRevisao(
+      dados({
+        despesasFixas: [fixa("aluguel", 9)],
+        despesasFixasOcorrencias: [
+          {
+            id: "o9",
+            despesa_fixa_id: "aluguel",
+            ano: 2026,
+            mes: 9,
+            pago: false,
+            pago_em: null,
+            lancamento_id: null,
+            cancelada_em: null,
+            cancelada_por: null,
+            motivo_cancelamento: null,
+            valor_pago: null,
+          },
+        ],
+      })
+    );
+    const antiga = r.pagar.vencidas.find((i) => i.descricao.includes("09/2026"));
+    expect(antiga?.acao).toEqual({ kind: "fixa", despesaFixaId: "aluguel", ano: 2026, mes: 9 });
+  });
+});
+
 describe("resumoDaRevisao", () => {
   it("guarda contagens e totais de cada seção", () => {
     const r = montarRevisao(

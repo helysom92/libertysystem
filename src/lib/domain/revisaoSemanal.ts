@@ -29,11 +29,20 @@ export function fimDaSemana(iso: string): string {
   return deslocarISO(inicioDaSemana(iso), 6);
 }
 
+/** O que o item é de verdade — é o que permite resolvê-lo em lote chamando a ação oficial
+ * certa (pagar/cancelar ocorrência fixa, variável, lançamento previsto ou parcela de OS). */
+export type AcaoItem =
+  | { kind: "fixa"; despesaFixaId: string; ano: number; mes: number }
+  | { kind: "variavel"; despesaVariavelId: string; ano: number; mes: number }
+  | { kind: "lancamento"; lancamentoId: string }
+  | { kind: "parcela"; parcelaId: string; servicoId: string };
+
 export interface ItemRevisao {
   id: string;
   descricao: string;
   valor: number;
   data: string;
+  acao?: AcaoItem;
 }
 
 export interface Revisao {
@@ -118,8 +127,16 @@ function contasPagar(dados: DadosRevisao, previstosDespesa: Lancamento[], hojeIS
     for (const i of itens) {
       const chave = `${i.tipo}:${i.id}:${i.vencimento}`;
       if (!vistos.has(chave)) {
+        // O mês da ocorrência é o da chamada (não o do vencimento: despesa variável pode ter
+        // data em outro mês) — é com ele que a ação oficial acha a ocorrência certa.
+        const acao: AcaoItem =
+          i.tipo === "fixa"
+            ? { kind: "fixa", despesaFixaId: i.id, ano, mes }
+            : i.tipo === "variavel"
+              ? { kind: "variavel", despesaVariavelId: i.id, ano, mes }
+              : { kind: "lancamento", lancamentoId: i.id };
         vistos.set(chave, {
-          item: { id: i.id, descricao: i.descricao, valor: i.valor, data: i.vencimento },
+          item: { id: i.id, descricao: i.descricao, valor: i.valor, data: i.vencimento, acao },
           atrasado: i.atrasado,
         });
       }
@@ -143,6 +160,10 @@ function contasPagar(dados: DadosRevisao, previstosDespesa: Lancamento[], hojeIS
       descricao: `${a.descricao} (${String(a.mes).padStart(2, "0")}/${a.ano})`,
       valor: a.valor,
       data: `${a.ano}-${String(a.mes).padStart(2, "0")}-01`,
+      acao:
+        a.tipo === "fixa"
+          ? { kind: "fixa", despesaFixaId: a.despesaId, ano: a.ano, mes: a.mes }
+          : { kind: "variavel", despesaVariavelId: a.despesaId, ano: a.ano, mes: a.mes },
     });
   }
 
@@ -181,7 +202,21 @@ export function montarRevisao(dados: DadosRevisao): Revisao {
     periodoLivre(hojeISO, fimJanela),
     hojeISO
   ).registros;
-  const receber = { atrasadas: [...receberAtrasadas].sort(porData), proximas: [...receberProximas].sort(porData) };
+  // Parcela de OS ou lançamento previsto avulso? Define a ação oficial usada pra resolver o item.
+  const parcelaPorId = new Map(dados.servicoParcelas.map((p) => [p.id, p]));
+  const comAcao = (r: ItemRevisao): ItemRevisao => {
+    const parcela = parcelaPorId.get(r.id);
+    return {
+      ...r,
+      acao: parcela
+        ? { kind: "parcela", parcelaId: parcela.id, servicoId: parcela.servico_id }
+        : { kind: "lancamento", lancamentoId: r.id },
+    };
+  };
+  const receber = {
+    atrasadas: receberAtrasadas.map(comAcao).sort(porData),
+    proximas: receberProximas.map(comAcao).sort(porData),
+  };
 
   const anterior = { inicio: deslocarISO(semanaInicio, -7), fim: deslocarISO(semanaInicio, -1) };
   const rec = recebido(dados.lancamentos, anterior);
