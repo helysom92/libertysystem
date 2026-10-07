@@ -80,7 +80,12 @@ export async function listarRelatorios(token: string): Promise<RelatorioListado[
 }
 
 export async function baixarRelatorio(token: string, fileName: string): Promise<string> {
-  const r = await fetch(`${BASE}/${encodeURIComponent(fileName)}`, { headers: cabecalhos(token) });
+  const url = `${BASE}/${encodeURIComponent(fileName)}`;
+  let r = await fetch(url, { headers: cabecalhos(token) });
+  // A documentação mostra as duas formas de enviar o token (header e `access_token` na URL).
+  if (r.status === 403 || r.status === 401) {
+    r = await fetch(`${url}?access_token=${encodeURIComponent(token)}`);
+  }
   if (!r.ok) throw await erroDe(r, "baixar");
   return r.text();
 }

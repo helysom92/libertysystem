@@ -153,13 +153,23 @@ async function sincronizarSaidas(supabase: Supabase, token: string) {
   const movimentos: MovimentoRelatorio[] = [];
   const contagemPorTipo: Record<string, number> = {};
   let colunasAusentes: string[] = [];
+  const arquivos: { nome: string; criadoPor: string | null; resultado: string }[] = [];
   for (const r of recentes) {
-    const resultado = interpretarRelatorio(await baixarRelatorio(token, r.file_name));
-    movimentos.push(...resultado.movimentos);
-    for (const [tipo, n] of Object.entries(resultado.contagemPorTipo)) {
-      contagemPorTipo[tipo] = (contagemPorTipo[tipo] ?? 0) + n;
+    try {
+      const resultado = interpretarRelatorio(await baixarRelatorio(token, r.file_name));
+      movimentos.push(...resultado.movimentos);
+      for (const [tipo, n] of Object.entries(resultado.contagemPorTipo)) {
+        contagemPorTipo[tipo] = (contagemPorTipo[tipo] ?? 0) + n;
+      }
+      if (resultado.colunasAusentes.length > 0) colunasAusentes = resultado.colunasAusentes;
+      arquivos.push({ nome: r.file_name, criadoPor: r.created_from ?? null, resultado: "ok" });
+    } catch (err) {
+      arquivos.push({
+        nome: r.file_name,
+        criadoPor: r.created_from ?? null,
+        resultado: err instanceof Error ? err.message : "falhou",
+      });
     }
-    if (resultado.colunasAusentes.length > 0) colunasAusentes = resultado.colunasAusentes;
   }
 
   let novos = 0;
@@ -184,7 +194,7 @@ async function sincronizarSaidas(supabase: Supabase, token: string) {
     novos = data?.length ?? 0;
   }
 
-  return { configCriada: criada, arquivosLidos: recentes.length, saidasNovas: novos, contagemPorTipo, colunasAusentes };
+  return { configCriada: criada, arquivos, saidasNovas: novos, contagemPorTipo, colunasAusentes };
 }
 
 export async function GET(request: Request) {
