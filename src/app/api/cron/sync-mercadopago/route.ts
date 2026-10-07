@@ -1,4 +1,9 @@
 import { createServiceClient } from "@/lib/supabase/service";
+import { baixarRelatorio, garantirConfiguracao, listarRelatorios, solicitarRelatorio } from "@/lib/mercadopago/relatorio";
+import { interpretarRelatorio, type MovimentoRelatorio } from "@/lib/domain/relatorioMercadoPago";
+
+// Esperar o relatório ficar pronto leva alguns segundos — o limite padrão (10s) não basta.
+export const maxDuration = 60;
 
 interface MovimentoMercadoPago {
   mpId: string;
@@ -100,24 +105,16 @@ async function buscarMovimentosMercadoPago(diasAtras: number): Promise<Movimento
     .filter((m) => m.data.length === 10);
 }
 
-export async function GET(request: Request) {
-  const auth = request.headers.get("authorization");
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
-    return new Response("Unauthorized", { status: 401 });
-  }
+type Supabase = ReturnType<typeof createServiceClient>;
 
-  let movimentos: MovimentoMercadoPago[];
-  try {
-    movimentos = await buscarMovimentosMercadoPago(4);
-  } catch (err) {
-    return Response.json({ erro: err instanceof Error ? err.message : "Falha ao buscar no Mercado Pago" }, { status: 502 });
-  }
+const pausa = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  if (movimentos.length === 0) {
-    return Response.json({ processados: 0 });
-  }
-
-  const supabase = createServiceClient();
+/** Entradas: pagamentos recebidos. Idempotente — o cron repete a janela dos últimos dias, então
+ * o mesmo mp_id volta; no conflito só atualiza nome/descrição (melhores), nunca mexe em
+ * conciliado/lancamento_id/ignorado_em, que são decisões suas na fila. */
+async function sincronizarEntradas(supabase: Supabase): Promise<number> {
+  const movimentos = await buscarMovimentosMercadoPago(4);
+  if (movimentos.length === 0) return 0;
   const linhas = movimentos.map((m) => ({
     mp_id: m.mpId,
     data: m.data,
@@ -127,18 +124,93 @@ export async function GET(request: Request) {
     contraparte: m.contraparte,
     tipo_mp_bruto: m.tipoBruto,
   }));
-
-  // Idempotente: o cron repete a janela dos últimos dias, então o mesmo mp_id volta. No
-  // conflito só atualiza as colunas enviadas acima (nome/descrição melhores) — nunca mexe em
-  // conciliado/lancamento_id/ignorado_em, que são decisões suas na fila.
-  const { data: processados, error } = await supabase
+  const { data, error } = await supabase
     .from("mercadopago_movimentos")
     .upsert(linhas, { onConflict: "mp_id" })
     .select("mp_id");
+  if (error) throw new Error(error.message);
+  return data?.length ?? 0;
+}
 
-  if (error) {
-    return Response.json({ erro: error.message }, { status: 500 });
+/** Saídas: relatório "Dinheiro em conta". É assíncrono — pedimos a geração, esperamos um pouco
+ * e importamos os 2 mais recentes (o que não ficar pronto agora entra na próxima rodada).
+ * Importar o mesmo arquivo de novo é inofensivo: `ignoreDuplicates` por mp_id. */
+async function sincronizarSaidas(supabase: Supabase, token: string) {
+  const { criada } = await garantirConfiguracao(token);
+
+  const antes = Date.now();
+  await solicitarRelatorio(token, 15);
+  for (let i = 0; i < 6; i++) {
+    await pausa(5000);
+    const lista = await listarRelatorios(token);
+    if (lista.some((r) => Date.parse(r.date_created) >= antes - 60_000)) break;
   }
 
-  return Response.json({ processados: processados?.length ?? 0 });
+  const recentes = (await listarRelatorios(token))
+    .sort((a, b) => Date.parse(b.date_created) - Date.parse(a.date_created))
+    .slice(0, 2);
+
+  const movimentos: MovimentoRelatorio[] = [];
+  const contagemPorTipo: Record<string, number> = {};
+  let colunasAusentes: string[] = [];
+  for (const r of recentes) {
+    const resultado = interpretarRelatorio(await baixarRelatorio(token, r.file_name));
+    movimentos.push(...resultado.movimentos);
+    for (const [tipo, n] of Object.entries(resultado.contagemPorTipo)) {
+      contagemPorTipo[tipo] = (contagemPorTipo[tipo] ?? 0) + n;
+    }
+    if (resultado.colunasAusentes.length > 0) colunasAusentes = resultado.colunasAusentes;
+  }
+
+  let novos = 0;
+  if (movimentos.length > 0) {
+    const unicos = [...new Map(movimentos.map((m) => [m.mpId, m])).values()];
+    const { data, error } = await supabase
+      .from("mercadopago_movimentos")
+      .upsert(
+        unicos.map((m) => ({
+          mp_id: m.mpId,
+          data: m.data,
+          valor: m.valor,
+          tipo: m.tipo,
+          descricao: m.descricao,
+          contraparte: m.contraparte,
+          tipo_mp_bruto: m.tipoBruto,
+        })),
+        { onConflict: "mp_id", ignoreDuplicates: true }
+      )
+      .select("mp_id");
+    if (error) throw new Error(error.message);
+    novos = data?.length ?? 0;
+  }
+
+  return { configCriada: criada, arquivosLidos: recentes.length, saidasNovas: novos, contagemPorTipo, colunasAusentes };
+}
+
+export async function GET(request: Request) {
+  const auth = request.headers.get("authorization");
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const supabase = createServiceClient();
+  const token = process.env.MERCADOPAGO_ACCESS_TOKEN;
+  const resposta: Record<string, unknown> = {};
+
+  // Cada parte falha sozinha: um erro no relatório de saídas nunca derruba as entradas.
+  try {
+    resposta.processados = await sincronizarEntradas(supabase);
+  } catch (err) {
+    resposta.erroEntradas = err instanceof Error ? err.message : "Falha ao buscar entradas no Mercado Pago";
+  }
+
+  if (token) {
+    try {
+      resposta.saidas = await sincronizarSaidas(supabase, token);
+    } catch (err) {
+      resposta.erroSaidas = err instanceof Error ? err.message : "Falha no relatório de saídas";
+    }
+  }
+
+  return Response.json(resposta, { status: resposta.erroEntradas && !resposta.saidas ? 502 : 200 });
 }
