@@ -56,6 +56,42 @@ export async function garantirConfiguracao(token: string): Promise<{ criada: boo
   return { criada: true };
 }
 
+/**
+ * Liga `include_withdraw` na configuração que já existe, preservando todo o resto: lê a
+ * configuração atual e devolve os mesmos campos no PUT (a doc não diz se o PUT substitui tudo).
+ * Chamado só sob demanda (`?ativarSaques=1` na rota), nunca no cron diário.
+ */
+export async function ativarInclusaoDeSaques(token: string): Promise<{ camposLidos: string[]; camposEnviados: string[] }> {
+  const lida = await fetch(`${BASE}/config`, { headers: cabecalhos(token) });
+  if (!lida.ok) throw await erroDe(lida, "ler configuração");
+  const atual = (await lida.json()) as Record<string, unknown>;
+
+  const preservar = [
+    "columns",
+    "file_name_prefix",
+    "frequency",
+    "separator",
+    "display_timezone",
+    "report_translation",
+    "header_language",
+    "scheduled",
+    "refund_detailed",
+    "shipping_detail",
+    "coupon_detailed",
+    "show_chargeback_cancel",
+    "show_fee_prevision",
+  ];
+  const corpo: Record<string, unknown> = {};
+  for (const campo of preservar) {
+    if (atual[campo] !== undefined && atual[campo] !== null) corpo[campo] = atual[campo];
+  }
+  corpo.include_withdraw = true;
+
+  const r = await fetch(`${BASE}/config`, { method: "PUT", headers: cabecalhos(token, true), body: JSON.stringify(corpo) });
+  if (!r.ok) throw await erroDe(r, "atualizar configuração");
+  return { camposLidos: Object.keys(atual), camposEnviados: Object.keys(corpo) };
+}
+
 function utcSemMilissegundos(d: Date): string {
   return d.toISOString().replace(/\.\d{3}Z$/, "Z");
 }

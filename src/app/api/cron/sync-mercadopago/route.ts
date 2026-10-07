@@ -1,5 +1,11 @@
 import { createServiceClient } from "@/lib/supabase/service";
-import { baixarRelatorio, garantirConfiguracao, listarRelatorios, solicitarRelatorio } from "@/lib/mercadopago/relatorio";
+import {
+  ativarInclusaoDeSaques,
+  baixarRelatorio,
+  garantirConfiguracao,
+  listarRelatorios,
+  solicitarRelatorio,
+} from "@/lib/mercadopago/relatorio";
 import { interpretarRelatorio, type MovimentoRelatorio } from "@/lib/domain/relatorioMercadoPago";
 
 // Esperar o relatório ficar pronto leva alguns segundos — o limite padrão (10s) não basta.
@@ -215,6 +221,14 @@ export async function GET(request: Request) {
   }
 
   if (token) {
+    // Passo único, autorizado pelo Helysom: ligar `include_withdraw` na configuração existente.
+    if (new URL(request.url).searchParams.get("ativarSaques") === "1") {
+      try {
+        resposta.ativarSaques = await ativarInclusaoDeSaques(token);
+      } catch (err) {
+        resposta.erroAtivarSaques = err instanceof Error ? err.message : "Falha ao atualizar a configuração";
+      }
+    }
     try {
       resposta.saidas = await sincronizarSaidas(supabase, token);
     } catch (err) {
