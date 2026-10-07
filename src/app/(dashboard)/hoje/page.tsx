@@ -24,6 +24,9 @@ import MeuTrabalho from "@/components/hoje/MeuTrabalho";
 import AlertasIA from "@/components/hoje/AlertasIA";
 import AlertasGerais from "@/components/hoje/AlertasGerais";
 import SemFinanceiroPosEntrega from "@/components/hoje/SemFinanceiroPosEntrega";
+import FilaConfirmacao from "@/components/hoje/FilaConfirmacao";
+import { filaDeConfirmacao } from "@/lib/actions/fila";
+import type { FilaClassificada } from "@/lib/domain/filaConfirmacao";
 
 export default async function HojePage() {
   const profile = await requireTab("hoje");
@@ -77,6 +80,17 @@ export default async function HojePage() {
     : [];
   const today = new Date().toLocaleDateString("pt-BR");
 
+  // Fila diária de movimentos do Mercado Pago — só Administrador. Se a tabela/colunas ainda
+  // não existirem (migration pendente) ou o banco falhar, a tela Hoje segue normal, sem fila.
+  let fila: FilaClassificada | null = null;
+  if (role === "administrador") {
+    try {
+      fila = await filaDeConfirmacao();
+    } catch {
+      fila = null;
+    }
+  }
+
   return (
     <div>
       <div className="mb-6 flex items-start justify-between">
@@ -93,6 +107,12 @@ export default async function HojePage() {
         <ProducaoKpis servicos={svs} />
       ) : (
         <AdminKpis servicos={svs} />
+      )}
+
+      {fila && fila.itens.length > 0 && (
+        <div className="mt-5">
+          <FilaConfirmacao itens={fila.itens} />
+        </div>
       )}
 
       <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">

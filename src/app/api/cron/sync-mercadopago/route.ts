@@ -6,6 +6,7 @@ interface MovimentoMercadoPago {
   valor: number; // sempre positivo
   tipo: "Receita" | "Despesa";
   descricao: string;
+  contraparte: string | null;
   tipoBruto: string;
 }
 
@@ -17,7 +18,25 @@ interface PagamentoMercadoPago {
   transaction_amount?: number;
   operation_type?: string;
   description?: string | null;
-  payer?: { first_name?: string; email?: string };
+  payer?: { first_name?: string | null; last_name?: string | null; email?: string | null };
+  point_of_interaction?: {
+    transaction_data?: { bank_info?: { payer?: { long_name?: string | null } } };
+  };
+}
+
+/** Nome de quem pagou: o do Pix (banco) quando existir, senão nome/sobrenome, senão e-mail. */
+function nomeDoPagador(p: PagamentoMercadoPago): string | null {
+  const pix = p.point_of_interaction?.transaction_data?.bank_info?.payer?.long_name?.trim();
+  if (pix) return pix;
+  const nome = [p.payer?.first_name, p.payer?.last_name].filter(Boolean).join(" ").trim();
+  return nome || p.payer?.email?.trim() || null;
+}
+
+/** Descrição genérica = vazia, curtinha ou um caractere repetido ("XXXXXXXXXXX"). */
+function descricaoUtil(texto: string | null | undefined): string | null {
+  const t = texto?.trim();
+  if (!t || t.length < 3 || /^(.)\1*$/.test(t)) return null;
+  return t;
 }
 
 /**
@@ -60,12 +79,17 @@ async function buscarMovimentosMercadoPago(diasAtras: number): Promise<Movimento
     .map((p) => {
       const valorBruto = Number(p.transaction_amount ?? 0);
       const tipo: "Receita" | "Despesa" = valorBruto < 0 ? "Despesa" : "Receita";
+      const contraparte = nomeDoPagador(p);
+      const partes = [contraparte, descricaoUtil(p.description)].filter(
+        (parte, i, todas): parte is string => !!parte && todas.indexOf(parte) === i
+      );
       return {
         mpId: String(p.id),
         data: (p.date_approved ?? p.date_created ?? "").slice(0, 10),
         valor: Math.abs(valorBruto),
         tipo,
-        descricao: p.description || p.payer?.first_name || p.payer?.email || "Pagamento Mercado Pago",
+        descricao: partes.length > 0 ? partes.join(" — ") : "Pagamento Mercado Pago",
+        contraparte,
         tipoBruto: p.operation_type ?? "",
       };
     })
@@ -86,7 +110,7 @@ export async function GET(request: Request) {
   }
 
   if (movimentos.length === 0) {
-    return Response.json({ novos: 0 });
+    return Response.json({ processados: 0 });
   }
 
   const supabase = createServiceClient();
@@ -96,20 +120,21 @@ export async function GET(request: Request) {
     valor: m.valor,
     tipo: m.tipo,
     descricao: m.descricao,
+    contraparte: m.contraparte,
     tipo_mp_bruto: m.tipoBruto,
   }));
 
-  // onConflict + ignoreDuplicates = "ON CONFLICT (mp_id) DO NOTHING" — idempotente mesmo se
-  // o Cron rodar de hora em hora e repetir a janela dos últimos dias. Com DO NOTHING, o
-  // .select() só devolve as linhas que de fato entraram agora (as duplicadas não voltam).
-  const { data: inseridos, error } = await supabase
+  // Idempotente: o cron repete a janela dos últimos dias, então o mesmo mp_id volta. No
+  // conflito só atualiza as colunas enviadas acima (nome/descrição melhores) — nunca mexe em
+  // conciliado/lancamento_id/ignorado_em, que são decisões suas na fila.
+  const { data: processados, error } = await supabase
     .from("mercadopago_movimentos")
-    .upsert(linhas, { onConflict: "mp_id", ignoreDuplicates: true })
+    .upsert(linhas, { onConflict: "mp_id" })
     .select("mp_id");
 
   if (error) {
     return Response.json({ erro: error.message }, { status: 500 });
   }
 
-  return Response.json({ novos: inseridos?.length ?? 0 });
+  return Response.json({ processados: processados?.length ?? 0 });
 }

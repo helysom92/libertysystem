@@ -26,7 +26,7 @@ export interface ConciliacaoResultado {
 
 const PALAVRAS_INTERNAS = ["reservado", "retirado"];
 
-function diasEntre(a: string, b: string): number {
+export function diasEntre(a: string, b: string): number {
   const da = new Date(a + "T00:00:00").getTime();
   const db = new Date(b + "T00:00:00").getTime();
   return Math.abs(da - db) / 86400000;
@@ -39,7 +39,7 @@ function normalizar(s: string): string {
     .toLowerCase();
 }
 
-function ehMovimentacaoInterna(descricao: string, meuNome: string): boolean {
+export function ehMovimentacaoInterna(descricao: string, meuNome: string): boolean {
   const d = normalizar(descricao);
   if (meuNome.trim() && d.includes(normalizar(meuNome))) return true;
   return PALAVRAS_INTERNAS.some((p) => d.includes(p));
