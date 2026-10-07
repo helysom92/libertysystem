@@ -22,7 +22,7 @@ import type {
 } from "@/lib/domain/types";
 import { revalidatePath } from "next/cache";
 import { requireRole } from "@/lib/domain/permissions";
-import type { AcaoComDado } from "./resultado";
+import type { AcaoComDado, AcaoResultado } from "./resultado";
 
 export interface AnaliseExtratoResultado {
   resultado: ConciliacaoResultado;
@@ -96,6 +96,62 @@ Formato exato de cada item:
 
   const resultado = conciliarExtrato(linhas, (lancamentos as Lancamento[]) ?? [], meuNome);
   return { ok: true, data: { resultado, totalLinhas: linhas.length } };
+}
+
+/**
+ * Mesma conciliação de `analisarExtrato`, mas lendo os movimentos já sincronizados
+ * automaticamente da API do Mercado Pago (`mercadopago_movimentos`) em vez de um PDF subido
+ * na hora — alimenta o botão "Buscar automaticamente" da Conferência.
+ */
+export async function analisarMovimentosMercadoPago(
+  ano: number,
+  mes: number,
+  meuNome: string
+): Promise<AcaoComDado<AnaliseExtratoResultado>> {
+  await requireRole("administrador");
+  const supabase = await createClient();
+
+  const inicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
+  const fim = ultimoDiaDoMes(ano, mes);
+
+  const { data: movimentos, error } = await supabase
+    .from("mercadopago_movimentos")
+    .select("id, data, valor, tipo, descricao")
+    .gte("data", inicio)
+    .lte("data", fim);
+  if (error) return { ok: false, message: error.message };
+  if (!movimentos || movimentos.length === 0) {
+    return { ok: false, message: "Nenhum movimento sincronizado do Mercado Pago pra esse mês ainda." };
+  }
+
+  const linhas: LinhaExtrato[] = movimentos.map((m) => ({
+    data: m.data,
+    descricao: m.descricao,
+    valor: m.valor,
+    tipo: m.tipo,
+    movimentoId: m.id,
+  }));
+
+  const { data: lancamentos } = await supabase
+    .from("lancamentos")
+    .select("*")
+    .gte("data", inicio)
+    .lte("data", fim);
+
+  const resultado = conciliarExtrato(linhas, (lancamentos as Lancamento[]) ?? [], meuNome);
+  return { ok: true, data: { resultado, totalLinhas: linhas.length } };
+}
+
+/** Marca um movimento sincronizado como conciliado depois que o achado correspondente foi
+ * lançado — só bookkeeping (evita confusão numa futura tela de auditoria); a conciliação em
+ * si já não reaparece de qualquer forma, porque `conciliarExtrato` casa contra os
+ * `lancamentos` atuais a cada chamada. Falha aqui nunca deve travar o fluxo de lançar. */
+export async function marcarMovimentoConciliado(movimentoId: string): Promise<AcaoResultado> {
+  await requireRole("administrador");
+  const supabase = await createClient();
+  const { error } = await supabase.from("mercadopago_movimentos").update({ conciliado: true }).eq("id", movimentoId);
+  if (error) return { ok: false, message: error.message };
+  return { ok: true };
 }
 
 export async function pendenciasDoMes(ano: number, mes: number): Promise<PendenciasDoMes> {

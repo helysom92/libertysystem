@@ -109,9 +109,20 @@ arquivo de teste que o build de produção ignora) — vale rodar antes de commi
 | `NEXT_PUBLIC_SUPABASE_URL` | sim | URL do projeto Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | sim | Chave pública (anon) — respeita RLS |
 | `ANTHROPIC_API_KEY` | não | Só pra leitura de extrato em PDF por IA (Finanças Pessoais). Sem ela, o caminho de CSV/texto colado continua funcionando 100% local |
+| `MERCADOPAGO_ACCESS_TOKEN` | não | Access Token da conta Mercado Pago — sincronização automática de extrato (Conferência). Sem ela, a sincronização fica desligada e só o upload manual de PDF continua funcionando |
+| `SUPABASE_SERVICE_ROLE_KEY` | não | Só usada pela rota `/api/cron/sync-mercadopago` (ver exceção abaixo) |
+| `CRON_SECRET` | não | Segredo que só o Vercel Cron conhece — protege a rota de sincronização contra chamadas externas |
 
-Nenhuma `service_role` key é usada em nenhum lugar do app — todo acesso passa pela `anon` key
-mais RLS, mesmo no servidor (Server Components/Actions usam a sessão do usuário via cookie).
+**Exceção única ao "nunca usar service_role"**: a sincronização automática do Mercado Pago
+(`src/app/api/cron/sync-mercadopago/route.ts`) roda num Cron do Vercel, sem cookie de sessão
+de usuário pra autenticar do jeito normal — por isso é o único lugar do app que usa a
+`service_role` key (via `src/lib/supabase/service.ts`), e só pra gravar na tabela espelho
+`mercadopago_movimentos` (RLS sem policy de insert pra anon/authenticated, só select/update).
+Em todo o resto do app — inclusive na tela de Conferência que lê essa tabela e decide o que
+vira lançamento — continua valendo a regra original: acesso pela `anon` key mais RLS, mesmo
+no servidor (Server Components/Actions usam a sessão do usuário via cookie). A sincronização
+nunca cria um lançamento por conta própria; ela só sugere, um Admin logado aprova um a um na
+Conferência, exatamente como já acontecia com o upload de PDF.
 
 ## Migrations
 

@@ -5,6 +5,9 @@ export interface LinhaExtrato {
   descricao: string;
   valor: number;
   tipo: "Receita" | "Despesa";
+  /** Preenchido só quando a linha veio da sincronização automática (não do upload de PDF) —
+   * permite marcar o movimento de origem como conciliado ao lançar. */
+  movimentoId?: string;
 }
 
 export interface AchadoConciliacao {

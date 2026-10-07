@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import {
   analisarExtrato,
+  analisarMovimentosMercadoPago,
   fecharMes,
+  marcarMovimentoConciliado,
   pendenciasDoMes,
   retiradaDoMes,
   type AnaliseExtratoResultado,
@@ -42,9 +44,12 @@ function AchadoFaltando({ achado, onLancado }: { achado: AchadoConciliacao; onLa
       });
       if (!resultado.ok) {
         setError(resultado.message);
-      } else {
-        onLancado();
+        return;
       }
+      if (linha.movimentoId) {
+        marcarMovimentoConciliado(linha.movimentoId).catch(() => {});
+      }
+      onLancado();
     });
   }
 
@@ -178,6 +183,7 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
   const [analise, setAnalise] = useState<AnaliseExtratoResultado | null>(null);
   const [mostrarInternas, setMostrarInternas] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [buscandoAuto, startBuscaAutoTransition] = useTransition();
   const [fechando, startFechando] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [fechamentoRecente, setFechamentoRecente] = useState<{ entrou: number; saiu: number; lucro: number } | null>(null);
@@ -277,6 +283,21 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
     });
   }
 
+  function handleBuscarAutomatico() {
+    localStorage.setItem("liberty_meu_nome_extrato", meuNome);
+    setError(null);
+    setAnalise(null);
+    setFechamentoRecente(null);
+    startBuscaAutoTransition(async () => {
+      const resultado = await analisarMovimentosMercadoPago(ano, mes, meuNome);
+      if (!resultado.ok) {
+        setError(resultado.message);
+      } else {
+        setAnalise(resultado.data);
+      }
+    });
+  }
+
   function removerAchado(achado: AchadoConciliacao) {
     if (!analise) return;
     setAnalise({
@@ -352,6 +373,14 @@ export default function ConferenciaView({ fechamentos }: { fechamentos: Fechamen
           {pending ? "Lendo extrato..." : "+ Subir Extrato (PDF)"}
           <input ref={inputRef} type="file" accept="application/pdf" className="hidden" onChange={handleFile} disabled={pending} />
         </label>
+        <button
+          type="button"
+          onClick={handleBuscarAutomatico}
+          disabled={buscandoAuto}
+          className="flex items-center gap-2 rounded-btn border border-border-gold-strong px-4 py-2 text-sm text-gold disabled:opacity-60"
+        >
+          {buscandoAuto ? "Buscando..." : "🔄 Buscar automaticamente"}
+        </button>
       </div>
 
       <PendenciasDoMesCard pendencias={pendencias} loading={carregandoPendencias} />

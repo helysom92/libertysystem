@@ -1,0 +1,5 @@
+{
+  "crons": [
+    { "path": "/api/cron/sync-mercadopago", "schedule": "0 * * * *" }
+  ]
+}
