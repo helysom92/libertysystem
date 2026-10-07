@@ -204,10 +204,14 @@ export function montarRevisao(dados: DadosRevisao): Revisao {
   ).registros;
   // Parcela de OS ou lançamento previsto avulso? Define a ação oficial usada pra resolver o item.
   const parcelaPorId = new Map(dados.servicoParcelas.map((p) => [p.id, p]));
+  const servicoPorId = new Map(dados.servicos.map((s) => [s.id, s]));
   const comAcao = (r: ItemRevisao): ItemRevisao => {
     const parcela = parcelaPorId.get(r.id);
+    const servico = parcela ? servicoPorId.get(parcela.servico_id) : undefined;
     return {
       ...r,
+      // Com o nome do cliente: "OS-1012 — Restante (50%)" sozinho não diz de quem cobrar.
+      descricao: parcela && servico ? `${servico.numero ?? "—"} — ${servico.cliente} · ${parcela.descricao}` : r.descricao,
       acao: parcela
         ? { kind: "parcela", parcelaId: parcela.id, servicoId: parcela.servico_id }
         : { kind: "lancamento", lancamentoId: r.id },
