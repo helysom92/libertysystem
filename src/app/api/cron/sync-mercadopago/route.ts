@@ -111,10 +111,10 @@ async function buscarMovimentosMercadoPago(diasAtras: number): Promise<Movimento
       const partes = [nome, textoUtil(p.description)].filter(
         (parte, i, todas): parte is string => !!parte && todas.indexOf(parte) === i
       );
-      // Sem nome nem descrição: usa o e-mail e, por último, o banco — só pra não ficar em branco.
-      const alternativa =
-        (pagador.email as string | null) ??
-        (pagador.banco ? `Pix recebido (banco: ${pagador.banco as string})` : "Pagamento Mercado Pago");
+      // Sem nome nem descrição: usa o e-mail ou um título genérico. O banco NUNCA entra aqui —
+      // este texto alimenta regras e o vínculo com cliente, e "Sicredi" casaria com qualquer um.
+      // O banco fica em `pagador.banco`, mostrado só como detalhe.
+      const alternativa = (pagador.email as string | null) ?? (tipo === "Receita" ? "Pix recebido" : "Pagamento Mercado Pago");
       return {
         mpId: String(p.id),
         data: (p.date_approved ?? p.date_created ?? "").slice(0, 10),
