@@ -11,6 +11,8 @@ import { interpretarRelatorio, type MovimentoRelatorio } from "@/lib/domain/rela
 // Esperar o relatório ficar pronto leva alguns segundos — o limite padrão (10s) não basta.
 export const maxDuration = 60;
 
+const CNPJ_MERCADO_PAGO = "10573521000191";
+
 interface MovimentoMercadoPago {
   mpId: string;
   data: string; // "AAAA-MM-DD"
@@ -49,11 +51,15 @@ interface PagamentoMercadoPago {
  */
 function infoDoPagador(p: PagamentoMercadoPago): Record<string, unknown> {
   const nome = [textoUtil(p.payer?.first_name), textoUtil(p.payer?.last_name)].filter(Boolean).join(" ").trim();
+  // Nos Pix recebidos, `identification` vem com o CNPJ do PRÓPRIO Mercado Pago (verificado em
+  // movimentos reais) — não é o documento de quem pagou e nunca pode servir pra achar cliente.
+  const documento = textoUtil(p.payer?.identification?.number);
+  const documentoDoMercadoPago = documento?.replace(/\D/g, "") === CNPJ_MERCADO_PAGO;
   return {
     nome: nome || null,
     banco: textoUtil(p.point_of_interaction?.transaction_data?.bank_info?.payer?.long_name),
-    documento: textoUtil(p.payer?.identification?.number),
-    tipoDocumento: p.payer?.identification?.type ?? null,
+    documento: documentoDoMercadoPago ? null : documento,
+    tipoDocumento: documentoDoMercadoPago ? null : (p.payer?.identification?.type ?? null),
     email: textoUtil(p.payer?.email),
     bruto: p.payer ?? null,
   };
