@@ -33,7 +33,10 @@ export async function updateSession(request: NextRequest) {
   // "/proposta/[token]" is the public share link sent to clients over WhatsApp — they have
   // no login, so it must never redirect to /login; the page itself only ever reads data
   // through the narrow get_proposta_publica() RPC, never the authenticated tables directly.
+  // "/api/cron/" is called by Vercel Cron with no user session; each route there checks the
+  // CRON_SECRET bearer token itself and answers 401 without it.
   const isPublicRoute =
+    request.nextUrl.pathname.startsWith("/api/cron/") ||
     request.nextUrl.pathname.startsWith("/login") ||
     request.nextUrl.pathname === "/" ||
     request.nextUrl.pathname.startsWith("/reset-password") ||
