@@ -80,7 +80,7 @@ export async function GET(request: Request) {
 
   let movimentos: MovimentoMercadoPago[];
   try {
-    movimentos = await buscarMovimentosMercadoPago(2);
+    movimentos = await buscarMovimentosMercadoPago(4);
   } catch (err) {
     return Response.json({ erro: err instanceof Error ? err.message : "Falha ao buscar no Mercado Pago" }, { status: 502 });
   }
