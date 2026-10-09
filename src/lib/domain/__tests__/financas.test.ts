@@ -25,6 +25,7 @@ import {
   tipoDespesaLancamentoAvulso,
   serieMensalOficial,
 } from "../financas";
+import { despesasAtrasadas } from "../dashboardMetrics";
 
 function servico(overrides: Partial<Servico> = {}): Servico {
   return {
@@ -352,6 +353,21 @@ describe("financas — confirmações extras pedidas", () => {
     const lJaRecebido = lancamento({ id: "l-canc", tipo: "Receita", status: "realizado", valor: 500, data: "2026-08-06", servico_id: "sv-canc" });
     expect(vendasAprovadas([sCancelado], AGOSTO).total).toBe(0);
     expect(recebido([lJaRecebido], AGOSTO).total).toBe(500);
+  });
+
+  it("Ocorrência cancelada de mês anterior não aparece como despesa atrasada", () => {
+    const df = despesaFixa({ id: "df-x" });
+    const aberta = ocorrenciaFixa({ id: "o-aberta", despesa_fixa_id: "df-x", ano: 2026, mes: 8, pago: false });
+    const cancelada = ocorrenciaFixa({
+      id: "o-cancelada",
+      despesa_fixa_id: "df-x",
+      ano: 2026,
+      mes: 7,
+      pago: false,
+      cancelada_em: "2026-10-09T10:00:00Z",
+    });
+    const r = despesasAtrasadas([df], [aberta, cancelada], [], [], 2026, 10);
+    expect(r.map((a) => a.ocorrenciaId)).toEqual(["o-aberta"]);
   });
 
   it("Despesa avulsa (com data) só pesa no mês da própria data — não vira 'não paga' em todo mês seguinte", () => {

@@ -612,7 +612,8 @@ export function despesasAtrasadas(
   const items: DespesaAtrasadaItem[] = [];
 
   for (const o of todasOcorrenciasFixas) {
-    if (o.pago || !antesDoMesAtual(o.ano, o.mes)) continue;
+    // Ocorrência cancelada (o fornecedor não vai cobrar esse mês) não é atraso.
+    if (o.pago || o.cancelada_em || !antesDoMesAtual(o.ano, o.mes)) continue;
     const df = despesasFixas.find((d) => d.id === o.despesa_fixa_id);
     if (!df) continue;
     items.push({
@@ -627,7 +628,7 @@ export function despesasAtrasadas(
   }
 
   for (const o of todasOcorrenciasVariaveis) {
-    if (o.pago || !antesDoMesAtual(o.ano, o.mes)) continue;
+    if (o.pago || o.cancelada_em || !antesDoMesAtual(o.ano, o.mes)) continue;
     const dv = despesasVariaveis.find((d) => d.id === o.despesa_variavel_id);
     if (!dv) continue;
     items.push({
