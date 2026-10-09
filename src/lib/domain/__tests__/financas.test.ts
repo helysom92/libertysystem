@@ -354,6 +354,17 @@ describe("financas — confirmações extras pedidas", () => {
     expect(recebido([lJaRecebido], AGOSTO).total).toBe(500);
   });
 
+  it("Despesa avulsa (com data) só pesa no mês da própria data — não vira 'não paga' em todo mês seguinte", () => {
+    const avulsaDeSetembro = despesaVariavel({ id: "dv-avulsa", valor_provisionado: 50, data: "2026-09-30" });
+    const recorrente = despesaVariavel({ id: "dv-recorrente", valor_provisionado: 100, data: null });
+    const outubro = periodoDoMes(2026, 10);
+    const setembro = periodoDoMes(2026, 9);
+    const emOutubro = aPagar([], [], [avulsaDeSetembro, recorrente], [], [], outubro, "2026-10-09");
+    expect(emOutubro.registros.map((r) => r.id)).toEqual(["dv-recorrente"]);
+    const emSetembro = aPagar([], [], [avulsaDeSetembro, recorrente], [], [], setembro, "2026-10-09");
+    expect(emSetembro.registros.map((r) => r.id).sort()).toEqual(["dv-avulsa", "dv-recorrente"]);
+  });
+
   it("Despesa variável não paga, com valor real editado, usa o valor real (não o provisionado)", () => {
     const dv = despesaVariavel({ id: "dv-x", valor_provisionado: 200 });
     const oc = ocorrenciaVariavel({ despesa_variavel_id: "dv-x", ano: 2026, mes: 8, pago: false, valor_real: 250 });

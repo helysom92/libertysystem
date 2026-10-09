@@ -186,7 +186,8 @@ export async function pendenciasDoMes(ano: number, mes: number): Promise<Pendenc
     (ocorrenciasFixas as DespesaFixaOcorrencia[]) ?? [],
     (despesasVariaveis as DespesaVariavel[]) ?? [],
     (ocorrenciasVariaveis as DespesaVariavelOcorrencia[]) ?? [],
-    lancamentosValidos
+    lancamentosValidos,
+    { ano, mes }
   );
 }
 

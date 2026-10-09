@@ -484,6 +484,13 @@ export function buildMonthGrid(
   });
 }
 
+/** Despesa variável sem data é recorrente (água, energia…): vale todo mês. Com data, é avulsa
+ * e vale só pro mês dessa data. */
+export function despesaVariavelDoMes(dv: Pick<DespesaVariavel, "data">, ano: number, mes: number): boolean {
+  if (!dv.data) return true;
+  return dv.data.slice(0, 7) === `${ano}-${String(mes).padStart(2, "0")}`;
+}
+
 // ── Contas a pagar (Financeiro › Visão Geral) ──
 export interface ContaAPagarItem {
   id: string;
@@ -539,6 +546,11 @@ export function contasAPagar(
 
   for (const dv of despesasVariaveis) {
     if (!dv.ativo) continue;
+    // Despesa avulsa (com data própria) pertence ao MÊS DA DATA: não pode virar "não paga" em
+    // todo mês seguinte só porque não existe ocorrência dela nesse outro mês — era isso que
+    // inflava as pendências com despesas já pagas. Ocorrência pendente de mês passado continua
+    // aparecendo em `despesasAtrasadas`.
+    if (!despesaVariavelDoMes(dv, hy, hm)) continue;
     const ocorrencia = despesasVariaveisOcorrencias.find(
       (o) => o.despesa_variavel_id === dv.id && o.ano === hy && o.mes === hm
     );
@@ -670,7 +682,8 @@ export function pendenciasDoMes(
   ocorrenciasFixasDoMes: DespesaFixaOcorrencia[],
   despesasVariaveis: DespesaVariavel[],
   ocorrenciasVariaveisDoMes: DespesaVariavelOcorrencia[],
-  lancamentosPrevistosDoMes: Lancamento[]
+  lancamentosPrevistosDoMes: Lancamento[],
+  mesDeReferencia?: { ano: number; mes: number }
 ): PendenciasDoMes {
   const despesasNaoPagas: PendenciaMesItem[] = [];
   for (const df of despesasFixas) {
@@ -681,6 +694,8 @@ export function pendenciasDoMes(
   }
   for (const dv of despesasVariaveis) {
     if (!dv.ativo) continue;
+    // Mesma regra de `contasAPagar`: despesa avulsa só pesa no mês da própria data.
+    if (mesDeReferencia && !despesaVariavelDoMes(dv, mesDeReferencia.ano, mesDeReferencia.mes)) continue;
     const ocorrencia = ocorrenciasVariaveisDoMes.find((o) => o.despesa_variavel_id === dv.id);
     if (ocorrencia?.pago) continue;
     despesasNaoPagas.push({ id: dv.id, descricao: dv.descricao, valor: ocorrencia?.valor_real ?? dv.valor_provisionado });
